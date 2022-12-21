@@ -334,7 +334,7 @@ module Make(E : Env.S) : S with module Env = E = struct
     retrieve_spec_concl_idx () (premise,q_sc)
     |> Iter.iter (fun (concl',premise',subst) ->
       (* add implication premise' -> subst (concl) *)
-      prems_ := PremiseIdx.update_leaf !prems_ premise' (fun (tbl, is_unit) -> 
+      prems_ := PremiseIdx.update_leaf !prems_ premise' (fun (tbl, _) -> 
         (match T.Tbl.get tbl concl' with
         | Some old_proofset ->
           if CS.cardinal old_proofset < Env.flex_get k_max_depth then (
@@ -352,7 +352,7 @@ module Make(E : Env.S) : S with module Env = E = struct
     CCList.iter (fun (c,premise,ps,tbl) -> 
       register_conclusion ~tbl ~premise c ps) !to_add_concl;
     (* checking if the literal became unit *)
-    CCList.iter (fun (c,premise,ps,tbl) -> 
+    CCList.iter (fun (c,premise,_,tbl) -> 
       match compute_is_unit tbl c cl with
       | Some ps ->
         prems_  := PremiseIdx.add !prems_ premise (tbl, true);
@@ -424,7 +424,7 @@ module Make(E : Env.S) : S with module Env = E = struct
   let add_new_premise premise concl cl =
     let alpha_renaming = 
       retrieve_spec_prem_idx () (premise, q_sc)
-      |> Iter.find (fun (premise', tbl, subst) ->  
+      |> Iter.find (fun (premise', _, subst) ->  
         if Subst.is_renaming subst then Some (premise', subst)
         else None
       ) in
@@ -450,7 +450,7 @@ module Make(E : Env.S) : S with module Env = E = struct
 
       (match !became_unit with 
       | Some (ps,tbl) ->
-        ignore(PremiseIdx.update_leaf !prems_ premise' (fun (tbl, is_unit) -> assert false));
+        ignore(PremiseIdx.update_leaf !prems_ premise' (fun (_, _) -> assert false));
         prems_ := PremiseIdx.add !prems_ premise' (tbl,true);
         let neg_prem = normalize_negations (T.Form.not_ premise') in
         register_propagated_lit ~prop_kind:Failed neg_prem cl ps
@@ -509,7 +509,7 @@ module Make(E : Env.S) : S with module Env = E = struct
     (Env.flex_get k_max_tracked_clauses == -1 || 
      !tracked_binary <= Env.flex_get k_max_tracked_clauses)
   
-  let can_track_unary_cl cl =
+  let can_track_unary_cl _ =
     Env.flex_get k_unit_propagated_hle &&
     (Env.flex_get k_max_tracked_clauses == -1 || 
      !tracked_unary <= 4*Env.flex_get k_max_tracked_clauses)
@@ -645,7 +645,7 @@ module Make(E : Env.S) : S with module Env = E = struct
               if Env.flex_get k_reduce_tautologies && C.length cl != 2 then (
                 (match find_implication cl i_neg_t j_t
                        <+> find_implication cl j_neg_t i_t with
-                | Some (lit_a, lit_b, proofset, subst) 
+                | Some (_, _, proofset, subst) 
                     when (not (CS.mem cl proofset)) && 
                         (C.length cl != 2 || not (Subst.is_renaming subst)) ->
                   (* stopping further search *)
@@ -655,7 +655,7 @@ module Make(E : Env.S) : S with module Env = E = struct
               if Env.flex_get k_delete_lits then (
                 (match find_implication cl i_neg_t j_neg_t
                         <+> find_implication cl j_t i_t with
-                  | Some (_, _, proofset',subst) ->
+                  | Some (_, _, proofset',_) ->
                     CCBV.reset bv j;
 
                     Util.debugf ~section 3 "@[%a@] --> @[%a@]" 

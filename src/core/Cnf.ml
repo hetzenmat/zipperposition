@@ -57,8 +57,8 @@ let as_clause f = match F.view f with
   | F.Imply _
   | F.Forall _
   | F.Exists _ -> not_cnf_ f
-  | F.Eq(a,b) when T.Ty.is_prop (T.ty_exn a) -> not_cnf_ f
-  | F.Neq(a,b) when T.Ty.is_prop (T.ty_exn a) -> not_cnf_ f
+  | F.Eq(a, _b) when T.Ty.is_prop (T.ty_exn a) -> not_cnf_ f
+  | F.Neq(a, _b) when T.Ty.is_prop (T.ty_exn a) -> not_cnf_ f
   | F.Not _
   | F.True
   | F.False
@@ -68,8 +68,8 @@ let as_clause f = match F.view f with
 
 let as_cnf f = match F.view f with
   | F.Or _ -> [as_clause f]
-  | F.Eq(a,b) when T.Ty.is_prop (T.ty_exn a) -> not_cnf_ f
-  | F.Neq(a,b) when T.Ty.is_prop (T.ty_exn a) -> not_cnf_ f
+  | F.Eq(a, _b) when T.Ty.is_prop (T.ty_exn a) -> not_cnf_ f
+  | F.Neq(a, _b) when T.Ty.is_prop (T.ty_exn a) -> not_cnf_ f
   | F.Not _
   | F.True
   | F.False

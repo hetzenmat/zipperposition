@@ -111,7 +111,7 @@ module Make(Ctx : Ctx.S) : S with module Ctx = Ctx = struct
     (* create the structure *)
     let ord = Ctx.ord () in
     let max_lits = lazy ( BV.to_list @@ Lits.maxlits sclause.lits ~ord ) in
-    let rec c = {
+    let c = {
       sclause;
       penalty;
       selected;
@@ -490,7 +490,7 @@ module Make(Ctx : Ctx.S) : S with module Ctx = Ctx = struct
     let pos _ lit = Lit.is_positivoid lit
 
     let pos_eq _ lit = match lit with
-      | Lit.Equation(l,r,s) -> s
+      | Lit.Equation(_l , _r, s) -> s
       | _ -> false
 
     let neg _ lit = Lit.is_negativoid lit

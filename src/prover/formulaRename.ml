@@ -28,7 +28,7 @@ module Ctx = C.Ctx
   module Idx = Fingerprint.Make(struct 
     type t = T.t * ((C.t * (bool option)) list ref)
     let (<?>) = (CCOrd.Infix.(<?>))
-    let compare (a1,c1) (a2,c2) = (T.compare a1 a2)
+    let compare (a1, _c1) (a2, _c2) = (T.compare a1 a2)
   end)
 
   let on_pred_skolem_introduction : (C.t * Logtk.Term.t) Logtk.Signal.t = Signal.create ()
@@ -51,7 +51,7 @@ module Ctx = C.Ctx
     let is_formula_lit lit = not (is_renaming_lit lit) in
     let ans = 
       match C.lits c with
-      | [| a; b |] ->
+      | [| _a; _b |] ->
         CCArray.length (CCArray.filter is_renaming_lit (C.lits c)) = 1 &&
         CCArray.length (CCArray.filter is_formula_lit (C.lits c)) = 1
       | _ -> false
@@ -165,7 +165,7 @@ module Ctx = C.Ctx
       let gen = Iter.head @@ 
       Idx.retrieve_generalizations (!_skolem_idx, 0) (f, 1) in
       begin match gen with 
-      | Some (orig, (skolem, _), subst) ->
+      | Some (_orig, (skolem, _), subst) ->
         Subst.FO.apply Subst.Renaming.none subst (skolem,0) 
       | None ->
         let t = mk_skolem () in  

@@ -135,7 +135,7 @@ let rec app_encode_term toplevel t  =
         )
         (app_encode_term false f)
         args
-    | T.AppBuiltin (f, ts) ->
+    | T.AppBuiltin (_f, _ts) ->
       Util.debugf ~section 5 "AppBuiltin-Term: %a" (fun k -> k T.pp t); 
       failwith "Not implemented: AppBuiltin"
     | T.Const c -> T.const ~ty c
@@ -151,7 +151,7 @@ let rec app_encode_term toplevel t  =
 (** Encode a literal *)
 let app_encode_lit lit = 
   Util.debugf ~section 2 "# Encoding Literal %a" (fun k -> k (SLiteral.pp T.pp) lit);
-  SLiteral.map (app_encode_term true) lit
+  SLiteral.map ~f:(app_encode_term true) lit
 
 (** Encode a clause *)
 let app_encode_lits lits = List.map app_encode_lit lits
@@ -178,7 +178,7 @@ let res_tc =
     ~pp_in:pp_clause_in
     ~is_stmt:true
     ~name:Statement.name
-    ~to_form:(fun ~ctx st ->
+    ~to_form:(fun ~ctx:_ st ->
         let conv_c (c:(T.t SLiteral.t) list) : _ =
           c 
           |> List.map SLiteral.to_form
@@ -197,7 +197,7 @@ let app_encode_stmt stmt =
   match Statement.view stmt with
   | Statement.Data _ -> failwith "Not implemented: Data"
   | Statement.Lemma _ -> failwith "Not implemented: Lemma"
-  | Statement.Goal lits -> failwith "Not implemented: Goal"
+  | Statement.Goal _lits -> failwith "Not implemented: Goal"
   | Statement.Def defs ->
     let map_single = 
         Statement.map_def ~form:app_encode_lits 

@@ -164,7 +164,7 @@ module Make(E : Env.S) = struct
           (* not sending any signal, because WE HAVE WON!!! *)
           ZProf.exit_prof _span;
           Unsat proof
-        | c :: l', state ->
+        | c :: l', _state ->
           (* put clauses of [l'] back in passive set *)
           Util.debugf ~section 3 "@[ remaining after simplification:@.@[%a@]@. @]" (fun k -> k (CCList.pp Env.C.pp) l');
           

@@ -311,7 +311,7 @@ module Make(C : Clause_intf.S) = struct
       let sgn = C.Ctx.signature () in
       let res =
         Array.mapi (fun i xx -> i,xx) (C.lits c)
-        |> (Array.fold_left (fun acc (i,l) -> acc +.
+        |> (Array.fold_left (fun acc (_i,l) -> acc +.
                                               let l_w, l_s = (calc_lweight l sgn v f conj_mul) in
                                               ( if l_s then pos_mul else 1.0 )*. float_of_int l_w ) 0.0) in
       let dist_vars =  List.length (Literals.vars (C.lits c)) in
@@ -386,7 +386,7 @@ module Make(C : Clause_intf.S) = struct
             w_diff_l args1 args2
           | T.Fun(ty1, body1), T.Fun(ty2, body2) 
             when Type.equal ty1 ty2 && Type.equal (T.ty body1) (T.ty body2) ->
-            w_diff body1 body2
+            w_diff ~given_term:body1 ~conj_term:body2
           | _, _ -> 
             int_of_float (inst_penalty *. (w conj_term) +. gen_penalty *. (w given_term))
         and w_diff_l xs ys =
@@ -440,7 +440,7 @@ module Make(C : Clause_intf.S) = struct
           if Type.is_tType (Term.ty t) then 0 else
           match Term.view t with 
           | App(hd,args) -> aux_l (hd::args)
-          | AppBuiltin(b,args) -> f + aux_l args
+          | AppBuiltin(_b,args) -> f + aux_l args
           | Fun(_,body) -> v + aux body
           | DB _ | Var _ -> v
           | Const sym -> f_weight sym (Term.ty t)
@@ -494,7 +494,7 @@ module Make(C : Clause_intf.S) = struct
               Term.Tbl.replace _tbl t ();
               match Term.view t with
               | Term.App(hd, args) -> aux_l (hd::args)
-              | Term.AppBuiltin(hd, args) -> fweight + aux_l args
+              | Term.AppBuiltin(_hd, args) -> fweight + aux_l args
               | Term.Fun(_, body) -> vweight + aux body
               | Term.Var _ | Term.DB _ -> vweight
               | Term.Const _ -> fweight
@@ -1091,7 +1091,7 @@ module Make(C : Clause_intf.S) = struct
   module PriorityFun = struct
     type t = C.t -> int
 
-    let const_prio c = 1
+    let const_prio _c = 1
 
     let prefer_ho_steps c = if Proof.Step.has_ho_step (C.proof_step c) then 0 else 1
 
@@ -1143,7 +1143,7 @@ module Make(C : Clause_intf.S) = struct
     let prefer_easy_ho c =
       let is_arg_cong_child c =
         let rec aux proof =
-          let p_res, step = Proof.S.result proof, Proof.S.step proof in
+          let _p_res, step = Proof.S.result proof, Proof.S.step proof in
           let parents = List.map Proof.Parent.proof (Proof.Step.parents step) in
           (* clause is not obtained by normalization *)
 
@@ -1303,7 +1303,7 @@ module Make(C : Clause_intf.S) = struct
       let max_opt a b =
         match a, b with 
         | Some x, Some y -> if x > y then a else b
-        | Some x, None -> a
+        | Some _x, None -> a
         | _ -> b in
 
       C.Seq.terms c
@@ -1339,7 +1339,7 @@ module Make(C : Clause_intf.S) = struct
 
       let norm_fact c =
         let aux proof =
-          let p_res, step = Proof.S.result proof, Proof.S.step proof in
+          let _p_res, step = Proof.S.result proof, Proof.S.step proof in
           (* clause is not obtained by normalization *)
           if not (List.mem Proof.Tag.T_ho_norm (Proof.Step.tags step)) then default
           else (
@@ -1546,7 +1546,7 @@ module Make(C : Clause_intf.S) = struct
 
   let name q = match q with
     | FIFO _ -> "bfs"
-    | Mixed q -> "mixed"
+    | Mixed _q -> "mixed"
 
   (** {5 Combination of queues} *)
 
@@ -1695,7 +1695,7 @@ module Make(C : Clause_intf.S) = struct
 
   let remove q cl =
     match q with 
-    | FIFO q -> invalid_arg "legacy queue, removal unsupported"
+    | FIFO _q -> invalid_arg "legacy queue, removal unsupported"
     | Mixed q ->
       if C.Tbl.mem q.tbl cl then (
         C.Tbl.remove q.tbl cl;

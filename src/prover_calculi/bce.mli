@@ -2,7 +2,6 @@
 (* This file is free software, part of Zipperposition. See file "license" for more details. *)
 
 (** {1 Blocked Clause Elimination} *)
-open Logtk
 open Libzipperposition
 
 val k_enabled : bool Logtk.Flex_state.key

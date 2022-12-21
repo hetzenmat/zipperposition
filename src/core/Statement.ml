@@ -206,7 +206,7 @@ let conv_rule_i ~proof (r:_ def_rule) = match r with
     let ty = Type.Conv.of_simple_term_exn ctx ty in
     let args = List.map (Term.Conv.of_simple_term_exn ctx) args in
     let rhs = Lambda.snf (Term.Conv.of_simple_term_exn ctx rhs) in
-    let rhs_rewritten, rw_rules = Rewrite.Term.normalize_term rhs in
+    let _rhs_rewritten, rw_rules = Rewrite.Term.normalize_term rhs in
        let proof_parents = Proof.Parent.from proof :: Rewrite.Rule.set_as_proof_parents rw_rules in
        let form = Proof.Result.to_form (Proof.S.result proof) in
        let proof = Proof.S.mk_f (Proof.Step.simp ~rule:(Proof.Rule.mk "simplify_rw_rule") proof_parents) form in
@@ -623,7 +623,7 @@ let sine_axiom_selector
       Iter.iter (fun id -> 
           let cnt = ID.Tbl.get_or tbl id ~default:max_int in
           if cnt <= threshold then (
-            ID.Tbl.update ~f:(fun k vopt -> 
+            ID.Tbl.update ~f:(fun _k vopt -> 
                 match vopt with 
                 | Some ax_set -> Some (InpStmSet.add ax ax_set)
                 | None -> Some (InpStmSet.singleton ax)) ~k:id map)) symset) 
@@ -631,7 +631,7 @@ let sine_axiom_selector
     map in
 
   let ids_to_defs_compute defs =
-    let rec aux map d = 
+    let aux map d = 
       let update_map map id stm =
         let prev = ID.Map.get_or ~default:InpStmSet.empty id map in
         ID.Map.add id (InpStmSet.add stm prev) map in
@@ -644,7 +644,7 @@ let sine_axiom_selector
       | Rewrite r ->
           begin match r with 
           | Def_term {id;_} -> update_map map id d
-          | Def_form {lhs;rhs;polarity=pol;_} ->
+          | Def_form {lhs;rhs = _;polarity=_pol;_} ->
             begin match lhs with 
             | Atom(t,_) -> 
               begin match TST.head t with 
@@ -659,7 +659,7 @@ let sine_axiom_selector
 
 
   let categorize_formulas forms =
-    let rec do_categorize (defs, helpers, axioms, conjs) f =
+    let do_categorize (defs, helpers, axioms, conjs) f =
       match view f with 
       | Def _ | Rewrite _ -> (f::defs, helpers, axioms, conjs)
       | Assert _ -> (defs, helpers, f::axioms, conjs)
@@ -687,7 +687,7 @@ let sine_axiom_selector
     | None -> ID.Set.empty
     | Some k ->
       ID.Tbl.to_list tbl
-      |> CCList.sort (fun (s1, occ1) (s2, occ2) -> CCInt.compare occ2 occ1)
+      |> CCList.sort (fun (_s1, occ1) (_s2, occ2) -> CCInt.compare occ2 occ1)
       |> CCList.take k
       |> CCList.map fst
       |> ID.Set.of_list in

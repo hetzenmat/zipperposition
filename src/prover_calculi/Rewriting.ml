@@ -388,7 +388,7 @@ let unfold_def_before_cnf stmts =
         incr cnt;
         try  
           rewrite_tst_stmt stmt
-        with Type.Conv.Error t ->
+        with Type.Conv.Error _ ->
           Util.debugf ~section 1 "@[%a@] cannot be converted because it uses unsupported features (such as ite, let and others)" 
             (fun k -> k Statement.pp_input stmt);
           stmt

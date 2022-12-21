@@ -234,7 +234,7 @@ let compute_prec ~signature stmts =
 
     (* use "invfreq", with low priority *)
     |> Compute_prec.add_constr_rule 90
-      (fun seq ->
+      (fun _seq ->
         let syms = Signature.Seq.symbols signature in
         Precedence.Constr.prec_fun_of_str !_prec_fun ~signature syms)
   in

@@ -224,7 +224,7 @@ module Make(E : Env.S) : S with module Env = E = struct
     in
 
     match (C.lits clause).(lit_idx) with
-    | L.Equation (lhs, rhs, _) as lit 
+    | L.Equation (lhs, _rhs, _) as lit 
       when L.is_predicate_lit lit
             && (match T.head lhs with
                 | Some hd -> not (ID.Set.mem hd !ignored_symbols)
@@ -331,7 +331,7 @@ module Make(E : Env.S) : S with module Env = E = struct
     (* splits the partner clause into unifiable and nonunifiable literals
        with respect to the literal of the original clause chosen for checking *)
     let split_partner lhs sign partner = 
-      CCArray.foldi (fun (unifiable, others) idx lit ->
+      CCArray.foldi (fun (unifiable, others) _idx lit ->
         match lit with
         | L.Equation(lhs', _, _) 
           when L.is_predicate_lit lit 
@@ -460,7 +460,7 @@ module Make(E : Env.S) : S with module Env = E = struct
     (* splitting into parts that have the same head and the opposite sign as the
        literal in the original clause and the other ones  *)
     let split_partner lhs sign partner =
-      CCArray.foldi (fun (same_hds, others) idx lit ->
+      CCArray.foldi (fun (same_hds, others) _idx lit ->
         match lit with
         | L.Equation(lhs', _, _) 
           when L.is_predicate_lit lit 
@@ -583,7 +583,7 @@ module Make(E : Env.S) : S with module Env = E = struct
                    see what happens when they are removed as part of flat
                    L-resolvent computation*)
                 let cc = 
-                  List.fold_left (fun acc lhs -> add_flat_resolvent ~cc (T.args lhs)) 
+                  List.fold_left (fun _acc lhs -> add_flat_resolvent ~cc (T.args lhs)) 
                     cc congruent
                 in
                 check_lit ~cc rest

@@ -387,7 +387,7 @@ module Seq = struct
       | Const _
       | Var _
       | DB _  -> ()
-      | App (f, l) when not include_app_vars && T.is_var f -> ()
+      | App (f, _l) when not include_app_vars && T.is_var f -> ()
       | App (f, l) -> if not ignore_head then aux f; List.iter aux l
       | Fun (_, u) -> aux u
     in
@@ -681,7 +681,7 @@ let comb_depth t =
       max_d_l (List.map (aux ~comb_streak acc) l)
     | AppBuiltin(_,l) -> max_d_l (List.map (aux ~comb_streak:false acc) l)
     | App (hd, l) -> max_d_l (List.map (aux ~comb_streak:false acc) (hd::l))
-    | Fun (_,u) -> invalid_arg "lambdas should have been removed."
+    | Fun (_, _u) -> invalid_arg "lambdas should have been removed."
     | Var _ | DB _ | Const _ -> acc in
 
   let res = aux ~comb_streak:false None t in
@@ -955,13 +955,13 @@ module Form = struct
 
   let forall t =
     assert(Type.is_fun (ty t) && Type.returns_prop (ty t));
-    let ty_args, ret_ty = Type.open_fun (ty t) in
+    let ty_args, _ret_ty = Type.open_fun (ty t) in
     assert(List.length ty_args = 1);
     app_builtin ~ty:Type.prop Builtin.ForallConst [of_ty (List.hd ty_args); t]
 
   let exists t =
     assert(Type.is_fun (ty t) && Type.returns_prop (ty t));
-    let ty_args, ret_ty = Type.open_fun (ty t) in
+    let ty_args, _ret_ty = Type.open_fun (ty t) in
     assert(List.length ty_args = 1);
     app_builtin ~ty:Type.prop Builtin.ExistsConst [of_ty (List.hd ty_args); t]
 

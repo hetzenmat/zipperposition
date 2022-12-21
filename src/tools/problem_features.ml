@@ -167,8 +167,8 @@ let rec traverse_formula f =
       incr_counter num_logical_connectives;
       List.iter traverse_formula l
     )
-  | App (hd, l) -> traverse_term f
-  | Bind (b,v,t) -> 
+  | App (_, _) -> traverse_term f
+  | Bind (b,v,t) ->
     if Binder.equal b Binder.Lambda then failwith "should not appear on top."
     else if Binder.equal b Binder.Forall || Binder.equal b Binder.exists then (
       if Binder.equal b Binder.Forall then (
@@ -198,7 +198,7 @@ let update_form_statistics f =
     ID.Tbl.replace vars id (1 + ID.Tbl.get_or ~default:0 vars id)
   );
 
-  ID.Tbl.iter (fun key num ->  
+  ID.Tbl.iter (fun _ num ->
     (* once when it is quantified, and once in the body. *)
     if num=1 then (incr_counter num_singleton_vars);
   ) vars;
@@ -214,7 +214,7 @@ let collect_formula_features stmts =
         incr_counter num_forms
       | Assert _ | Goal _ | NegatedGoal _ ->
         incr_counter num_forms
-      | TyDecl (id, ty) ->
+      | TyDecl (_, ty) ->
         if(not (TypedSTerm.Ty.returns_tType ty)) then (
           incr_counter num_distinct_syms;
           update_vec ftype_order (TypedSTerm.Ty.order ty);
@@ -335,7 +335,7 @@ let process file =
       (CCList.pp 
         ~pp_start:(CCFormat.return "{@.")
         ~pp_stop:(CCFormat.return "@.}")
-        ~pp_sep:(CCFormat.return ",@.") (fun out (key, val_) ->  
+        ~pp_sep:(CCFormat.return ",@.") (fun _ (key, val_) ->  
       CCFormat.printf "  \"%s\" : %f" key val_
     )) sorted
 

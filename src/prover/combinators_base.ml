@@ -233,7 +233,7 @@ let narrowK t =
     let c_kind,_,args = unpack_comb t in
     if Builtin.equal Builtin.KComb c_kind then (
       match args with 
-      | x :: y :: rest ->
+      | x :: _y :: rest ->
         Some (T.app x rest)
       | _ -> None
     ) else None
@@ -272,7 +272,7 @@ let opt5 t =
 (* 6. B X (K Y) = K (X Y) *)
 let opt6 t =
   try 
-    let c_kind,ty_args,args = unpack_comb t in
+    let c_kind, _ty_args,args = unpack_comb t in
     if Builtin.equal Builtin.BComb c_kind then (
       match args with 
       | [x;ky] ->
@@ -288,7 +288,7 @@ let opt6 t =
 (* 7. B X I = X *)
 let opt7 t =
   try 
-    let c_kind,ty_args,args = unpack_comb t in
+    let c_kind, _ty_args,args = unpack_comb t in
     if Builtin.equal Builtin.BComb c_kind then (
       match args with 
       | [x;i] ->
@@ -303,7 +303,7 @@ let opt7 t =
 (* 8. C (K X) Y = K (X Y) *)
 let opt8 t =
   try 
-    let c_kind,ty_args,args = unpack_comb t in
+    let c_kind,_ty_args,args = unpack_comb t in
     if Builtin.equal Builtin.CComb c_kind then (
       match args with 
       | [kx;y] ->
@@ -319,7 +319,7 @@ let opt8 t =
 (* 9. B I (x) = I (x) *)
 let opt9 t =
   try 
-    let c_kind,ty_args,args = unpack_comb t in
+    let c_kind,_ty_args,args = unpack_comb t in
     if Builtin.equal Builtin.BComb c_kind then (
       match args with 
       | [i] ->
@@ -338,10 +338,10 @@ let opt9 t =
 (* 10. S K X = I *)
 let opt10 t =
   try 
-    let c_kind,ty_args,args = unpack_comb t in
+    let c_kind,_ty_args,args = unpack_comb t in
     if Builtin.equal Builtin.SComb c_kind then (
       match args with 
-      | [k;x] ->
+      | [k;_x] ->
         begin match unpack_comb k with 
         | (Builtin.KComb, [_;beta], []) -> Some (mk_i ~args:[] ~alpha:beta)
         | _ -> None end
@@ -352,10 +352,10 @@ let opt10 t =
 (* 11. S (B K X) Y = X *)
 let opt11 t =
   try 
-    let c_kind,ty_args,args = unpack_comb t in
+    let c_kind,_ty_args,args = unpack_comb t in
     if Builtin.equal Builtin.SComb c_kind then (
       match args with 
-      | [bkx;y] ->
+      | [bkx;_y] ->
         begin match unpack_comb bkx with 
         | (Builtin.BComb, _, [k;x]) ->
           begin match unpack_comb k with 
@@ -369,7 +369,7 @@ let opt11 t =
 (* 12. S (B K X) = K X *)
 let opt12 t =
   try 
-    let c_kind,ty_args,args = unpack_comb t in
+    let c_kind,_ty_args,args = unpack_comb t in
     if Builtin.equal Builtin.SComb c_kind then (
       match args with 
       | [bkx] ->
@@ -477,7 +477,7 @@ let max_weak_reduction_length var_handler ~state orig_t =
       let steps_hd = aux hd in
       let steps_args = aux_l l in
       steps_hd + steps_args
-    | T.AppBuiltin(b, l) when Builtin.is_combinator b ->
+    | T.AppBuiltin(b, _l) when Builtin.is_combinator b ->
       assert(T.is_ground t);
       let c_kind, _, args =  unpack_comb t in
       begin match c_kind with 
@@ -495,7 +495,7 @@ let max_weak_reduction_length var_handler ~state orig_t =
         if CCList.length args < 3 then (aux_l args)
         else (aux (narrow_one t) + 1)  
       | _ -> invalid_arg "only combinators are supported" end
-    | T.AppBuiltin(b, l) -> aux_l l
+    | T.AppBuiltin(_b, l) -> aux_l l
   and aux_l = function 
     | [] -> 0
     | t :: ts ->  aux t + aux_l ts
@@ -630,7 +630,7 @@ let comb2lam t =
       let hd' = aux hd in
       let args' = List.map aux args in
       T.app hd' args'
-    | T.AppBuiltin(b, args) when Builtin.is_combinator b ->
+    | T.AppBuiltin(b, _args) when Builtin.is_combinator b ->
       let hd, args = T.as_app_mono t in
       let args' = List.map aux args in
       let ty_args = (fst (Type.open_fun (T.ty hd))) in

@@ -72,7 +72,7 @@ module Make (P : PARAMETERS) = struct
     with PolymorphismDetected -> 
       nfapply s u 
 
-  let eta_expand_otf ~subst ~scope pref1 pref2 t1 t2 =
+  let eta_expand_otf ~subst:_ ~scope:_ pref1 pref2 t1 t2 =
     let do_exp_otf n types t = 
       let remaining = CCList.drop n types in
       assert(List.length remaining != 0);
@@ -155,7 +155,7 @@ module Make (P : PARAMETERS) = struct
 
         (* classifies the pairs as (rigid-rigid, flex-rigid, and flex-flex *)
         let rec classify = function 
-          | ((lhs,rhs,flag) as cstr) :: xs ->
+          | ((lhs,rhs,_flag) as cstr) :: xs ->
             let rr,fr,unsure,ff = classify xs in
             begin match classify_one lhs, classify_one rhs with 
               | `Const, `Const -> cstr::rr,fr,unsure,ff
@@ -169,7 +169,7 @@ module Make (P : PARAMETERS) = struct
           sort_class rr @ sort_class fr @ sort_class unsure @ rest @ sort_class ff
         else rr @ fr @ unsure @ rest @ ff in
 
-      let decompose_and_cont ?(inc_step=0) args_l args_r rest flag subst =
+      let decompose_and_cont ?inc_step:_ args_l args_r rest flag subst =
         let new_prob = decompose args_l args_r rest flag in
         (fun () -> aux subst new_prob ()) in
 

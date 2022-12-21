@@ -18,9 +18,9 @@ let is_empty {sym_map; ty_map} =
   assert(not sym_map_empty || Type.Map.is_empty ty_map);
   sym_map_empty
 
-let mem {sym_map; ty_map} s = ID.Map.mem s sym_map
+let mem {sym_map; ty_map = _} s = ID.Map.mem s sym_map
 
-let find_exn {sym_map; ty_map} s : Type.t =
+let find_exn {sym_map; ty_map = _} s : Type.t =
   let (t, _) = ID.Map.find s sym_map in t
 
 let find signature s =

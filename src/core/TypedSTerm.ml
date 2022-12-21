@@ -842,7 +842,7 @@ module Form = struct
           let args = CCFormat.sprintf "@[%a@]" (CCList.pp (pp) ) l in
           invalid_arg ("type argument missing for equality: " ^ args)
         ) else (Atom t)
-      | [x;l;r] -> if hd = Builtin.Eq then Eq(l,r) else Neq(l,r)
+      | [_x;l;r] -> if hd = Builtin.Eq then Eq(l,r) else Neq(l,r)
       | _ -> invalid_arg "equality encoded wrongly" 
       end
     | Bind(Binder.Forall, v, t) -> Forall (v,t)
@@ -1708,10 +1708,10 @@ let rec erase t = match view t with
 let rec depth t = match view t with
 | Var _  | Meta _ | Const _ -> 0
 | App (f, l) -> depth_l (f::l)
-| Bind (b,v,t) -> 1 + depth t
-| AppBuiltin (b, l) -> depth_l l
+| Bind (_b,_v,t) -> 1 + depth t
+| AppBuiltin (_b, l) -> depth_l l
 | Ite (a,b,c) -> depth_l [a;b;c]
-| Match (u, l) -> 1 + depth u
+| Match (u, _l) -> 1 + depth u
 | _ -> failwith "not implemented"
 and depth_l l = 
   1 + List.fold_left (fun acc t -> max acc (depth t)) 0 l 

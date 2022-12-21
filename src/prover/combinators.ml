@@ -1,5 +1,4 @@
 open Logtk
-open Extensions
 open Combinators_base
 
 module T = Term
@@ -7,10 +6,7 @@ module Ty = Type
 module Lits = Literals
 module Lit = Literal
 
-
 let section = Util.Section.make ~parent:Const.section "combs"
-
-type conv_rule = T.t -> T.t option
 
 let k_enable_combinators = Flex_state.create_key ()
 let k_app_var_narrowing = Flex_state.create_key ()
@@ -21,8 +17,6 @@ let k_k_penalty = Flex_state.create_key ()
 let k_deep_app_var_penalty = Flex_state.create_key ()
 let k_unif_resolve = Flex_state.create_key ()
 let k_combinators_max_depth = Flex_state.create_key ()
-
-
 
 module type S = sig
   module Env : Env.S
@@ -281,7 +275,7 @@ module Make(E : Env.S) : S with module Env = E = struct
     let expand t = 
       if Env.flex_get k_enable_combinators then (
         assert(not (T.is_fun t)); (* no lambdas if combinators are on *)
-        let ty_args, ret_ty = Type.open_fun (T.ty t) in
+        let ty_args, _ret_ty = Type.open_fun (T.ty t) in
         let n = List.length ty_args in
         let bvars = List.mapi (fun i ty -> T.bvar ~ty (n-i-1)) ty_args in
         let t' = T.app t bvars in

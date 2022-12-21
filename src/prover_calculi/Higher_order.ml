@@ -497,13 +497,13 @@ module Make(E : Env.S) : S with module Env = E = struct
       if T.equal s t && (s_sc == t_sc || T.is_ground s) then []
       else (
         match T.view s, T.view t with
-        | T.App(s_hd, s_args), T.App(t_hd, t_args) 
+        | T.App(s_hd, _s_args), T.App(_t_hd, _t_args) 
             when T.is_const s_hd ->
           let (s_hd, s_args), (t_hd, t_args) = 
             CCPair.map_same T.as_app_mono (s,t) in
           if T.equal s_hd t_hd then find_diss_l s_args t_args
           else return ~top [s,t]
-        | T.App(s_hd, s_args), T.App(t_hd, t_args) 
+        | T.App(s_hd, _s_args), T.App(t_hd, _t_args) 
             when not (T.equal s_hd t_hd)
                  && T.is_const s_hd && T.is_const t_hd ->
           (* trying to find prefix subterm that is the differing context *)
@@ -633,11 +633,11 @@ module Make(E : Env.S) : S with module Env = E = struct
 
       C.create ~trail:(C.trail_l parents) ~penalty new_lits proof
 
-  let do_ext_inst ~parents ((from_t,sc_f) as s) ((into_t,sc_t) as t) =
+  let do_ext_inst ~parents ((_from_t, sc_f) as s) ((_into_t, sc_t) as t) =
     match find_ho_disagremeents ~unify:false s t  with
     | Some (disagreements, subst) -> 
       assert (US.is_empty subst);
-      let ho_dis = List.filter (fun (s,t) -> Type.is_fun (T.ty s)) disagreements in
+      let ho_dis = List.filter (fun (s, _t) -> Type.is_fun (T.ty s)) disagreements in
       (* assert (not (CCList.is_empty ho_dis)); *)
 
       CCList.map (fun (lhs,rhs) -> ext_inst ~parents (lhs,sc_f) (rhs,sc_t)) ho_dis
@@ -770,8 +770,8 @@ module Make(E : Env.S) : S with module Env = E = struct
       let eligible = 
         if Env.flex_get k_ext_dec_lits = `OnlyMax then C.Eligible.param given else C.Eligible.always in
       Lits.fold_eqn ~ord ~both:true ~sign:true ~eligible (C.lits given)
-      |> Iter.flat_map (fun (l,_,sign,pos) ->
-          let hd,args = T.as_app l in
+      |> Iter.flat_map (fun (l, _, _sign, pos) ->
+          let hd, _args = T.as_app l in
           if T.is_const hd && T.has_ho_subterm l then (
             let inf_partners = retrieve_from_extdec_idx !_ext_dec_into_idx (T.as_const_exn hd) in
             Iter.map (fun (into_c,into_t, into_p) -> 
@@ -789,7 +789,7 @@ module Make(E : Env.S) : S with module Env = E = struct
       Lits.fold_terms ~vars:false ~var_args:false ~fun_bodies:false ~ty_args:false 
         ~ord ~which ~subterms:true ~eligible (C.lits given)
       |> Iter.flat_map (fun (t,p) ->
-          let hd, args = T.as_app t in
+          let hd, _args = T.as_app t in
           if T.is_const hd && T.has_ho_subterm t  then (
             let inf_partners = retrieve_from_extdec_idx !_ext_dec_from_idx (T.as_const_exn hd) in
             Iter.map (fun (from_c,from_t, from_p) -> 
@@ -804,8 +804,8 @@ module Make(E : Env.S) : S with module Env = E = struct
       let eligible =
         if Env.flex_get k_ext_dec_lits = `OnlyMax then C.Eligible.param given else C.Eligible.always in
       Lits.fold_eqn ~ord ~both:true ~sign:true ~eligible (C.lits given)
-      |> Iter.flat_map (fun (l,_,sign,pos) ->
-          let hd,args = T.as_app l in
+      |> Iter.flat_map (fun (l, _, _sign, _pos) ->
+          let hd, _args = T.as_app l in
           if T.is_const hd && T.has_ho_subterm l then (
             let inf_partners = retrieve_from_extdec_idx !_ext_dec_into_idx (T.as_const_exn hd) in
             Iter.map (fun (into_c,into_t, _) -> 
@@ -823,10 +823,10 @@ module Make(E : Env.S) : S with module Env = E = struct
         else `All, C.Eligible.always in
       Lits.fold_terms ~vars:false ~var_args:false ~fun_bodies:false ~ty_args:false 
         ~ord ~which ~subterms:true ~eligible (C.lits given)
-      |> Iter.flat_map (fun (t,p) ->
-          let hd, args = T.as_app t in
+      |> Iter.flat_map (fun (t, _p) ->
+          let hd, _args = T.as_app t in
           if T.is_const hd && T.has_ho_subterm t  then (
-            Iter.map (fun (from_c,from_t, from_p) -> 
+            Iter.map (fun (from_c,from_t, _from_p) -> 
               do_ext_inst ~parents:[from_c; given] (from_t,0) (t,1))
             (retrieve_from_extdec_idx !_ext_dec_from_idx (T.as_const_exn hd)))
           else Iter.empty))
@@ -930,7 +930,7 @@ module Make(E : Env.S) : S with module Env = E = struct
         Array.fold_left
           (fun (others,set,pos_lits) lit ->
              begin match lit with
-               | Literal.Equation (lhs, rhs, _) when Literal.is_predicate_lit lit->
+               | Literal.Equation (lhs, _rhs, _) when Literal.is_predicate_lit lit->
                  let f, args = T.as_app lhs in
                  begin match T.view f with
                    | T.Var q when HVar.equal Type.equal v q ->
@@ -1020,7 +1020,7 @@ module Make(E : Env.S) : S with module Env = E = struct
 
   (* rule for primitive enumeration of predicates [P t1…tn]
      (using ¬ and ∧ and =) *)
-  let  prim_enum_ ?(proof_constructor = Proof.Step.inference) ~(mode) (c:C.t) : C.t list =
+  let  prim_enum_ ~(mode) (c:C.t) : C.t list =
     (* set of variables to refine (only those occurring in "interesting" lits) *)
     let vars =
       Literals.fold_eqn ~both:false ~ord:(Ctx.ord()) ~eligible:(C.Eligible.always)
@@ -1287,7 +1287,7 @@ module Make(E : Env.S) : S with module Env = E = struct
     let eligible = C.Eligible.always in
     let pos_pred_vars, neg_pred_vars, occurrences = 
       Lits.fold_eqn ~both:false ~ord ~eligible (C.lits c)
-      |> Iter.fold (fun (pos_vs,neg_vs,occ) (lhs,rhs,_,pos) ->
+      |> Iter.fold (fun (pos_vs,neg_vs,occ) (lhs, _rhs, _, pos) ->
           let i, _ = Literals.Pos.cut pos in
           let lit = (C.lits c).(i) in
           if Literal.is_predicate_lit lit && Term.is_app_var lhs then (
@@ -1336,7 +1336,7 @@ module Make(E : Env.S) : S with module Env = E = struct
     let ord = Env.ord () in
     let eligible = C.Eligible.always in
     Lits.fold_eqn ~both:false ~ord ~eligible (C.lits c)
-    |> Iter.fold (fun cmd_list (lhs,rhs,_,pos) ->
+    |> Iter.fold (fun cmd_list (lhs, _rhs, _, pos) ->
       let i, _ = Lits.Pos.cut pos in
       let lit = (C.lits c).(i) in
       if Lit.is_predicate_lit lit && T.is_app_var lhs then (
@@ -1606,7 +1606,7 @@ module Make(E : Env.S) : S with module Env = E = struct
           if Lit.is_positivoid lit1 then lit1, lit2 else lit2,lit1 in
        
         begin match pos_lit, neg_lit with
-        | Equation(x,y,true), Equation(lhs,rhs,sign) ->
+        | Equation(x,y,true), Equation(lhs, rhs, _sign) ->
           fail_on (not (T.is_var x && T.is_var y));
           fail_on (T.equal x y);
 
@@ -1623,7 +1623,7 @@ module Make(E : Env.S) : S with module Env = E = struct
                         (find_in_args y rhs_args) != (-1)));
           
           (* reorient equations so that x appears in lhs *)
-          let lhs,rhs,lhs_args,rhs_args =
+          let lhs, _rhs, lhs_args, rhs_args =
             if find_in_args x lhs_args != -1 
             then (lhs, rhs, lhs_args, rhs_args)
             else (rhs, lhs, rhs_args, lhs_args) in
@@ -2076,7 +2076,7 @@ module Make(E : Env.S) : S with module Env = E = struct
           @ (if Env.flex_get k_elim_pred_var
             then elim_pred_variable ~proof_constructor c else []) in
 
-        let res = other_insts @ prim_enum_ ~proof_constructor ~mode c  in
+        let res = other_insts @ prim_enum_ ~mode c  in
         if CCList.is_empty res then None else Some res
       )
     ) else None
@@ -2378,7 +2378,7 @@ let st_contains_ho (st:(_,_,_) Statement.t): bool =
     let n_ty_vars, args, _ = Type.open_poly_fun ty in
     n_ty_vars > 0 || args<>[]
   and has_prop_in_args ty =
-    let n_ty_vars, args, _ = Type.open_poly_fun ty in
+    let _n_ty_vars, args, _ = Type.open_poly_fun ty in
     List.exists Type.contains_prop args
   in
   (* is there a HO variable? Any variable with a type that is

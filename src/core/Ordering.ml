@@ -160,7 +160,7 @@ module Head = struct
     | T.AppBuiltin ((Builtin.ForallConst|Builtin.ExistsConst),[ty;lam]) ->
       (* Under quantifiers, we ignore the lambda *)
       begin match T.view lam with 
-      | T.Fun (ty', body) -> [ty; body]
+      | T.Fun (_ty', body) -> [ty; body]
       | _ -> [ty; lam]
       end
     | T.AppBuiltin (_,ss) -> ss
@@ -294,13 +294,13 @@ module MakeKBO (P : PARAMETERS) : ORD = struct
 
   (* Overapproximation of being fluid *)
   let is_fluid t = match T.view t with
-    | T.App (f, l) -> T.is_var f
-    | T.Fun (ty, body) -> not (T.is_ground body)
+    | T.App (f, _l) -> T.is_var f
+    | T.Fun (_ty, body) -> not (T.is_ground body)
     | _ -> false
 
   (** Higher-order KBO *)
   exception UnsupportedTerm
-  let rec kbo ~prec t1 t2 =
+  let kbo ~prec t1 t2 =
     let balance = mk_balance t1 t2 in
     (** Update variable balance, weight balance, and check whether the term contains the fluid term s.
         @param pos stands for positive (is t the left term?)
@@ -396,15 +396,15 @@ module MakeKBO (P : PARAMETERS) : ORD = struct
         let t1 = ty1comb_to_var t1 balance.comb2var in 
         let t2 = ty1comb_to_var t2 balance.comb2var in
         match T.view t1, T.view t2 with
-        | T.Var x, T.Var y ->
+        | T.Var _x, T.Var _y ->
           add_pos_var balance t1 ~below_lam;
           add_neg_var balance t2 ~below_lam;
           (wb, C.Incomparable)
-        | T.Var x,  _ ->
+        | T.Var _x,  _ ->
           add_pos_var balance t1 ~below_lam;
           let wb', contains = balance_weight wb t2 (Some t1) ~pos:false ~below_lam in
           (W.(wb' + one), if contains then Lt else Incomparable)
-        |  _, T.Var y ->
+        |  _, T.Var _y ->
           add_neg_var balance t2 ~below_lam;
           let wb', contains = balance_weight wb t1 (Some t2) ~pos:true ~below_lam in
           (W.(wb' - one), if contains then Gt else Incomparable)
@@ -661,7 +661,7 @@ module EPO : ORD = struct
   and epo_check_e4_inv ~prec (t,tt) (s,ss) (g,gg) (f,ff) = 
     if gg = [] || epo ~prec (chop (g,gg)) (chop (f,ff)) = Lt then Lt else 
       epo_check_e1 ~prec (t,tt) (s,ss) (g,gg) (f,ff)
-  and chop (f,ff) = (List.hd ff, List.tl ff)
+  and chop (_f,ff) = (List.hd ff, List.tl ff)
   and epo_llex ~prec gg ff =
     let m, n = (List.length gg), (List.length ff) in
     if m < n then Lt else
@@ -1090,7 +1090,7 @@ module LambdaKBO : ORD = struct
       Term.app (normalize_consts ~prec s) (List.map (normalize_consts ~prec) ts)
     | _ -> t
 
-  let categorize_var_arg var arg arg_ty (some_args, extra_args) =
+  let categorize_var_arg _var arg arg_ty (some_args, extra_args) =
     if is_problematic_type arg_ty then (arg :: some_args, extra_args)
     else (some_args, arg :: extra_args)
 
@@ -1113,7 +1113,7 @@ module LambdaKBO : ORD = struct
       add_monomial w sign (if is_quantifier b then W.omega else W.one) [];
       List.iter (add_weight_of ~prec w sign) bargs;
       List.iter (add_weight_of ~prec w sign) args
-    | DB i ->
+    | DB _i ->
       add_monomial w sign my_db_weight [];
       List.iter (add_weight_of ~prec w sign) args;
       add_eta_extra_of w (Term.ty t)
@@ -1196,10 +1196,10 @@ module LambdaKBO : ORD = struct
         (w, C.Eq)
       else (
         let (arg_tys, _) = Type.open_fun (Term.ty t_hd) in
-        let (some_t_args, extra_t_args) =
+        let (some_t_args, _extra_t_args) =
           List.fold_right2 (categorize_var_arg y) t_args arg_tys ([], [])
         in
-        let (some_s_args, extra_s_args) =
+        let (some_s_args, _extra_s_args) =
           List.fold_right2 (categorize_var_arg y) s_args arg_tys ([], [])
         in
         let some_normal_t_args = List.map (normalize_consts ~prec) some_t_args
@@ -1347,7 +1347,7 @@ module LambdaLPO : ORD = struct
       if check_subs ~prec [s_body] t then C.Lt else C.Incomparable
     | Var _, (DB _|Const _) ->
       if check_subs ~prec s_args t then C.Lt else C.Incomparable
-    | Var _, AppBuiltin (s_b, s_bargs) ->
+    | Var _, AppBuiltin (_s_b, s_bargs) ->
       if check_subs ~prec (List.rev_append s_bargs s_args) t then C.Lt
       else C.Incomparable
     | (Const _|DB _), Var _ ->
@@ -1372,7 +1372,7 @@ module LambdaLPO : ORD = struct
     | (Const _|AppBuiltin _), DB _ -> compare_rest ~prec t s_args
     | (Const _|AppBuiltin _|DB _), Fun (_, s_body) ->
       compare_rest ~prec t [s_body]
-    | AppBuiltin (t_b, t_bargs), Var _ ->
+    | AppBuiltin (_t_b, t_bargs), Var _ ->
       if check_subs ~prec (List.rev_append t_bargs t_args) s then C.Gt
       else C.Incomparable
     | AppBuiltin (_, t_bargs), Const _ ->

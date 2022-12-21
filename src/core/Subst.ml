@@ -16,7 +16,6 @@ module VarInt = struct
 end
 
 module VarWTypeInt = struct
-  type t = var Scoped.t
   let compare = Scoped.compare (HVar.compare T.compare)
   let equal = Scoped.equal (HVar.equal T.equal)
   let hash = Scoped.hash HVar.hash

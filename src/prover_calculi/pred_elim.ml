@@ -209,7 +209,7 @@ module Make(E : Env.S) : S with module Env = E = struct
 
   let get_sym_sign lit =
     match lit with
-    | L.Equation(lhs,rhs,_) ->
+    | L.Equation(lhs, _rhs, _) ->
       let sign = L.is_positivoid lit in
       if Type.is_fun (T.ty lhs) then
         None
@@ -243,7 +243,7 @@ module Make(E : Env.S) : S with module Env = E = struct
     | Some(ps, ns) -> List.length ps + List.length ns) +
     CS.cardinal task.offending_cls
   
-  let kk_measure relax task resolvents =
+  let kk_measure _relax task resolvents =
     let new_mu, new_lit_num = calc_new_stats resolvents in
     task.num_lits >= new_lit_num && task.sq_var_weight >= new_mu
 
@@ -346,7 +346,7 @@ module Make(E : Env.S) : S with module Env = E = struct
     | _ -> assert false
     in
 
-    let update_idx pos neg offending gates num_vars cl =
+    let update_idx pos neg offending gates _num_vars cl =
       let update ~action sym =
         _pred_sym_idx := ID.Map.update sym (fun old ->
           let entry = CCOpt.get_or ~default:(mk_pred_elim_info sym) old in
@@ -386,7 +386,7 @@ module Make(E : Env.S) : S with module Env = E = struct
       ID.Set.iter (update ~action:`Offending) offending;
       ID.Set.iter (update ~action:`Gates) gates;
     in
-    let is_sym_duplicated sym idx lits =
+    let is_sym_duplicated sym idx _lits =
       let is_offending = ref false in
       for i = idx + 1 to C.length cl - 1 do
         (match get_sym_sign (C.lits cl).(i) with
@@ -781,7 +781,7 @@ module Make(E : Env.S) : S with module Env = E = struct
 
 
       let find_definition_set cls =
-        List.iter (fun (i,lits,c) ->
+        List.iter (fun (_i,lits,c) ->
           if not (is_tauto c) then (
             CCList.filter_map BBox.inject_lit (CCArray.to_list lits)
             |> SAT.add_clause ~proof:(C.proof_step c))
@@ -808,7 +808,7 @@ module Make(E : Env.S) : S with module Env = E = struct
         (* we will standardize all clauses by the first name literal in x *)
         let i,name_lit = CCOpt.get_exn (CCArray.find_map_i (fun i lit -> 
             match lit with 
-            | L.Equation(lhs,rhs,_) when L.is_predicate_lit lit -> 
+            | L.Equation(lhs, _rhs ,_) when L.is_predicate_lit lit -> 
               begin match T.head lhs with
               | Some head -> if ID.equal task.sym head then Some (i, lhs) else None
               | None -> None
@@ -913,8 +913,8 @@ module Make(E : Env.S) : S with module Env = E = struct
       let rec replace_by_lam t =
         match T.view t with
         | AppBuiltin (b, l) -> T.app_builtin ~ty:(T.ty t) b (List.map replace_by_lam l)
-        | Var v -> t
-        | DB i -> t
+        | Var _v -> t
+        | DB _i -> t
         | App (f, l) ->
           begin match T.view f with
           | Const s ->

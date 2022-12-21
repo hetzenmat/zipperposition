@@ -325,7 +325,7 @@ let bool_encode_lit lit =
     assert(T.equal (T.ty_exn true_term) (T.ty_exn encoded_atom));
     mk_equ_lit (bool_encode_term atom) true_term
   | Eq _ | Neq _ ->
-    SLiteral.map bool_encode_term lit
+    SLiteral.map ~f:bool_encode_term lit
 
 (** Encode a clause *)
 let bool_encode_lits lits = List.map bool_encode_lit lits
@@ -351,7 +351,7 @@ let res_tc =
     ~pp_in:pp_clause_in
     ~is_stmt:true
     ~name:Statement.name
-    ~to_form:(fun ~ctx st ->
+    ~to_form:(fun ~ctx:_ st ->
         let conv_c (c:(T.t SLiteral.t) list) : _ =
           c 
           |> List.map SLiteral.to_form
@@ -371,7 +371,7 @@ let bool_encode_stmt stmt =
     match Statement.view stmt with
     | Statement.Data _ -> failwith "Not implemented: Data"
     | Statement.Lemma _ -> failwith "Not implemented: Lemma"
-    | Statement.Goal lits -> failwith "Not implemented: Goal"
+    | Statement.Goal _lits -> failwith "Not implemented: Goal"
     | Statement.Def def ->
       let map_single = 
         Statement.map_def ~form:bool_encode_lits 

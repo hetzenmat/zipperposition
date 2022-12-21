@@ -23,9 +23,9 @@ let norm_logical_disagreements ?(mode=`Conservative) b args args' : _ list * _ l
       
       let hd_class t =
         match Term.view (Term.head_term t) with
-        | Const x -> 0
-        | AppBuiltin(b,_) -> 1
-        | DB i -> 2
+        | Const _x -> 0
+        | AppBuiltin(_b,_) -> 1
+        | DB _i -> 2
         | _ -> 3 in
       
       CCInt.compare (hd_class t1) (hd_class t2)
@@ -419,7 +419,7 @@ module Inner = struct
     distinct_term_l l
 
   (* distinct ground terms *)
-  let distinct_ground_l l : bool =
+  let distinct_ground_l _l : bool =
     (* List.for_all (fun t -> T.is_ground t && CCList.is_empty @@ T.DB.unbound t) l 
     && distinct_term_l l *)
     (* turning off distinct ground lifting since it is buggy --

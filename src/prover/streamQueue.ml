@@ -94,7 +94,7 @@ module Make(A : ARG) = struct
     else (
       if guard = 0 then raise Not_found;
       let dripped = ref None in
-      let reduced_hp, (w, s) = H.take_exn q.hp in
+      let reduced_hp, (_w, s) = H.take_exn q.hp in
       let new_hp =
         (
           try
@@ -197,7 +197,7 @@ module Make(A : ARG) = struct
   let rec _take_stm_nb_fix_stm q n res =
     if n = 0 || H.is_empty q.hp then res
     else
-      let red_hp, (w,s)= H.take_exn q.hp in
+      let red_hp, (_w,s)= H.take_exn q.hp in
       try
         if Stm.is_empty s then
           ( q.stm_nb <- q.stm_nb - 1;

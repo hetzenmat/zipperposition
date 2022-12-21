@@ -100,7 +100,7 @@ module Make(E : Env.S) : S with module Env = E = struct
       if T.DB.is_closed t then k t;
 
       match T.view t with
-      | T.App(hd, args) -> List.iter (fun t -> get_terms t k) (args)
+      | T.App(_, args) -> List.iter (fun t -> get_terms t k) (args)
       | T.AppBuiltin((And|Or|Not|Imply|Eq|Neq|Equiv|Xor), args) ->
         List.iter (fun t -> get_terms t k) (args)
       | T.AppBuiltin((ForallConst|ExistsConst), [_; body]) -> 
@@ -110,7 +110,7 @@ module Make(E : Env.S) : S with module Env = E = struct
 
     Literals.fold_terms ~ord ~subterms:false ~eligible:C.Eligible.always 
       ~which:`All (C.lits c) ~fun_bodies:false
-    |> Iter.flat_map (fun (t, p) -> get_terms t)
+    |> Iter.flat_map (fun (t, _) -> get_terms t)
     |> Iter.filter_map (fun t -> 
         let ty = Term.ty t and hd = Term.head_term t in
         let cached_t = Subst.FO.canonize_all_vars t in
@@ -304,7 +304,7 @@ module Make(E : Env.S) : S with module Env = E = struct
 
   let get_bool_hoist_eligible c =
     get_bool_eligible c
-    |> Iter.filter (fun (t,p) ->
+    |> Iter.filter (fun (_,p) ->
       let module P = Position in
       match p with
       | P.Arg(idx, P.Left P.Stop)
@@ -701,7 +701,7 @@ module Make(E : Env.S) : S with module Env = E = struct
         ~tags:[Proof.Tag.T_ho] 
     in
 
-    let add_immediate acc sub idx =
+    let add_immediate acc sub _ =
       let renaming = Subst.Renaming.create () in
       let res = 
         C.apply_subst ~renaming ~proof:(Some (p sub renaming)) (c,0) sub 
@@ -1044,7 +1044,7 @@ module Make(E : Env.S) : S with module Env = E = struct
     |> List.map (fun idx_list -> (List.hd idx_list, List.length idx_list))
     |> List.filter (fun (_, cnt) -> cnt >= threshold)
     |> (function 
-       | x :: xs when not (CCList.is_empty xs) ->
+       | _ :: xs when not (CCList.is_empty xs) ->
          (* there need to be at least two literals with deep booleans.
             we will rename all but one (for example the first one) *)
           let new_lits = CCArray.copy (C.lits c) in
@@ -1176,7 +1176,7 @@ module Make(E : Env.S) : S with module Env = E = struct
         | AppBuiltin(Or, l) -> T.Set.of_list l
         | _ -> T.Set.singleton p in
       let is_impl p = match T.view p with 
-        | AppBuiltin(Imply, [l;r]) -> true
+        | AppBuiltin(Imply, [_;_]) -> true
         | _ -> false in
       
       (* Take a term of the form p11 /\ ... /\ p1n1 -> p21 /\ ... /\ p2n2 -> ... -> q1 \/ ... \/ qn  
@@ -1264,13 +1264,13 @@ module Make(E : Env.S) : S with module Env = E = struct
       in
       let rec aux t =
         match T.view t with
-        | Fun(_, body) -> not (has_loosely_bound_0 t)
+        | Fun(_, _) -> not (has_loosely_bound_0 t)
         | App(hd, args) ->
           if T.is_const hd then List.for_all aux args
           else (
             not (List.exists has_loosely_bound_0 (hd::args))
           )
-        | AppBuiltin(hd, args) -> List.for_all aux args
+        | AppBuiltin(_, args) -> List.for_all aux args
         | _ -> true
       in
       let res = aux q_body in
@@ -1585,7 +1585,7 @@ module Make(E : Env.S) : S with module Env = E = struct
                         C.create ~penalty  ~trail (CCArray.to_list (C.lits c)) proof) in
       Util.debugf ~section 5 "cl:@[%a@]@." (fun k-> k C.pp c);
       Util.debugf ~section 5 " @[%a@]@." (fun k-> k (CCList.pp C.pp) clauses);
-      List.iteri (fun i new_c -> 
+      List.iteri (fun _ new_c -> 
           assert((C.proof_depth c) <= C.proof_depth new_c);) clauses;
       Some (solved @clauses)
     | None -> None
@@ -1604,7 +1604,7 @@ module Make(E : Env.S) : S with module Env = E = struct
            && not (T.is_var t) 
            && not (T.is_app_var t) then k t else(
           match T.view t with
-          | App (f, l) ->
+          | App (_, l) ->
             (* head positions are not taken into account *)
             List.iter aux l
           | AppBuiltin (b,l) when not (Builtin.is_quantifier b) ->
@@ -1835,9 +1835,9 @@ let name_quantifiers stmts =
   in
   stmts |> CCVector.map(fun s ->
       match Statement.view s with
-      | TyDecl(id,t)	-> s
-      | Data ts	-> s
-      | Def defs	-> s
+      | TyDecl(_, _) 	-> s
+      | Data _	        -> s
+      | Def _	        -> s
       | Rewrite _	-> s
       | Assert p	-> if_changed assert_ s (name_prop_Qs s p)
       | Lemma ps	-> if_changed_list lemma s (map (name_prop_Qs s) ps)
@@ -1886,7 +1886,7 @@ let case_bool vs c p =
 let rec case_bools_wrt vs t =
   with_subterm_or_id t (fun _ s ->
       match view s with
-      | App(f,ps) ->
+      | App(_, ps) ->
         let t' = fold_left (case_bool vs) t ps in
         if TypedSTerm.equal t t' then None else Some(case_bools_wrt vs t')
       | _ -> None
@@ -1927,7 +1927,7 @@ let eager_cases_near stms =
         Some (T.Form.true_, T.Form.false_, p) in
 
       match T.view p with
-      | AppBuiltin(hd, args)
+      | AppBuiltin(hd, _)
           when not top && no_leaky_variables p && T.Ty.is_prop (T.ty_exn p) &&
             (* making sure it is not T or F *)
             (Builtin.is_logical_op hd ||
@@ -1935,7 +1935,7 @@ let eager_cases_near stms =
             Builtin.equal hd Builtin.Neq) -> 
         CCFormat.printf "found OK eq@.";
         return p
-      | Bind((Binder.Exists | Binder.Forall), var, body)
+      | Bind((Binder.Exists | Binder.Forall), _, _)
           when not top && no_leaky_variables p ->
         return p
       | Bind(Binder.Lambda, var, body) ->
@@ -1943,7 +1943,7 @@ let eager_cases_near stms =
           assert(no_leaky_variables s);
           (T.fun_l [var] body_t, T.fun_l [var] body_f, s)
         ) (aux ~top:false body)
-      | App(hd, args) when not top && T.Ty.is_prop p_ty && no_leaky_variables p  ->
+      | App(_, _) when not top && T.Ty.is_prop p_ty && no_leaky_variables p  ->
         return p
       | Const _ when not top && T.Ty.is_prop p_ty  ->
         return p
@@ -1995,7 +1995,7 @@ let eager_cases_near stms =
         end
       | AppBuiltin(hd, args) -> 
         T.app_builtin ~ty:p_ty hd (List.map (aux ~vars) args)
-      | App(hd, args) ->
+      | App(_, _) ->
         begin match find_fool_subterm p with
         | Some(p_t, p_f, subterm) ->
           let subterm' = aux ~vars subterm in

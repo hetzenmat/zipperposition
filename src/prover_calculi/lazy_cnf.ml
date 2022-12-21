@@ -149,7 +149,7 @@ module Make(E : Env.S) : S with module Env = E = struct
 
       iter_funs ()
       |> Iter.map (fun table -> 
-        let ((id, id_ty), fresh_sym) = Term.mk_fresh_skolem ~prefix [] ty in
+        let ((id, __ty), fresh_sym) = Term.mk_fresh_skolem ~prefix [] ty in
         insert_defining_clauses id fresh_sym arg_combinations table;
         (* let stm = definition_stream id fresh_sym arg_combinations table in
         let stm_res = Env.Stm.make ~penalty:(1) ~parents:[] (stm) in
@@ -231,7 +231,7 @@ module Make(E : Env.S) : S with module Env = E = struct
     estimate_num_clauses sign limit f
     
 
-  let proof ~constructor ~name ~parents c =
+  let proof ~constructor ~name ~parents _ =
     constructor ~rule:(Proof.Rule.mk name)
       (List.map C.proof_parent parents)
 
@@ -531,7 +531,7 @@ module Make(E : Env.S) : S with module Env = E = struct
           | T.AppBuiltin(Builtin.Not, [body]) -> aux ~sign:(not sign) body
           | T.AppBuiltin(Builtin.Imply, [a; b]) ->
             not sign || aux ~sign:(not sign) a || aux ~sign b
-          | T.AppBuiltin(Builtin.(Eq|Equiv|Neq|Xor), ([a;b]|[_;a;b])) ->
+          | T.AppBuiltin(Builtin.(Eq|Equiv|Neq|Xor), ([a;_]|[_;a;_])) ->
             (* if it is either an equivalence(xor) which yields at
                least two clauses, or a complicated higher-order
                disequation (between app-vars or lambdas) in which case
@@ -641,7 +641,7 @@ module Make(E : Env.S) : S with module Env = E = struct
   let clausify_imp c =
     let rule_name = "imp_elim" in
     fold_lits c
-    |> Iter.fold (fun acc (lhs,rhs,sign,pos) -> 
+    |> Iter.fold (fun acc (lhs,_,_,pos) -> 
         let i,_ = Ls.Pos.cut pos in
         let lit = (C.lits c).(i) in
         let proof_cons = Proof.Step.inference ~infos:[] ~tags:[Proof.Tag.T_live_cnf; Proof.Tag.T_dont_increase_depth] in
@@ -659,7 +659,7 @@ module Make(E : Env.S) : S with module Env = E = struct
   
   let cnf_scope c =
     fold_lits c
-    |> Iter.fold_while (fun _ (lhs,rhs,sign,pos) -> 
+    |> Iter.fold_while (fun _ (lhs,_,sign,pos) -> 
       let i,_ = Ls.Pos.cut pos in
       let lit = (C.lits c).(i) in
       let proof_cons = Proof.Step.simp ~infos:[] ~tags:[Proof.Tag.T_live_cnf; Proof.Tag.T_dont_increase_depth] in

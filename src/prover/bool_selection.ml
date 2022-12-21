@@ -159,13 +159,12 @@ let all_selectable_subterms ?(forbidden=T.VarSet.empty) ~ord ~pos_builder =
 
 let all_eligible_subterms ~ord ~pos_builder =
   (* make sure you select only subterms *)
-  let filter ~forbidden ~top t  = 
+  let filter ~forbidden:_ ~top t  = 
     not top &&
     not (Type.is_tType (T.ty t)) in
   collect_green_subterms_ ~forbidden:(T.VarSet.empty) ~filter ~ord ~pos_builder 
 
 let get_selectable_w_ctx ~ord lits = 
-  let open CCOpt in
   let forbidden = get_forbidden_vars ~ord lits in
 
   let selectable_with_ctx ?(forbidden=T.VarSet.empty) ~block_top ~ord ~pos_builder t ctx log_depth k =
@@ -252,7 +251,7 @@ let by_size ~ord ~kind lits =
     if kind = `Max then Iter.max else Iter.min in
   get_selectable_w_ctx ~ord lits
   |> selector ~lt:(fun (s,_,_) (t,_,_) -> Term.ho_weight s < Term.ho_weight t)
-  |> CCOpt.map_or ~default:[] (fun (t,ctx,pos) -> [(t,pos)])
+  |> CCOpt.map_or ~default:[] (fun (t,_ctx,pos) -> [(t,pos)])
 
 let by_context_weight_combination ~ord ~ctx_fun ~weight_fun lits =
     let bin_of_int d =
@@ -270,7 +269,7 @@ let by_context_weight_combination ~ord ~ctx_fun ~weight_fun lits =
     Util.debugf ~section 2 "selectable @[%a/%8s@]@." (fun k -> k T.pp t (bin_of_int ctx)); arg)
   |> Iter.min ~lt:(fun (s,ctx_s,_) (t,ctx_t,_) -> 
     CCOrd.(<?>) (ctx_fun ctx_s ctx_t) (weight_fun lits, s, t) < 0)
-  |> CCOpt.map_or ~default:[] (fun (t,ctx,pos) -> [(t,pos)])
+  |> CCOpt.map_or ~default:[] (fun (t,_ctx,pos) -> [(t,pos)])
 
 let is_eq t = 
   match T.view t with
@@ -294,7 +293,7 @@ let sel1 lits =
     <?> (compare, T.weight ~var:1 ~sym:id_w s,
                   T.weight ~var:1 ~sym:id_w t) (* by weight, where the weight of symbol
                                                   is its number of occs*)
-let sel2 lits s t =
+let sel2 _lits s t =
   let (<?>) = CCOrd.(<?>) in
   compare (T.is_appbuiltin s) (T.is_appbuiltin t) (* defer formulas *)
   <?> (compare, - (T.depth s),  - (T.depth t)) (* prefer deeper *)
@@ -311,7 +310,7 @@ let sel3 =
     | _ -> false
   in
 
-  fun lits s t ->
+  fun _lits s t ->
     let (<?>) = CCOrd.(<?>) in
     compare (T.is_appbuiltin s) (T.is_appbuiltin t) (* defer formulas *)
     <?> (compare, is_type_pred s, is_type_pred t) (* defer p(x) where x are variables *)
@@ -364,7 +363,7 @@ let smallest ~ord lits =
 let largest ~ord lits =
   by_size ~ord ~kind:`Max lits
 
-let none ~ord lits = []
+let none ~ord:_ _lits = []
 
 let fun_names = 
   [ ("LI", leftmost_innermost);

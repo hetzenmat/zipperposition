@@ -40,7 +40,7 @@ let build_constraints args1 args2 rest =
 
 (* Given two terms and their lambda prefixes, η-expands one of the terms, if 
    necessary, to have the same size of the lambda prefix as the other term *)
-let eta_expand_otf ~subst ~scope pref1 pref2 t1 t2 =
+let eta_expand_otf ~subst:_ ~scope:_ pref1 pref2 t1 t2 =
   let do_exp_otf n types t = 
     let remaining = CCList.drop n types in
     assert(List.length remaining != 0);
@@ -396,7 +396,7 @@ and flex_diff  ~counter ~scope ~subst var_s var_t args_s args_t =
 
    For more information see `build_term`.
 *)
-and flex_rigid ~pref_l ~subst ~counter ~scope flex rigid =
+and flex_rigid ~pref_l:_ ~subst ~counter ~scope flex rigid =
   let hd, args = Term.as_app flex in
   assert(Term.is_var hd);
 

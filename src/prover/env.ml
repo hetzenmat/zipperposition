@@ -210,7 +210,7 @@ module Make(X : sig
   let _add_prioritized ~store ~priority name rule = 
     if not (List.mem name (List.map (fun (_,n,_) -> n) !store))
     then (
-      let cmp (p1,n1,r1) (p2,n2,r2) =
+      let cmp (p1,n1,_r1) (p2,n2,_r2) =
         let open CCOrd in
         CCInt.compare p2 p1
         <?> (CCString.compare, n2, n1) in
@@ -806,7 +806,7 @@ module Make(X : sig
       match rules with
       | [] -> None
       | r :: rs ->
-        CCOpt.or_lazy ~else_:(fun () -> apply_rules rs c) (r c) in
+        CCOpt.or_lazy ~else_:(fun () -> apply_rules ~rules:rs c) (r c) in
     
     let q = Queue.create () in
     Queue.add c q;

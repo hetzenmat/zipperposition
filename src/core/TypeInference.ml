@@ -542,7 +542,7 @@ let rec infer_rec ?loc ctx (t:PT.t) : T.t =
         match T.Map.find_opt (T.ty_exn b) ctx.ite_map with
         | Some hd -> hd
         | None ->
-          let hd, ty = mk_ite (T.ty_exn b) in
+          let hd, _ty = mk_ite (T.ty_exn b) in
           ctx.ite_map <- T.Map.add (T.ty_exn b) hd ctx.ite_map;
           hd
       in
@@ -1098,7 +1098,7 @@ let infer_statement_exn ?(file="<no file>") ctx st =
       let t =  infer_prop_ ctx t in
       let def = as_def ?loc Var.Set.empty t in
       (match def with 
-      | Stmt.Def_term {vars;id;ty;args;rhs;as_form} when 
+      | Stmt.Def_term {vars=_;id=_;ty;args=_;rhs=_;as_form=_} when 
         !_rw_forms_only && (not (T.Ty.returns_prop ty)) ->
         Stmt.assert_ ~attrs ~proof:(Proof.Step.intro src Proof.R_assert) t
       | _ -> Stmt.rewrite ~proof:(Proof.Step.intro src Proof.R_def) def)

@@ -138,7 +138,7 @@ let enum_prop ?(mode=`Full) ?(add_var=false) ((v:Term.var), sc_v)
         ID.Set.fold (fun sym acc -> Term.const ~ty:ty_v sym :: acc ) syms_of_var_ty []
       | `Full -> 
         let syms_of_var_ty = Signature.find_by_type signature ty_v in
-        let arg_tys, ret_ty = Type.open_fun ty_v in 
+        let arg_tys, _ret_ty = Type.open_fun ty_v in 
         let bvars = 
           snd @@ List.fold_right (fun ty (idx, res) -> 
               (idx+1, T.bvar ~ty idx :: res)) arg_tys (0, []) in

@@ -738,7 +738,7 @@ module S = struct
           F.Seq.subterms f
           |> CCFun.tap (fun subterms ->
             Iter.iter (fun st -> match F.view st with
-            | F.AppBuiltin(hd, args) -> 
+            | F.AppBuiltin(hd, _args) -> 
               has_comb := Builtin.is_combinator hd || !has_comb
             | _ -> ()) subterms
           )

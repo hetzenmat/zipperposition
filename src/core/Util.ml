@@ -6,13 +6,11 @@ module Fmt = CCFormat
 
 (** {2 Time facilities} *)
 
-type timestamp = float
-
 let start_ = Mtime_clock.now()
 
-let get_time_mon_us () : timestamp =
+let get_time_mon_us () =
   let t = Mtime_clock.now() in
-  Mtime.Span.to_us (Mtime.span start_ t)
+  (Mtime.Span.to_float_ns (Mtime.span start_ t)) *. 1e-3
 
 let total_time_s () = get_time_mon_us () *. 1e-6
 

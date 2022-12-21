@@ -99,7 +99,7 @@ let compute_occurence_map (seq : (TST.t SLiteral.t list, TST.t, TST.t) Statement
       let ids2clauses', new_cl = 
         process_literals ids2clauses (List.length clauses, lits) in
       forbidden, ids2clauses', new_cl :: clauses
-    | Statement.NegatedGoal (skolems,list_of_lits) ->
+    | Statement.NegatedGoal (_skolems, list_of_lits) ->
       (* clauses stemming from the negated goal *)
       let ids2clauses', clauses' = 
         List.fold_left (fun (ids2cls, cls) lits -> 
@@ -109,7 +109,7 @@ let compute_occurence_map (seq : (TST.t SLiteral.t list, TST.t, TST.t) Statement
         ) (ids2clauses, clauses) list_of_lits
       in
       forbidden, ids2clauses', clauses'
-    | Statement.Goal lits -> 
+    | Statement.Goal _lits -> 
       (* after CNFing a 'normal' problem all goals should 
          be negated and clausified *)
       failwith "Not implemented: Goal"
@@ -226,7 +226,7 @@ let remove_pure_clauses (seq : (TST.t SLiteral.t list, TST.t, TST.t) Statement.t
         in
         Some (new_stm)
       )
-    | Statement.Goal lits -> 
+    | Statement.Goal _lits -> 
       (* after CNFing a 'normal' problem all goals should 
          be negated and clausified *)
       Some stmt

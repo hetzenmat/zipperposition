@@ -239,7 +239,7 @@ module Term = struct
       );
       make_ id args lhs rhs proof
 
-    let make_rewritten ~proof ~rewrite_fun id ty args rhs : t =
+    let make_rewritten ~proof:_ ~rewrite_fun id ty args rhs : t =
       let proof, rhs = rewrite_fun rhs in
       make ~proof id ty args rhs
 

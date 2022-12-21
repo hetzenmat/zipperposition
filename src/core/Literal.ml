@@ -105,7 +105,7 @@ let depth lit =
 module Set = CCSet.Make(struct type t = lit let compare = compare end)
 
 let is_positivoid = function
-  | Equation (l, r, sign) -> 
+  | Equation (_l, r, sign) -> 
     sign && (not @@ T.equal r T.false_)
   | False -> false
   | _ -> true
@@ -145,7 +145,7 @@ let is_type_pred = function
   | _ -> false
 
 let is_typex_pred = function
-  | Equation(lhs,rhs,_) as l when is_predicate_lit l ->
+  | Equation(lhs,_rhs,_) as l when is_predicate_lit l ->
     begin match Term.view lhs with
       | App(f, xs) when not (CCList.is_empty xs) -> 
         T.is_const f && List.for_all T.is_var xs
@@ -406,7 +406,7 @@ let root_terms l =
   Seq.terms l |> Iter.to_rev_list
 
 let to_multiset lit = match lit with
-  | Equation (l, r, _) when is_predicate_lit lit ->
+  | Equation (l, _r, _) when is_predicate_lit lit ->
     Multisets.MT.singleton l
   | Equation (l, r, _) -> Multisets.MT.doubleton l r
   | True
@@ -509,7 +509,7 @@ let fold_terms ?(position=Position.stop) ?(vars=false) ?(var_args=true) ?(fun_bo
 let to_ho_term (lit:t): T.t = match lit with
   | True -> T.true_
   | False -> T.false_
-  | Equation (t, u, _) when is_predicate_lit lit ->
+  | Equation (t, _u, _) when is_predicate_lit lit ->
     (if is_negativoid lit then T.Form.not_ else CCFun.id) t
   | Equation (t, u, sign) ->
     if sign then T.Form.eq t u else T.Form.neq t u
@@ -517,7 +517,7 @@ let to_ho_term (lit:t): T.t = match lit with
 let as_ho_predicate (lit:t) : _ option = 
   assert(no_prop_invariant lit);
   match lit with
-  | Equation(lhs,rhs,_) when is_predicate_lit lit ->
+  | Equation(lhs,_rhs,_) when is_predicate_lit lit ->
     let hd_t, args_t = T.as_app lhs in
     begin match T.view hd_t, args_t with
       | T.Var v, _::_ -> Some (v, hd_t, args_t, is_positivoid lit)
@@ -563,7 +563,7 @@ let normalize_eq lit =
 
   let rec aux lit = 
     match lit with
-    | Equation(lhs, rhs, _) 
+    | Equation(lhs, _rhs, _) 
       when is_predicate_lit lit ->
       let sign = is_positivoid lit in
       begin match T.view lhs with 
@@ -590,7 +590,7 @@ let pp_debug ?(hooks=[]) out lit =
   (* assert(no_prop_invariant lit); *)
   if List.for_all (fun h -> not (h out lit)) hooks
   then (begin match lit with
-      | Equation (p, t, _) when is_predicate_lit lit -> 
+      | Equation (p, _t, _) when is_predicate_lit lit -> 
         Format.fprintf out "@[%s%a@]" (if (is_positivoid lit) then "" else "¬") T.pp p
       | True -> CCFormat.string out "Τ"
       | False -> CCFormat.string out "⊥"
@@ -601,7 +601,7 @@ let pp_debug ?(hooks=[]) out lit =
     end)
 let pp_tstp out lit =
   match lit with
-  | Equation (p, t, _) when is_predicate_lit lit -> 
+  | Equation (p, _t, _) when is_predicate_lit lit -> 
     Format.fprintf out "%s %a" (if (is_positivoid lit) then "" else "~") T.TPTP.pp p
   | True -> CCFormat.string out "$true"
   | False -> CCFormat.string out "$false"
@@ -612,7 +612,7 @@ let pp_tstp out lit =
 
 let pp_zf out lit =
   match lit with
-  | Equation (p, t, _) when is_predicate_lit lit -> 
+  | Equation (p, _t, _) when is_predicate_lit lit -> 
     Format.fprintf out "%s %a" (if (is_positivoid lit) then "" else "~") T.ZF.pp p
   | True -> CCFormat.string out "true"
   | False -> CCFormat.string out "false"

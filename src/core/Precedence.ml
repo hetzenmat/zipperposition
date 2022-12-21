@@ -285,7 +285,7 @@ module Constr = struct
     if c = 0
     then ID.compare a b else c
 
-  let max ~signature l =
+  let max ~signature:_ l =
     let set = ID.Set.of_iter l in
     fun s1 s2 ->
       let is_max1 = ID.Set.mem s1 set in
@@ -296,7 +296,7 @@ module Constr = struct
       | true, false -> 1
       | false, true -> -1
 
-  let min ~signature l =
+  let min ~signature:_ l =
     let set = ID.Set.of_iter l in
     fun s1 s2 ->
       let is_min1 = ID.Set.mem s1 set in
@@ -779,7 +779,7 @@ let create ?(weight=weight_constant) ?(arg_coeff=arg_coeff_default)
   assert (check_inv_ res);
   res
 
-let add_list ~signature p l =
+let add_list ~signature:_ p l =
   (* sorted insertion in snapshot *)
   (* Signal.send on_signature_update signature; *)
   let rec insert_ id l = match l with

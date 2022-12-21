@@ -92,7 +92,7 @@ let res_tc =
     ~pp_in:pp_clause_in
     ~is_stmt:true
     ~name:Statement.name
-    ~to_form:(fun ~ctx st ->
+    ~to_form:(fun ~ctx:_ st ->
         let conv_c (c:(T.t SLiteral.t) list) : _ =
           c 
           |> List.map SLiteral.to_form
@@ -111,7 +111,7 @@ let eq_encode_stmt stmt =
   match Statement.view stmt with
   | Statement.Data _ -> failwith "Not implemented: Data"
   | Statement.Lemma _ -> failwith "Not implemented: Lemma"
-  | Statement.Goal lits -> failwith "Not implemented: Goal"
+  | Statement.Goal _lits -> failwith "Not implemented: Goal"
   | Statement.Def _ | Statement.Rewrite _  | Statement.TyDecl _ -> stmt
   | Statement.NegatedGoal (skolems,clauses) -> 
     Statement.neg_goal ~proof ~skolems (List.map eq_encode_lits clauses)

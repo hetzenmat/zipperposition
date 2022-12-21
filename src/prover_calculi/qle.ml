@@ -170,7 +170,7 @@ module Make(E : Env.S) : S with module Env = E = struct
     let filter_clauses () =
       let is_quasipure_lit lit =
         match lit with
-        | L.Equation (lhs, rhs, true) ->
+        | L.Equation (lhs, _rhs, true) ->
           if (T.is_const (T.head_term lhs)) then
             let sym = T.as_const_exn (T.head_term lhs) in
             ID.Tbl.mem quasipure_syms sym

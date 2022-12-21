@@ -48,7 +48,7 @@ let rec gfpf ?(depth=0) pos t =
     if T.is_app t then T.as_app t
     else (
       match T.view t with
-      | T.AppBuiltin(hd, args) -> 
+      | T.AppBuiltin(_hd, args) -> 
         (* return anything as a head, as it is only important that it is not a variable *)
         T.true_, args
       | _ -> t, []

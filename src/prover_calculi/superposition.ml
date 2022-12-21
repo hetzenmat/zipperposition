@@ -798,7 +798,7 @@ module Make(Env : Env.S) : S with module Env = Env = struct
             Term.Map.add t new_sk_vars acc)
           Term.Map.empty new_sk in
       let new_lits =
-        List.mapi (fun i lit ->
+        List.mapi (fun _ lit ->
           Lit.map (fun t ->
             Term.Map.fold 
               (fun sk sk_v acc -> Term.replace ~old:sk ~by:sk_v acc)
@@ -1546,7 +1546,7 @@ module Make(Env : Env.S) : S with module Env = Env = struct
     |> Iter.filter (fun (_,t,sign,_) -> sign || T.equal t T.false_)
     |> Iter.filter(fun (_,t,_,_) -> T.is_var t || T.is_app_var t || T.is_comb t) 
     |> Iter.flat_map
-      (fun (s, t, _, s_pos) ->
+      (fun (s, _, _, s_pos) ->
           (* rewrite clauses using s *)
           I.fold !_idx_subvarsup_into
             (fun acc _ with_pos ->
@@ -1569,7 +1569,7 @@ module Make(Env : Env.S) : S with module Env = Env = struct
     |> Iter.filter( fun (t,pos) -> 
         match T.view t with 
         | T.Var _ -> has_bad_occurrence_elsewhere clause t pos
-        | T.App(hd, [x]) -> has_bad_occurrence_elsewhere clause hd pos
+        | T.App(hd, [_]) -> has_bad_occurrence_elsewhere clause hd pos
         | _ -> false)
     |> Iter.flat_map
       (fun (u_p, passive_pos) ->
@@ -1577,7 +1577,7 @@ module Make(Env : Env.S) : S with module Env = Env = struct
             (fun acc _ with_pos ->
               let passive_pos = C.WithPos.{term=u_p; pos=passive_pos; clause} in
               match Lits.View.get_eqn (C.lits with_pos.C.WithPos.clause) with_pos.C.WithPos.pos with
-              | Some(l,r,_) when T.is_var r || T.is_app_var r || T.is_comb r->
+              | Some(_,r,_) when T.is_var r || T.is_app_var r || T.is_comb r->
                 begin match do_subvarsup ~passive_pos ~active_pos:with_pos with
                 | Some c -> 
                   Util.debugf ~section 2 "svs: @[%a@]@. @[%a@]. @[%a@]@." 
@@ -1696,7 +1696,7 @@ module Make(Env : Env.S) : S with module Env = Env = struct
         (not (Comp.is_Lt_or_Leq (O.compare ord
            (S.FO.apply renaming subst (s, info.scope))
            (S.FO.apply renaming subst (t, info.scope))))
-         && CCList.for_all (fun (c, i) -> i = idx) (C.selected_lits info.clause)
+         && CCList.for_all (fun (_, i) -> i = idx) (C.selected_lits info.clause)
          && CCList.is_empty (C.bool_selected info.clause)
          && C.is_maxlit (info.clause,info.scope) subst ~idx))
     then (
@@ -2016,7 +2016,7 @@ module Make(Env : Env.S) : S with module Env = Env = struct
     } in
 
     (* demodulate every literal *)
-    let demod_lit i lit = Lit.map (fun t -> demod_nf st c t) lit in
+    let demod_lit _ lit = Lit.map (fun t -> demod_nf st c t) lit in
     let lits = Array.mapi demod_lit (C.lits c) in
     if CCList.is_empty st.demod_clauses then (
       (* no rewriting performed *)
@@ -2053,7 +2053,7 @@ module Make(Env : Env.S) : S with module Env = Env = struct
     try
       assert(Env.flex_get k_local_rw != `Off);
 
-    let neqs, others =
+    let neqs, _ =
       CCArray.fold_left (fun (neq_map, others) lit ->
         match lit with
         | Literal.Equation(lhs,rhs,sign) ->
@@ -2348,8 +2348,6 @@ module Make(Env : Env.S) : S with module Env = Env = struct
         else Some (Lit.mk_absurd,[],[Proof.Tag.T_distinct]) (* "a" = "b" or "a" != "a" *)
       else None
     | _ -> None
-
-  exception FoundMatch of T.t * C.t * S.t
 
   let formula_simplify_reflect c =
     let q_sc,idx_sc = 0,1 in
@@ -3065,7 +3063,7 @@ module Make(Env : Env.S) : S with module Env = Env = struct
           if Lit.is_positivoid lit1 then lit1, lit2 else lit2,lit1 in
        
         begin match pos_lit, neg_lit with
-        | Equation(x,y,true), Equation(lhs,rhs,sign) ->
+        | Equation(x,y,true), Equation(lhs,rhs,_) ->
           fail_on (not (T.is_var x && T.is_var y));
           fail_on (T.equal x y);
 
@@ -3082,7 +3080,7 @@ module Make(Env : Env.S) : S with module Env = Env = struct
                         (find_in_args y rhs_args) != (-1)));
           
           (* reorient equations so that x appears in lhs *)
-          let lhs,rhs,lhs_args,rhs_args =
+          let lhs,_,lhs_args,rhs_args =
             if find_in_args x lhs_args != -1 
             then (lhs, rhs, lhs_args, rhs_args)
             else (rhs, lhs, rhs_args, lhs_args) in
