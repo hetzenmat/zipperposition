@@ -317,7 +317,7 @@ module Tag = struct
     | T_ac of ID.t (** AC symbols *)
     | T_cannot_orphan
 
-  let compare = Pervasives.compare
+  let compare = Stdlib.compare
 
   let pp out = function
     | T_lia -> Fmt.string out "lia"
