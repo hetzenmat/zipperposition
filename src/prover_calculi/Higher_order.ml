@@ -1,7 +1,7 @@
 
 (* This file is free software, part of Zipperposition. See file "license" for more details. *)
 
-(** {1 boolean subterms} *)
+(** {1 HO} *)
 
 open Logtk
 open Libzipperposition
@@ -72,7 +72,7 @@ let k_ext_rules_max_depth = Flex_state.create_key ()
 let k_ext_rules_kind = Flex_state.create_key ()
 let k_ho_disagremeents = Flex_state.create_key ()
 let k_add_ite_axioms = Flex_state.create_key ()
-
+let k_store_unification_constraints = Flex_state.create_key ()
 
 type prune_kind = [`NoPrune | `OldPrune | `PruneAllCovers | `PruneMaxCover]
 
@@ -2447,10 +2447,12 @@ let _ext_dec_lits = ref `All
 let _ho_disagremeents = ref `SomeHo
 let _ite_axioms = ref false
 
+(** Whether to postpone unification and store term pairs as unification constraints in clauses *)
+let _store_unification_constraints = ref false
+
 let extension =
   let register env =
     let module E = (val env : Env.S) in
-
     E.flex_add k_ext_pos !_ext_pos;
     E.flex_add k_ext_pos_all_lits !_ext_pos_all_lits;
     E.flex_add k_ext_axiom !_ext_axiom;
@@ -2485,7 +2487,7 @@ let extension =
     E.flex_add k_ext_rules_max_depth !ext_rules_max_depth;
     E.flex_add k_ext_rules_kind !ext_rules_kind;
     E.flex_add k_add_ite_axioms !_ite_axioms;
-
+    E.flex_add k_store_unification_constraints !_store_unification_constraints;
 
     if E.flex_get k_check_lambda_free = `Only 
     then E.flex_add Saturate.k_abort_after_fragment_check true;
@@ -2761,6 +2763,9 @@ let () =
     );
   Params.add_to_mode "lambda-free-purify-extensional" (fun () ->
       _purify_applied_vars := `Ext
+    );
+  Params.add_to_mode "ho-optimistic" (fun () ->
+      _store_unification_constraints := true
     );
 
   Extensions.register extension;
