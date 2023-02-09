@@ -506,6 +506,15 @@ Some advices if you want to hack on the code:
     clause selection rules)
   * `--ord none` for disabling term orderings
 
+## Development using VSCode
+
+If you are using VSCode for development, the extension [Ocaml Platform](https://marketplace.visualstudio.com/items?itemName=ocamllabs.ocaml-platform) is recommended.
+For a fast feedback loop, run the following command in an integrated VSCode terminal:
+
+```
+dune build --watch --terminal-persistence=clear-on-rebuild
+```
+
 ### Profiling
 
 - a script using `perf` can be found in `utils/profile.sh`
