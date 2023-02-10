@@ -14,6 +14,8 @@ module US = Unif_subst
 module P = Position
 module HO = Higher_order
 
+let _NOT_IMPLEMENTED = assert false
+
 let section = Util.Section.make ~parent:Const.section "sup"
 
 (* flag meaning the clause has been simplified already *)
@@ -104,7 +106,7 @@ let k_formula_simplify_reflect = Flex_state.create_key ()
 let k_strong_sr = Flex_state.create_key ()
 let k_superpose_w_formulas = Flex_state.create_key ()
 
-
+let k_store_unification_constraints = Flex_state.create_key ()
 
 let _NO_LAMSUP = -1
 
@@ -3217,32 +3219,37 @@ module Make(Env : Env.S) : S with module Env = Env = struct
       Env.add_unary_inf "recognize injectivity" recognize_injectivity;
     );
 
-    if Env.flex_get k_ho_basic_rules
-    then (
+    if Env.flex_get k_ho_basic_rules && not (Env.flex_get k_store_unification_constraints) then begin
       Env.add_binary_inf "superposition_passive" infer_passive_complete_ho;
       Env.add_binary_inf "superposition_active" infer_active_complete_ho;
       Env.add_unary_inf "equality_factoring" infer_equality_factoring_complete_ho;
       Env.add_unary_inf "equality_resolution" infer_equality_resolution_complete_ho;
     
-      if Env.flex_get k_fluidsup then (
+      if Env.flex_get k_fluidsup then begin
         Env.add_binary_inf "fluidsup_passive" infer_fluidsup_passive;
         Env.add_binary_inf "fluidsup_active" infer_fluidsup_active;
-      );
-      if Env.flex_get k_dupsup then (
+      end;
+      if Env.flex_get k_dupsup then begin
         Env.add_binary_inf "dupsup_passive(into)" infer_dupsup_passive;
         Env.add_binary_inf "dupsup_active(from)" infer_dupsup_active;
-      );
-      if Env.flex_get k_lambdasup != -1 then (
+      end;
+      if Env.flex_get k_lambdasup != -1 then begin
         Env.add_binary_inf "lambdasup_active(from)" infer_lambdasup_from;
         Env.add_binary_inf "lambdasup_passive(into)" infer_lambdasup_into;
-      );
-    )
-    else (
+      end;
+    end
+    else if Env.flex_get k_store_unification_constraints then begin
+      (* Use other variants of HO rules that work with unification constraints *)
+
+      Env.add_binary_inf "superposition_passive_constr" _NOT_IMPLEMENTED
+    end
+    else begin
       Env.add_binary_inf "superposition_passive" infer_passive;
       Env.add_binary_inf "superposition_active" infer_active;
       Env.add_unary_inf "equality_factoring" infer_equality_factoring;
       Env.add_unary_inf "equality_resolution" infer_equality_resolution;
-    );
+    end;
+
     if not (Env.flex_get k_dont_simplify) then (
       Env.add_rw_simplify rw_simplify;
       Env.add_basic_simplify canonize_variables;
@@ -3326,6 +3333,8 @@ let _formula_sr = ref true
 let _strong_sr = ref false
 let _superposition_with_formulas = ref false
 
+(** Whether to postpone unification and store term pairs as unification constraints in clauses *)
+let _store_unification_constraints = ref false
 
 let _guard = ref 30
 let _ratio = ref 100
@@ -3415,6 +3424,8 @@ let register ~sup =
   E.flex_add k_local_rw !_local_rw;
   E.flex_add k_destr_eq_res !_destr_eq_res;
   E.flex_add k_strong_sr !_strong_sr;
+
+  E.flex_add k_store_unification_constraints !_store_unification_constraints;
 
   let module JPF = JPFull.Make(struct let st = E.flex_state () end) in
   let module JPP = PUnif.Make(struct let st = E.flex_state () end) in
@@ -3662,4 +3673,7 @@ let () =
     ; "lambda-free-purify-extensional"] (fun () ->
       _sup_at_vars := false;
       _check_sup_at_var_cond := false;
+  );
+  Params.add_to_mode "ho-optimistic" (fun () ->
+    _store_unification_constraints := true
   );
