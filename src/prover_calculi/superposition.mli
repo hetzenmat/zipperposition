@@ -19,6 +19,7 @@ val key : (module S) Flex_state.key
 
 val k_unif_alg : (Term.t Scoped.t -> Term.t Scoped.t -> Unif_subst.t CCOpt.t OSeq.t) Flex_state.key
 val k_ho_basic_rules : bool Flex_state.key
+val k_rewrite_quantifiers : bool Flex_state.key
 val get_unif_module : (module Env.S) -> (module UnifFramework.US)
 
 

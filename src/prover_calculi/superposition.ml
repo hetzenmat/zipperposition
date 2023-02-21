@@ -107,6 +107,7 @@ let k_strong_sr = Flex_state.create_key ()
 let k_superpose_w_formulas = Flex_state.create_key ()
 
 let k_store_unification_constraints = Flex_state.create_key ()
+let k_rewrite_quantifiers = Flex_state.create_key ()
 
 let _NO_LAMSUP = -1
 
@@ -3336,6 +3337,9 @@ let _superposition_with_formulas = ref false
 (** Whether to postpone unification and store term pairs as unification constraints in clauses *)
 let _store_unification_constraints = ref false
 
+(** Whether to rewrite quantifiers using pure λ-expressions as a preprocessing step *)
+let _rewrite_quantifiers = ref false
+
 let _guard = ref 30
 let _ratio = ref 100
 let _clause_num = ref (-1)
@@ -3426,6 +3430,7 @@ let register ~sup =
   E.flex_add k_strong_sr !_strong_sr;
 
   E.flex_add k_store_unification_constraints !_store_unification_constraints;
+  E.flex_add k_rewrite_quantifiers !_rewrite_quantifiers;
 
   let module JPF = JPFull.Make(struct let st = E.flex_state () end) in
   let module JPP = PUnif.Make(struct let st = E.flex_state () end) in
@@ -3442,7 +3447,7 @@ let register ~sup =
       E.flex_add k_unif_module (module JPP : UnifFramework.US);
        end
 
-(* TODO: move DOT index printing into the extension *)
+(* TODO: move DOT index printing into the extension *)  
 
 let extension =
   let action env =
@@ -3675,5 +3680,6 @@ let () =
       _check_sup_at_var_cond := false;
   );
   Params.add_to_mode "ho-optimistic" (fun () ->
-    _store_unification_constraints := true
+    _store_unification_constraints := true;
+    _rewrite_quantifiers := true;
   );

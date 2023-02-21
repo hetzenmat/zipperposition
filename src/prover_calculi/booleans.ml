@@ -1254,6 +1254,65 @@ module Make(E : Env.S) : S with module Env = E = struct
   assert (T.DB.is_closed res);
   res
 
+  let rewrite_all_quantifiers t =
+    let rec aux t =
+      match T.view t with 
+      | Fun(ty,body) ->
+        let body' = aux body in
+        assert(Type.equal (T.ty body) (T.ty body'));
+        if T.equal body body' then t
+        else T.fun_ ty body'
+      | App(hd,args) ->
+        let hd' = aux hd in
+        let args' = List.map aux args in
+        if T.equal hd hd' && T.same_l args args' then t
+        else T.app hd' args'
+      | AppBuiltin((ExistsConst|ForallConst) as quant, args) ->
+        (match args with
+          | [] -> invalid_arg "type argument must be present"
+          | [alpha] ->
+            let alpha = Type.of_term_unsafe (alpha :> InnerTerm.t) in
+            let alpha2prop = Type.arrow [alpha] Type.prop in
+            let inner_quant = 
+              let body = 
+                if Builtin.equal quant ExistsConst then T.false_
+                else T.true_
+              in
+              T.fun_ alpha body 
+            in
+            let var = T.bvar ~ty:alpha2prop 0 in
+            let body = 
+              if Builtin.equal quant ExistsConst then T.Form.neq var inner_quant
+              else T.Form.eq var inner_quant
+            in
+            T.fun_ alpha2prop body
+
+          | [alpha; pred] ->
+            assert false (* TODO [MH] *)
+
+          | _ -> invalid_arg "Too many arguments"
+        )
+      | AppBuiltin(hd,args) ->
+        let args' = List.map aux args in
+        (* fully applied quantifier *)
+        if Builtin.is_quantifier hd && List.length args' == 2 then (
+          let q_pref, q_body = T.open_fun @@ List.nth args' 1 in
+          let var_ty = List.hd q_pref in
+          if not (quant_normal var_ty q_body) then (
+            if Builtin.equal hd Builtin.ExistsConst then (
+              T.Form.neq (List.nth args' 1) (T.fun_ var_ty T.false_)
+            ) else (
+              T.Form.eq (List.nth args' 1) (T.fun_ var_ty T.true_)
+            )
+          ) else T.app_builtin ~ty:(T.ty t) hd args'
+        ) else (
+          if T.same_l args args' then t
+          else T.app_builtin ~ty:(T.ty t) hd args'
+        )
+      | DB _ | Const _ | Var _ -> t
+    in
+    aux (Lambda.eta_reduce @@ Lambda.snf t)
+
   (* Look at the HOSup paper for the definition of unsupported quant *)
   let fix_unsupported_quant t =
     (* for the time being var_ty is not used.. if the definition
@@ -1330,7 +1389,9 @@ module Make(E : Env.S) : S with module Env = E = struct
     else aux (Lambda.eta_reduce @@ Lambda.snf t)
 
   let replace_unsupported_quants c =
-    let new_lits = Literals.map fix_unsupported_quant (C.lits c) in
+    let new_lits = Literals.map (if Env.flex_get Superposition.k_rewrite_quantifiers then
+      rewrite_all_quantifiers
+    else fix_unsupported_quant) (C.lits c) in
     if Literals.equal (C.lits c) new_lits then (
       None
     ) else (
@@ -1673,7 +1734,7 @@ module Make(E : Env.S) : S with module Env = E = struct
 
   let setup () =
     (* Env.add_basic_simplify normalize_equalities; put into superposition right now *)
-    if Env.flex_get k_replace_unsupported_quants then (
+    if (Env.flex_get k_replace_unsupported_quants || Env.flex_get Superposition.k_rewrite_quantifiers) then (
       Signal.once Env.on_start (fun () -> 
         Env.ProofState.PassiveSet.clauses ()
           |> C.ClauseSet.iter (fun cl -> 
