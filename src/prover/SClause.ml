@@ -18,6 +18,7 @@ type t = {
   id : int; (** unique ID of the clause *)
   lits : Literal.t array; (** the literals *)
   trail : Trail.t; (** boolean trail *)
+  constraints : Constraints.t; (** unification constraints *)
   mutable flags : flag; (** boolean flags for the clause *)
 }
 
@@ -25,10 +26,10 @@ let id_count_ = ref 0
 
 (** {2 Basics} *)
 
-let make ~trail lits =
+let make ~trail ?(constraints = Constraints.mk_empty) lits =
   let id = !id_count_ in
   incr id_count_;
-  { lits; trail; id; flags=0; }
+  { lits; trail; id; constraints=constraints; flags=0; }
 
 let[@inline] equal c1 c2 = c1.id = c2.id
 let[@inline] compare c1 c2 = Stdlib.compare c1.id c2.id

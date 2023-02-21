@@ -35,6 +35,7 @@ module Make(Ctx : Ctx.S) : S with module Ctx = Ctx = struct
     id: int;
     lits: Literals.t;
     trail: Trail.t;
+    constraints : Constraints.t;
     mutable flags: flag;
   }
 

@@ -12,12 +12,13 @@ type t = private {
   id : int; (** unique ID of the clause *)
   lits : Literal.t array; (** the literals *)
   trail : Trail.t; (** boolean trail *)
+  constraints : Constraints.t; (** unification constraints *)
   mutable flags : flag; (** boolean flags for the clause *)
 }
 
 (** {2 Basics} *)
 
-val make : trail:Trail.t -> Literal.t array -> t
+val make : trail:Trail.t -> ?constraints:Constraints.t -> Literal.t array -> t
 
 val equal : t -> t -> bool
 val compare : t -> t -> int
