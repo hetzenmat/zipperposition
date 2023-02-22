@@ -1287,28 +1287,22 @@ module Make(E : Env.S) : S with module Env = E = struct
             in
             T.fun_ alpha2prop body
 
-          | [alpha; pred] ->
-            assert false (* TODO [MH] *)
+          | [_alpha; pred] ->
+            let pred' = aux pred in
+            let q_pref, _q_body = T.open_fun pred' in
+            let var_ty = List.hd q_pref in
+            (match quant with
+            | Builtin.ExistsConst -> T.Form.neq pred' (T.fun_ var_ty T.false_)
+            | Builtin.ForallConst -> T.Form.eq pred' (T.fun_ var_ty T.true_)
+            | _ -> assert false)
 
           | _ -> invalid_arg "Too many arguments"
         )
       | AppBuiltin(hd,args) ->
         let args' = List.map aux args in
-        (* fully applied quantifier *)
-        if Builtin.is_quantifier hd && List.length args' == 2 then (
-          let q_pref, q_body = T.open_fun @@ List.nth args' 1 in
-          let var_ty = List.hd q_pref in
-          if not (quant_normal var_ty q_body) then (
-            if Builtin.equal hd Builtin.ExistsConst then (
-              T.Form.neq (List.nth args' 1) (T.fun_ var_ty T.false_)
-            ) else (
-              T.Form.eq (List.nth args' 1) (T.fun_ var_ty T.true_)
-            )
-          ) else T.app_builtin ~ty:(T.ty t) hd args'
-        ) else (
-          if T.same_l args args' then t
-          else T.app_builtin ~ty:(T.ty t) hd args'
-        )
+        if T.same_l args args' then t
+        else T.app_builtin ~ty:(T.ty t) hd args'
+        
       | DB _ | Const _ | Var _ -> t
     in
     aux (Lambda.eta_reduce @@ Lambda.snf t)
