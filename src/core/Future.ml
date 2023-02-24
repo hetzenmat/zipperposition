@@ -1,8 +1,6 @@
 (**
   Already use TRMC implementations for various list operations that are not yet
   relased.
-  
-  
   *)
 
 (** TMRC list append 
@@ -15,7 +13,6 @@ let[@tail_mod_cons] rec ( @ ) l1 l2 =
   | h1 :: [] -> h1 :: l2
   | h1 :: h2 :: [] -> h1 :: h2 :: l2
   | h1 :: h2 :: h3 :: tl -> h1 :: h2 :: h3 :: (tl @ l2)
-
 
 (** TMRC list functions 
     
@@ -48,7 +45,6 @@ module FList = struct
     | [] -> []
     | x :: l -> if p x then x :: find_all p l else find_all p l
 
-
   let filter = find_all 
   
   let[@tail_mod_cons] rec filter_map f = function
@@ -78,3 +74,15 @@ module FList = struct
         r1::r2::map2 f l1 l2
     | (_, _) -> invalid_arg "List.map2"
 end
+
+let find_set p r l =
+  let rec aux = function
+  | [] -> false
+  | h :: t ->
+    if p h then begin
+      r := (fun () -> h);
+      true
+    end else
+      aux t
+  in
+  aux l

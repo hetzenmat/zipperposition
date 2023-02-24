@@ -198,7 +198,9 @@ module Make(Ctx : Ctx.S) : S with module Ctx = Ctx = struct
     create_a ~trail:c.sclause.trail ~penalty:c.penalty c.sclause.lits new_proof
 
   let is_empty c =
-    Lits.is_absurd c.sclause.lits && Trail.is_empty c.sclause.trail
+    Lits.is_absurd c.sclause.lits
+    && Trail.is_empty c.sclause.trail
+    && Constraints.solvable c.sclause.constraints
 
   let length c = SClause.length c.sclause
 

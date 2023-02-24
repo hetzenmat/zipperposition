@@ -5,6 +5,7 @@
     It uses inference rules and simplification rules from Superposition. *)
 
 open Logtk
+open Future
 
 module C = Clause
 module O = Ordering
@@ -148,6 +149,7 @@ module Make(E : Env.S) = struct
 
       check_clause_ c;
       Util.incr_stat stat_steps;
+      let cl_ref = ref (fun () -> assert false) in
       begin match Env.all_simplify c with
         | [], _ ->
           Util.incr_stat stat_redundant_given;
@@ -158,9 +160,10 @@ module Make(E : Env.S) = struct
           Signal.send Env.on_forward_simplified (c, None);
           ZProf.exit_prof _span;
           Unknown
-        | l, _ when List.exists Env.C.is_empty l ->
+        | l, _ when find_set Env.C.is_empty cl_ref l ->
           (* empty clause found *)
-          let proof = Env.C.proof (List.find Env.C.is_empty l) in
+          let empty_clause = !cl_ref () in
+          let proof = Env.C.proof empty_clause in
           (* not sending any signal, because WE HAVE WON!!! *)
           ZProf.exit_prof _span;
           Unsat proof
