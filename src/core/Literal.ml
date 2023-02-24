@@ -3,6 +3,8 @@
 
 (** {1 Equational literals} *)
 
+open Future
+
 module T = Term
 module S = Subst
 module PB = Position.Build
@@ -368,7 +370,7 @@ let apply_subst_no_simp renaming subst (lit,sc) =
   | False -> lit
 
 let apply_subst_list renaming subst (lits,sc) =
-  List.map
+  FList.map
     (fun lit -> apply_subst renaming subst (lit,sc))
     lits
 
@@ -533,7 +535,7 @@ let is_ho_unif lit = match lit with
 
 let of_unif_subst renaming (s:Unif_subst.t) : t list =
   Unif_subst.constr_l_subst renaming s
-  |> List.map
+  |> FList.map
     (fun (t,u) ->
        (* upcast *)
        let t = T.of_term_unsafe t in
@@ -668,7 +670,7 @@ module Comp = struct
   let rec _find_dominators ~met_geq_or_leq f ts1 ts2 = match ts1 with
     | [] -> NoDominator met_geq_or_leq
     | t :: ts1 ->
-      let cmps = List.map (fun y -> f t y) ts2 in
+      let cmps = FList.map (fun y -> f t y) ts2 in
       if List.for_all (fun cmp -> cmp = C.Gt) cmps then
         StrictDominator
       else if List.for_all C.is_Gt_or_Geq cmps then
@@ -917,7 +919,7 @@ let as_inj_def lit =
   | Some (l, r, false) ->
     (try  
        let hd_l, hd_r = T.head_exn l, T.head_exn r in
-       let vars_l, vars_r = List.map _as_var (T.args l), List.map _as_var (T.args r) in
+       let vars_l, vars_r = FList.map _as_var (T.args l), FList.map _as_var (T.args r) in
        let args_l, args_r = VS.of_list vars_l, VS.of_list vars_r in
 
        (* We are looking for literal f X1 ... Xn ~= f Y1 ... Yn 

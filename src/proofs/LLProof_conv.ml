@@ -2,6 +2,7 @@
 (* This file is free software, part of Zipperposition. See file "license" for more details. *)
 
 open Logtk
+open Future
 
 module T = TypedSTerm
 
@@ -48,10 +49,10 @@ and conv_step st p =
      need to substitute eagerly *)
   let intros =
     let l =
-      List.mapi (fun i v -> v, T.const ~ty:(Var.ty v) (ID.makef "sk_%d" i)) vars
+      FList.mapi (fun i v -> v, T.const ~ty:(Var.ty v) (ID.makef "sk_%d" i)) vars
     in
     let subst = Var.Subst.of_list l in
-    List.map (fun (_,c) -> T.Subst.eval subst c) l
+    FList.map (fun (_,c) -> T.Subst.eval subst c) l
   in
   (* convert result *)
   let res = match Proof.Step.kind @@ Proof.S.step p with
@@ -59,7 +60,7 @@ and conv_step st p =
     | Proof.Simplification (rule,tags) ->
       let local_intros = ref Var.Subst.empty in
       let parents =
-        List.map (conv_parent st res intros local_intros tags)
+        FList.map (conv_parent st res intros local_intros tags)
           (Proof.Step.parents @@ Proof.S.step p)
       in
       let local_intros = Var.Subst.to_list !local_intros |> List.rev_map snd in
@@ -67,7 +68,7 @@ and conv_step st p =
         (T.rename_all_vars res) (Proof.Rule.name rule) parents
     | Proof.Esa rule ->
       let l =
-        List.map
+        FList.map
           (function
             | Proof.P_of p -> conv_proof st p
             | Proof.P_subst _ -> assert false)
@@ -121,7 +122,7 @@ and conv_parent
       (* find instantiation for [p] by looking at variables of [p_res] *)
       let inst : LLProof.inst =
         let vars_p, _ = open_forall p_res in
-        List.map
+        FList.map
           (fun v ->
              begin match Var.Subst.find inst_subst v with
                | Some t -> t
@@ -141,7 +142,7 @@ and conv_parent
      and find which variable of [intros] they rename into *)
   let inst_intros : LLProof.inst =
     let vars_instantiated, _ = T.unfold_binder Binder.forall p_instantiated_res in
-    List.map
+    FList.map
       (fun v ->
          begin match Var.Subst.find intro_subst v with
            | Some t -> t

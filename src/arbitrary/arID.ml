@@ -9,7 +9,7 @@ type 'a arbitrary = 'a QCheck.arbitrary
 type 'a gen = 'a QCheck.Gen.t
 
 let default_g =
-  let l = List.map ID.make ["f"; "g"; "h"; "a"; "b"; "c"; "d"] in
+  let l = FList.map ID.make ["f"; "g"; "h"; "a"; "b"; "c"; "d"] in
   QCheck.Gen.oneofl l
 
 let default = QCheck.make ~print:ID.to_string default_g

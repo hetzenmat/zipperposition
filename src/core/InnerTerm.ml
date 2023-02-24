@@ -570,9 +570,9 @@ module DB = struct
           let t' = recurse ~depth:(depth+1) acc' t' in
           bind ~ty ~varty:varty' s t'
         | App (f, l) ->
-          app ~ty (recurse ~depth acc f) (List.map (recurse ~depth acc) l)
+          app ~ty (recurse ~depth acc f) (FList.map (recurse ~depth acc) l)
         | AppBuiltin (s,l) ->
-          app_builtin ~ty s (List.map (recurse ~depth acc) l)
+          app_builtin ~ty s (FList.map (recurse ~depth acc) l)
     in
     recurse ~depth acc t
 
@@ -635,9 +635,9 @@ module DB = struct
       | App (f, l) ->
         app ~ty
           (_replace depth ~to_replace f)
-          (List.map (_replace depth ~to_replace) l)
+          (FList.map (_replace depth ~to_replace) l)
       | AppBuiltin (s,l) ->
-        app_builtin ~ty s (List.map (_replace depth ~to_replace) l)
+        app_builtin ~ty s (FList.map (_replace depth ~to_replace) l)
 
   let replace_l t ~l = _replace 0 t ~to_replace:l
 
@@ -680,9 +680,9 @@ module DB = struct
           let t' = _eval (DBEnv.push_none env) t' in
           bind ~ty ~varty:varty' s t'
         | App (f, l) ->
-          app ~ty (_eval env f) (List.map (_eval env) l)
+          app ~ty (_eval env f) (FList.map (_eval env) l)
         | AppBuiltin (s,l) ->
-          app_builtin ~ty s (List.map (_eval env) l)
+          app_builtin ~ty s (FList.map (_eval env) l)
     in
     _eval env0 t
 
@@ -711,9 +711,9 @@ module DB = struct
         let t' = aux (depth+1) t' in
         bind ~ty ~varty:varty' s t'
       | App (f, l) ->
-        app ~ty (aux depth f) (List.map (aux depth) l)
+        app ~ty (aux depth f) (FList.map (aux depth) l)
       | AppBuiltin (s,l) ->
-        app_builtin ~ty s (List.map (aux depth) l)
+        app_builtin ~ty s (FList.map (aux depth) l)
     in
     aux 0 t
 end
@@ -876,11 +876,11 @@ let replace_m t m =
         | HasType ty, App (f, l) ->
           let ty = aux depth ty in
           let f' = aux depth f in
-          let l' = List.map (aux depth) l in
+          let l' = FList.map (aux depth) l in
           app ~ty f' l'
         | HasType ty, AppBuiltin (s,l) ->
           let ty = aux depth ty in
-          let l' = List.map (aux depth) l in
+          let l' = FList.map (aux depth) l in
           app_builtin ~ty s l'
         | NoType, _ -> t
         | _, (Var _ | DB _ | Const _) -> t
@@ -923,7 +923,7 @@ let fun_l ty_args body = List.fold_right fun_ ty_args body
 let fun_of_fvars vars body =
   if vars=[] then body
   else (
-    let body = DB.replace_l body ~l:(List.map var vars) in
+    let body = DB.replace_l body ~l:(FList.map var vars) in
     List.fold_right
       (fun v body -> fun_ (HVar.ty v) body)
       vars body
@@ -1022,7 +1022,7 @@ let[@inline] as_app t = match view t with
     end
   | AppBuiltin(b, l) when (not (Builtin.is_quantifier b)) ->
     let ty_args, args = CCList.partition is_a_type l in
-    let ty = arrow (List.map ty_exn args) (ty_exn t) in 
+    let ty = arrow (FList.map ty_exn args) (ty_exn t) in 
     app_builtin ~ty b ty_args, args
   | _ -> t, []
 
@@ -1126,7 +1126,7 @@ let rec pp_depth ?(hooks=[]) depth out t =
     | AppBuiltin (b, l) ->
       let l = 
         if Builtin.is_combinator b && not !show_type_arguments
-        then List.filter (fun t -> not (is_tType @@ ty_exn t)) l
+        then FList.filter (fun t -> not (is_tType @@ ty_exn t)) l
         else l in
       if CCList.is_empty l then Format.fprintf out "@[%a@]" Builtin.pp b
       else Format.fprintf out "@[%a(%a)@]" Builtin.pp b (Util.pp_list (_pp depth)) l
@@ -1135,7 +1135,7 @@ let rec pp_depth ?(hooks=[]) depth out t =
          or unless we are already printing a type *)
       let l =
         if !show_type_arguments || is_tType (ty_exn t) then l
-        else List.filter (fun t -> not (is_tType @@ ty_exn t)) l
+        else FList.filter (fun t -> not (is_tType @@ ty_exn t)) l
       in
       let as_infix = match view f with Const id -> ID.as_infix id | _ -> None in
       let as_prefix = match view f with Const id -> ID.as_prefix id | _ -> None in

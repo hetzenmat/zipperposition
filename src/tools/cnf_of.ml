@@ -4,6 +4,7 @@
 (** {1 Reduction to CNF of TPTP file} *)
 
 open Logtk
+open Future
 open Logtk_parsers
 
 module T = TypedSTerm
@@ -32,7 +33,7 @@ let options =
 let print_res (decls: _ CCVector.ro_vector) : unit =
   let close_c c =
     c
-    |> List.map SLiteral.to_form |> TypedSTerm.Form.or_
+    |> FList.map SLiteral.to_form |> TypedSTerm.Form.or_
     |> TypedSTerm.Form.close_forall
   in
   match !Options.output with

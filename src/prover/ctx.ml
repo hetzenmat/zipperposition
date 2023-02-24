@@ -4,6 +4,7 @@
 (** {1 Basic context for literals, clauses...} *)
 
 open Logtk
+open Future
 
 module T = Term
 module S = Subst
@@ -97,7 +98,7 @@ module Make(X : PARAMETERS) = struct
     List.iter (fun (symb,ty) -> _signature := Signature.declare !_signature symb ty) l;
     Signal.send on_signature_update !_signature;
     List.iter (Signal.send on_new_symbol) l;
-    Ordering.add_list ~signature:!_signature (ord ()) (List.map fst l)
+    Ordering.add_list ~signature:!_signature (ord ()) (FList.map fst l)
 
   let set_injective_for_arg sym i = 
     let arg_bv = 

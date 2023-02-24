@@ -4,6 +4,7 @@
 (** {1 Global environment for an instance of the prover} *)
 
 open Logtk
+open Future
 
 module T = Term
 module Lit = Literal
@@ -208,7 +209,7 @@ module Make(X : sig
     then _unary_rules := (name, rule) :: !_unary_rules
 
   let _add_prioritized ~store ~priority name rule = 
-    if not (List.mem name (List.map (fun (_,n,_) -> n) !store))
+    if not (List.mem name (FList.map (fun (_,n,_) -> n) !store))
     then (
       let cmp (p1,n1,_r1) (p2,n2,_r2) =
         let open CCOrd in
@@ -274,7 +275,7 @@ module Make(X : sig
         (priority,rule) !_multi_simpl_rule
 
   let multi_simpl_rules () =
-    List.map snd !_multi_simpl_rule
+    FList.map snd !_multi_simpl_rule
   
   let add_cheap_multi_simpl_rule rule =
     _cheap_msr := rule :: !_cheap_msr
@@ -335,8 +336,7 @@ module Make(X : sig
   let get_finite_infs streams =
     assert(flex_get PragUnifParams.k_unif_alg_is_terminating);
 
-
-    CCList.flat_map (fun s -> 
+    FList.concat_map (fun s -> 
       OSeq.to_rev_list @@ OSeq.filter_map CCFun.id s
     ) streams
 
@@ -700,7 +700,7 @@ module Make(X : sig
     if !did_something
     then (
       C.mark_redundant c;
-      Some (List.map (fun c -> (c, get_depth c)) (C.ClauseSet.to_list !set))
+      Some (FList.map (fun c -> (c, get_depth c)) (C.ClauseSet.to_list !set))
     )
     else None
 

@@ -734,7 +734,7 @@ module LambdaFreeKBOCoeff : ORD = struct
        adds all those weights plus the head_weight.*)
     let app_weight head_weight coeff_multipliers args =
       args
-      |> List.mapi (fun i s ->
+      |> FList.mapi (fun i s ->
         begin match weight prec s, coeff_multipliers i with
           | Some w, Some c -> Some (c w)
           | _ -> None
@@ -1083,13 +1083,13 @@ module LambdaKBO : ORD = struct
     match T.view t with
     | AppBuiltin (b, bargs) ->
       Term.app_builtin ~ty:(Term.ty t) b
-        (List.map (normalize_consts ~prec) bargs)
+        (FList.map (normalize_consts ~prec) bargs)
     | Const fid ->
       let fid' = id_of_weight (Prec.weight prec fid) in
       Term.const ~ty:(Term.ty t) fid'
     | Fun (ty, body) -> Term.fun_ ty (normalize_consts ~prec body)
     | App (s, ts) ->
-      Term.app (normalize_consts ~prec s) (List.map (normalize_consts ~prec) ts)
+      Term.app (normalize_consts ~prec s) (FList.map (normalize_consts ~prec) ts)
     | _ -> t
 
   let categorize_var_arg _var arg arg_ty (some_args, extra_args) =
@@ -1128,7 +1128,7 @@ module LambdaKBO : ORD = struct
         let (some_args, extra_args) =
           List.fold_right2 (categorize_var_arg var) args arg_tys ([], [])
         in
-        let some_normal_args = List.map (normalize_consts ~prec) some_args in
+        let some_normal_args = FList.map (normalize_consts ~prec) some_args in
         let add_weight_of_extra_arg i arg =
           let w' = Polynomial.create_zero () in
           add_weight_of ~prec w' sign arg;
@@ -1204,8 +1204,8 @@ module LambdaKBO : ORD = struct
         let (some_s_args, _extra_s_args) =
           List.fold_right2 (categorize_var_arg y) s_args arg_tys ([], [])
         in
-        let some_normal_t_args = List.map (normalize_consts ~prec) some_t_args
-        and some_normal_s_args = List.map (normalize_consts ~prec) some_s_args
+        let some_normal_t_args = FList.map (normalize_consts ~prec) some_t_args
+        and some_normal_s_args = FList.map (normalize_consts ~prec) some_s_args
         in
         if CCList.equal T.equal some_normal_t_args some_normal_s_args
            && CCList.for_all2 cannot_flip some_t_args some_s_args then

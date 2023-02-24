@@ -3,6 +3,8 @@
 
 (** {1 Rewriting on Terms} *)
 
+open Future
+
 module T = Term
 module Fmt = CCFormat
 
@@ -458,7 +460,7 @@ module Lit = struct
     (* conversion into regular clauses *)
     let as_clauses (c:t): Literals.t list =
       assert (not (Literal.is_constraint @@ lhs c));
-      List.map
+      FList.map
         (fun rhs_c -> Array.of_list (Literal.negate (lhs c) :: rhs_c))
         (rhs c)
 
@@ -502,7 +504,7 @@ module Lit = struct
       let lhs = conv_lit lhs in
       F.equiv
         lhs
-        (rhs |> List.map (fun l -> List.map conv_lit l |> F.or_) |> F.and_)
+        (rhs |> FList.map (fun l -> FList.map conv_lit l |> F.or_) |> F.and_)
       |> close_forall_ord lhs
 
     let to_form ~ctx r = conv_ ~ctx (lhs r) (rhs r)
@@ -578,8 +580,8 @@ module Lit = struct
   (* try to rewrite this literal, returning a list of list of lits instead *)
   let normalize_clause_ (lits:Literals.t) : _ option =
     let eval_ll renaming subst (l,sc) =
-      List.map
-        (List.map
+      FList.map
+        (FList.map
            (fun lit -> Literal.apply_subst renaming subst (lit,sc)))
         l
     in
@@ -698,7 +700,7 @@ module Rule = struct
       | L_rule ({lit_lhs;lit_rhs;_} as lit_r) ->
         let lhs = Literal.apply_subst renaming subst (lit_lhs,sc) in
         let rhs =
-          List.map (fun l-> Literal.apply_subst_list renaming subst (l,sc)) lit_rhs
+          FList.map (fun l-> Literal.apply_subst_list renaming subst (l,sc)) lit_rhs
         in
         let inst = Subst.Projection.as_inst ~ctx sp (Lit.Rule.vars lit_r) in
         Lit.Rule.conv_ ~ctx lhs rhs, inst
@@ -864,19 +866,19 @@ module Defined_cst = struct
     let n_ty_vars, _, _ = Type.open_poly_fun ty_cstor in
     let ty_vars = CCList.init n_ty_vars (fun i -> HVar.make ~ty:Type.tType i) in
     let _, ty_args, _ =
-      Type.apply ty_cstor (List.map Type.var ty_vars)
+      Type.apply ty_cstor (FList.map Type.var ty_vars)
       |> Type.open_poly_fun
     in
-    let vars = List.mapi (fun i ty -> HVar.make (i+n_ty_vars) ~ty) ty_args in
+    let vars = FList.mapi (fun i ty -> HVar.make (i+n_ty_vars) ~ty) ty_args in
     (* the term [cstor … x_i …] *)
     let t =
       T.app_full
         (T.const ~ty:ty_cstor cstor.Ind_ty.cstor_name)
-        (List.map Type.var ty_vars)
-        (List.map T.var vars)
+        (FList.map Type.var ty_vars)
+        (FList.map T.var vars)
     in
     let rhs = T.var (List.nth vars i) in
-    T_rule (Term.Rule.make ~proof id ty_proj (List.map T.var ty_vars @ [t]) rhs)
+    T_rule (Term.Rule.make ~proof id ty_proj (FList.map T.var ty_vars @ [t]) rhs)
 
   let declare_proj ~proof (p:Ind_ty.projector): unit =
     let p_id = Ind_ty.projector_id p in
@@ -893,7 +895,7 @@ module Defined_cst = struct
   (* make a single rule [C (proj_1 x)…(proj_n x) --> x] *)
   let mk_rule_cstor_ (c:Ind_ty.constructor) proof : rule =
     let c_id = c.Ind_ty.cstor_name in
-    let projs = List.map snd c.Ind_ty.cstor_args in
+    let projs = FList.map snd c.Ind_ty.cstor_args in
     assert (projs <> []);
     (* make type variables *)
     let c_ty = c.Ind_ty.cstor_ty in
@@ -901,21 +903,21 @@ module Defined_cst = struct
     let ty_vars = CCList.init n_ty_vars (fun i -> HVar.make ~ty:Type.tType i) in
     (* build LHS *)
     let _, _, ty_x =
-      Type.apply c_ty (List.map Type.var ty_vars)
+      Type.apply c_ty (FList.map Type.var ty_vars)
       |> Type.open_poly_fun
     in
     let x = HVar.make ~ty:ty_x n_ty_vars in
     let args =
-      List.map
+      FList.map
         (fun proj ->
            T.app_full
              (T.const ~ty:(Ind_ty.projector_ty proj) (Ind_ty.projector_id proj))
-             (List.map Type.var ty_vars)
+             (FList.map Type.var ty_vars)
              [T.var x])
         projs
     in
     let rhs = T.var x in
-    T_rule (Term.Rule.make ~proof c_id c_ty (List.map T.var ty_vars @ args) rhs)
+    T_rule (Term.Rule.make ~proof c_id c_ty (FList.map T.var ty_vars @ args) rhs)
 
   let declare_cstor ~proof (c:Ind_ty.constructor): unit =
     let c_id = c.Ind_ty.cstor_name in

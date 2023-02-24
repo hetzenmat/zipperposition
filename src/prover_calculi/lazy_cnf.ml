@@ -167,13 +167,13 @@ module Make(E : Env.S) : S with module Env = E = struct
       Type.Tbl.find _ty_map ty
     with Not_found ->
       let args, ret = Type.open_fun ty in
-      let arg_members = List.map (fun ty -> enum_bool_funs ~ty) args in
+      let arg_members = FList.map (fun ty -> enum_bool_funs ~ty) args in
       let ret_members = enum_bool_funs ~ty:ret in
       let new_members = create_members arg_members ret_members in
 
       Type.Tbl.add _ty_map ty new_members;
 
-      Env.Ctx.declare_syms (List.map (fun t -> T.head_exn t, T.ty t) new_members);
+      Env.Ctx.declare_syms (FList.map (fun t -> T.head_exn t, T.ty t) new_members);
       Util.debugf ~section 2 "members of type @[%a@]@. >@[%a@]" 
         (fun k -> k Type.pp ty (CCList.pp T.pp) new_members);
       new_members
@@ -234,7 +234,7 @@ module Make(E : Env.S) : S with module Env = E = struct
 
   let proof ~constructor ~name ~parents _ =
     constructor ~rule:(Proof.Rule.mk name)
-      (List.map C.proof_parent parents)
+      (FList.map C.proof_parent parents)
 
   let rename_eq ~c ~should_rename lhs rhs sign =
     assert(Type.equal (T.ty lhs) (T.ty rhs));
@@ -269,13 +269,13 @@ module Make(E : Env.S) : S with module Env = E = struct
   let mk_and ~proof_cons ~rule_name and_args c ?(parents=[c]) lit_idx =
     let lits = CCArray.except_idx (C.lits c) lit_idx in
     let proof = proof ~constructor:proof_cons ~parents ~name:rule_name c  in
-    List.map (fun t -> 
+    FList.map (fun t -> 
       C.create ~penalty:(C.penalty c) ~trail:(C.trail c) 
         (L.mk_true t :: lits) proof) and_args
   
   let mk_or ~proof_cons ~rule_name or_args c ?(parents=[c]) lit_idx =
     let lits = 
-      (List.map L.mk_true or_args) @
+      (FList.map L.mk_true or_args) @
       (CCArray.except_idx (C.lits c) lit_idx) in
     let proof = proof ~constructor:proof_cons ~parents ~name:rule_name c in
     [C.create ~penalty:(C.penalty c) ~trail:(C.trail c) lits proof]
@@ -313,7 +313,7 @@ module Make(E : Env.S) : S with module Env = E = struct
         let outer_hd =
           if Builtin.equal hd Or then T.Form.or_l else T.Form.and_l in
         
-        outer_hd (List.map (fun t -> quant_hd (T.fun_ ty t) ) bodies) in 
+        outer_hd (FList.map (fun t -> quant_hd (T.fun_ ty t) ) bodies) in 
 
       let f = Combs.expand f in
       if T.is_fun f then (
@@ -401,11 +401,11 @@ module Make(E : Env.S) : S with module Env = E = struct
         | T.AppBuiltin(And, l) when List.length l >= 2 && should_clausify sign lhs->
           let rule_name = "lazy_cnf_and" in
           if sign then return acc @@ mk_and ~proof_cons l c i ~rule_name
-          else return acc @@ mk_or ~proof_cons (List.map T.Form.not_ l) c i ~rule_name
+          else return acc @@ mk_or ~proof_cons (FList.map T.Form.not_ l) c i ~rule_name
         | T.AppBuiltin(Or, l) when List.length l >= 2 && should_clausify sign lhs ->
           let rule_name = "lazy_cnf_or" in
           if sign then return acc @@ mk_or ~proof_cons l c i ~rule_name
-          else return acc @@ mk_and ~proof_cons (List.map T.Form.not_ l) c i ~rule_name
+          else return acc @@ mk_and ~proof_cons (FList.map T.Form.not_ l) c i ~rule_name
         | T.AppBuiltin(Imply, [a;b]) when should_clausify sign lhs ->
           let rule_name = "lazy_cnf_imply" in
           if sign then (
@@ -448,7 +448,7 @@ module Make(E : Env.S) : S with module Env = E = struct
           if Env.flex_get k_enum_bool_funs && Type.Seq.has_bools_only sub_ty then (
             let repls = enum_bool_funs ~ty:sub_ty in
             if Env.flex_get k_replace_bool_fun_quants then (
-              let bodies = List.map (fun r -> 
+              let bodies = FList.map (fun r -> 
                 Lambda.eta_reduce @@ Lambda.whnf (T.app f [r])) repls in
               return acc @@
                  (if hd == ForallConst then mk_and ~proof_cons ~rule_name:"_inst_quant" bodies c i
@@ -682,7 +682,7 @@ module Make(E : Env.S) : S with module Env = E = struct
     if not @@ CCList.is_empty res then (
       Util.debugf ~section 3 "lazy_cnf_simp(@[%a@])=" (fun k -> k C.pp c);
       Util.debugf ~section 3 "@[%a@]@." (fun k -> k (CCList.pp C.pp) res);
-      Util.debugf ~section 3 "proof:@[%a@]@." (fun k -> k (CCList.pp (Proof.S.pp_tstp)) (List.map C.proof res));
+      Util.debugf ~section 3 "proof:@[%a@]@." (fun k -> k (CCList.pp (Proof.S.pp_tstp)) (FList.map C.proof res));
       update_form_counter ~action:`Decrease c;
       CCList.iter (update_form_counter ~action:`Increase) res;
     ) else Util.debugf ~section 3 "lazy_cnf_simp(@[%a@])=Ø" (fun k -> k C.pp c);

@@ -2,6 +2,7 @@
 (** {1 Simple Clause} *)
 
 open Logtk
+open Future
 
 module TPAsKey = struct
   type t = (Term.t * Position.t)
@@ -117,7 +118,7 @@ let pp_trail_tstp out trail =
   (* print a single boolean box *)
   let pp_box_unsigned out b = match BBox.payload b with
     | BBox.Case p ->
-      let lits = List.map Cover_set.Case.to_lit p |> Array.of_list in
+      let lits = FList.map Cover_set.Case.to_lit p |> Array.of_list in
       Literals.pp_tstp out lits
     | BBox.Clause_component lits ->
       CCFormat.within "(" ")" Literals.pp_tstp_closed out lits

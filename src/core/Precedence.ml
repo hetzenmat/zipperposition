@@ -278,7 +278,7 @@ module Constr = struct
     | None -> 
       let err =
         CCFormat.sprintf "precedences are one of: (@[%a@])" 
-          (CCList.pp CCString.pp ~pp_sep:(CCFormat.return "|@,")) (List.map fst map) in
+          (CCList.pp CCString.pp ~pp_sep:(CCFormat.return "|@,")) (FList.map fst map) in
       invalid_arg err
 
   (* regular string ordering *)
@@ -457,7 +457,7 @@ let depth_occ_driver ~flip stmt_d =
 
   let sorted = 
     ID.Tbl.to_list tbl 
-    |> List.map (fun (id, depths) -> 
+    |> FList.map (fun (id, depths) -> 
         let d_sum = sum depths and n = List.length depths in
         (d_sum / n, n, id))
     |> List.sort (fun (avg1, n1, id1) (avg2, n2, id2) -> 
@@ -599,7 +599,7 @@ let lambda_def_weight lm_w db_w base_weight clauses =
         CCOpt.return_if (T.is_ground rhs) (id, rhs)
       | T.App(hd, args) when T.is_const hd ->
         if List.for_all T.is_var args then (
-          let var_set = VS.of_list (List.map T.as_var_exn args) in
+          let var_set = VS.of_list (FList.map T.as_var_exn args) in
           if (VS.cardinal var_set == List.length args &&
             (T.Seq.subterms ~include_builtin:true ~include_app_vars:true rhs
             |> Iter.filter (T.is_app_var)
@@ -809,7 +809,7 @@ let add_list ~signature:_ p l =
     else List.mem id p.snapshot
   in
 
-  let l = List.filter is_new_sym l in
+  let l =FList.filter is_new_sym l in
   let cutoff = 30 in
   let snapshot = 
     if CCList.length l < cutoff then mk_snapshot l

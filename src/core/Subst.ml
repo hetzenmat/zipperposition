@@ -183,8 +183,8 @@ let normalize subst : t =
         end
       | T.DB i -> T.bvar ~ty i
       | T.Const id -> T.const ~ty id
-      | T.App (f, l) -> T.app ~ty (aux sc f) (List.map (aux sc) l)
-      | T.AppBuiltin (b, l) -> T.app_builtin b ~ty (List.map (aux sc) l)
+      | T.App (f, l) -> T.app ~ty (aux sc f) (FList.map (aux sc) l)
+      | T.AppBuiltin (b, l) -> T.app_builtin b ~ty (FList.map (aux sc) l)
       | T.Bind (b,varty,body) ->
         let varty = aux sc varty in
         T.bind b ~ty ~varty (aux sc body)
@@ -375,14 +375,14 @@ module FO = struct
     Term.of_term_unsafe (apply ~shift_vars renaming subst (t : term Scoped.t :> T.t Scoped.t))
 
   let apply_l ?(shift_vars=(-1))  renaming subst (l,sc) =
-    List.map (fun t -> apply ~shift_vars renaming subst (t,sc)) l
+    FList.map (fun t -> apply ~shift_vars renaming subst (t,sc)) l
 
 
   let compose ~scope s1 s2 =
     (* Format.printf "Composing: @[ %a = %a @]\n" pp s1 pp s2; *)
     let subs_l1 = to_list s1 in
     let subs_as_map =
-      (List.map (fun ((v,sc_v), (t,sc_t)) ->
+      (FList.map (fun ((v,sc_v), (t,sc_t)) ->
            ((v,sc_v), (( (Lambda.snf (apply Renaming.none s2 (Term.of_term_unsafe t,sc_t))) : term :> T.t), scope)))
           subs_l1) @ (to_list s2) in
     (of_list subs_as_map)
@@ -448,11 +448,11 @@ module FO = struct
            let t', sk_map = Term.DB.skolemize_loosely_bound ~already_sk:sk_map t in
            let v' = (HVar.update_ty ~f:Type.of_term_unsafe v,sc_v) in
            (v', (t',sc_t))::l, sk_map) subs_l ([],Term.IntMap.empty) in
-    of_list' unleaked_l, List.map snd (Term.IntMap.bindings new_sk)
+    of_list' unleaked_l, FList.map snd (Term.IntMap.bindings new_sk)
 
   let subset_is_renaming ~subset ~res_scope subst =
     try 
-      let subset = List.filter (fun v ->
+      let subset = FList.filter (fun v ->
           let der_t, der_sc = deref subst v in
           if der_sc != snd v then (
             der_sc = res_scope
@@ -460,7 +460,7 @@ module FO = struct
             der_sc = res_scope && not (Term.equal (fst v) der_t)
           )
         ) subset in
-      let derefed_vars = CCList.map (fun v ->
+      let derefed_vars = FList.map (fun v ->
           let derefed = deref subst v in
           if not (Term.is_var (fst derefed)) then (
             raise (invalid_arg "found a non-variable")
@@ -498,7 +498,7 @@ module Projection = struct
       [] p.subst
 
   let as_inst ?allow_free_db ~ctx (sp:t) (vars:_ HVar.t list) : (_,_) Var.Subst.t =
-    List.map
+    FList.map
       (fun v ->
          let t_v = Term.var v in
          let t =

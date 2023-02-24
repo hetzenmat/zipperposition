@@ -1,4 +1,5 @@
 open Logtk
+open Future
 open Libzipperposition
 
 let section = Util.Section.make ~parent:Const.section "ple"
@@ -125,7 +126,7 @@ let get_pure_symbols forbidden ids2clauses clauses =
         aux processed symbol_occurences syms
       ) else (
         let clauses_to_remove =
-          CCList.filter_map (fun idx -> 
+          FList.filter_map(fun idx -> 
             if not (CCBV.get cl_status idx) then (
               CCBV.set cl_status idx;
               Some (clauses.(idx))
@@ -212,7 +213,7 @@ let remove_pure_clauses (seq : (TST.t SLiteral.t list, TST.t, TST.t) Statement.t
     | Statement.NegatedGoal (skolems,list_of_lits) ->
       (* clauses stemming from the negated goal *)
       let new_cls = 
-        CCList.filter_map (fun x -> filter_if_has_pure x x) list_of_lits 
+        FList.filter_map(fun x -> filter_if_has_pure x x) list_of_lits 
       in
       if CCList.is_empty new_cls then None
       else if List.length new_cls == List.length list_of_lits then Some stmt

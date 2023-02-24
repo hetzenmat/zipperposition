@@ -4,6 +4,7 @@
 (** {1 Bridge to [MSat] prover} *)
 
 open Logtk
+open Future
 
 module SI = Msat.Solver_intf
 
@@ -154,7 +155,7 @@ module Make()
   type sat_clause = Lit.t list
 
   let bool_clause_of_sat (c:Solver.Clause.t) : sat_clause =
-    Solver.Clause.atoms_l c |> List.map Solver.Atom.formula
+    Solver.Clause.atoms_l c |> FList.map Solver.Atom.formula
 
   (* (clause * proof * proof) -> 'a *)
   module ResTbl = CCHashtbl.Make(struct
@@ -186,11 +187,11 @@ module Make()
         let c = bool_clause_of_sat c in
         (* atomic resolution step *)
         let q1 = aux hr_init in
-        let q2 = List.map (fun (_,p) -> aux p) hr_steps in
+        let q2 = FList.map (fun (_,p) -> aux p) hr_steps in
         begin match ResTbl.get tbl_res (c, q1::q2) with
           | Some s -> s
           | None ->
-            let parents = Proof.Parent.from q1 :: List.map Proof.Parent.from q2 in
+            let parents = Proof.Parent.from q1 :: FList.map Proof.Parent.from q2 in
             let step =
               Proof.Step.inference parents
                 ~rule:(Proof.Rule.mk "sat_resolution") in

@@ -56,9 +56,9 @@ let project ~scope ~counter u v (_ : (T.var * int) list) = OSeq.append (project_
 let project_hs_one ~counter pref_types i type_ui =
   let pref_types_ui, _ = Type.open_fun type_ui in
   let n_args_free = List.length pref_types in
-  let pref_args = pref_types |> List.mapi (fun i ty -> T.bvar ~ty (n_args_free-i-1)) in
-  let new_vars = pref_types_ui |> List.map (fun ty -> T.var (H.fresh_cnt ~counter ~ty:(Type.arrow pref_types ty) () )) in
-  let new_vars_applied = new_vars |> List.map (fun nv -> T.app nv pref_args) in
+  let pref_args = pref_types |> FList.mapi (fun i ty -> T.bvar ~ty (n_args_free-i-1)) in
+  let new_vars = pref_types_ui |> FList.map (fun ty -> T.var (H.fresh_cnt ~counter ~ty:(Type.arrow pref_types ty) () )) in
+  let new_vars_applied = new_vars |> FList.map (fun nv -> T.app nv pref_args) in
   let matrix_hd = T.bvar ~ty:type_ui (n_args_free-i-1) in
   let matrix = T.app matrix_hd new_vars_applied in
   Lambda.eta_expand @@ T.fun_l pref_types matrix
@@ -76,10 +76,10 @@ let imitate_onesided ~scope ~counter u v =
   && not (T.is_bvar head_v) && not (T.is_fun head_v)      (* the head of v is not a bound variable or a lambda-expression *)
   then
     (* create substitution: head_u |-> λ u1 ... um. head_v (x1 u1 ... um) ... (xn u1 ... um)) *)
-    let bvars = prefix_types_u |> List.rev |> List.mapi (fun i ty -> T.bvar ~ty i) |> List.rev in
+    let bvars = prefix_types_u |> List.rev |> FList.mapi (fun i ty -> T.bvar ~ty i) |> List.rev in
     let matrix_args = 
       prefix_types_v 
-      |> List.map (fun prefix_type_v ->
+      |> FList.map (fun prefix_type_v ->
           let ty = Type.arrow prefix_types_u prefix_type_v in
           let var = T.var (H.fresh_cnt ~counter ~ty ()) in
           T.app var bvars) 
@@ -108,18 +108,18 @@ let identify ~scope ~counter u v (_ : (T.var * int) list) =
   then
     (* create substitution: head_u |-> λ u1 ... um. x u1 ... um (y1 u1 ... um) ... (yn u1 ... um) 
                             head_v |-> λ v1 ... vn. x (z1 v1 ... vn) ... (zm v1 ... vn) v1 ... vn *)
-    let bvars_u = prefix_types_u |> List.rev |> List.mapi (fun i ty -> T.bvar ~ty i) |> List.rev in
-    let bvars_v = prefix_types_v |> List.rev |> List.mapi (fun i ty -> T.bvar ~ty i) |> List.rev in
+    let bvars_u = prefix_types_u |> List.rev |> FList.mapi (fun i ty -> T.bvar ~ty i) |> List.rev in
+    let bvars_v = prefix_types_v |> List.rev |> FList.mapi (fun i ty -> T.bvar ~ty i) |> List.rev in
     let matrix_args_u = 
       prefix_types_v 
-      |> List.map (fun prefix_type_v ->
+      |> FList.map (fun prefix_type_v ->
           let ty = Type.arrow prefix_types_u prefix_type_v in
           let var = T.var (H.fresh_cnt ~counter ~ty ()) in
           T.app var bvars_u) 
     in
     let matrix_args_v = 
       prefix_types_u
-      |> List.map (fun prefix_type_u ->
+      |> FList.map (fun prefix_type_u ->
           let ty = Type.arrow prefix_types_v prefix_type_u in
           let var = T.var (H.fresh_cnt ~counter ~ty ()) in
           T.app var bvars_v) 
@@ -138,10 +138,10 @@ let identify ~scope ~counter u v (_ : (T.var * int) list) =
 (** {4 Elimination rule} *)
 
 let eliminate ~scope ~counter _ _ l =
-  l |> List.map (fun (v, k) -> 
+  l |> FList.map (fun (v, k) -> 
       (* create substitution: v |-> λ u1 ... um. x u1 ... u{k-1} u{k+1} ... um *)
       let prefix_types, return_type = Type.open_fun (HVar.ty v) in
-      let bvars = prefix_types |> List.rev |> List.mapi (fun i ty -> T.bvar ~ty i) |> List.rev in
+      let bvars = prefix_types |> List.rev |> FList.mapi (fun i ty -> T.bvar ~ty i) |> List.rev in
       let prefix_types' = CCList.remove_at_idx k prefix_types in
       let bvars' = CCList.remove_at_idx k bvars in
       let matrix_head = T.var (H.fresh_cnt ~counter ~ty:(Type.arrow prefix_types' return_type) ()) in
@@ -161,14 +161,14 @@ let iterate_one ~counter types_w prefix_types return_type i type_ul =
   (* create substitution: v |-> λ u1 ... um. x u1 ... um (λ w. ui (y1 (u1...um w)) ... (yn (u1...um w))) *)
   let inner_lambda_expr = 
     (* create term: (λ w. ui (y1 (u1...um w)) ... (yn (u1...um w)) *)
-    let bvars_u_under_w = prefix_types |> List.rev |> List.mapi (fun i ty -> T.bvar ~ty (i + List.length types_w)) |> List.rev in
-    let bvars_w = types_w |> List.rev |> List.mapi (fun i ty -> T.bvar ~ty i) |> List.rev in
+    let bvars_u_under_w = prefix_types |> List.rev |> FList.mapi (fun i ty -> T.bvar ~ty (i + List.length types_w)) |> List.rev in
+    let bvars_w = types_w |> List.rev |> FList.mapi (fun i ty -> T.bvar ~ty i) |> List.rev in
     let bvar_ul_under_w = T.bvar ~ty:type_ul (List.length prefix_types - 1 - i + List.length types_w) in
-    let vars_y = prefix_types_ul |> List.map (fun ty -> T.var (H.fresh_cnt ~counter ~ty:(Type.arrow (prefix_types @ types_w) ty) ())) in
-    let matrix = T.app bvar_ul_under_w (vars_y |> List.map (fun y -> T.app y (bvars_u_under_w @ bvars_w))) in
+    let vars_y = prefix_types_ul |> FList.map (fun ty -> T.var (H.fresh_cnt ~counter ~ty:(Type.arrow (prefix_types @ types_w) ty) ())) in
+    let matrix = T.app bvar_ul_under_w (vars_y |> FList.map (fun y -> T.app y (bvars_u_under_w @ bvars_w))) in
     T.fun_l types_w matrix
   in
-  let bvars_u = prefix_types |> List.rev |> List.mapi (fun i ty -> T.bvar ~ty i) |> List.rev in
+  let bvars_u = prefix_types |> List.rev |> FList.mapi (fun i ty -> T.bvar ~ty i) |> List.rev in
   let var_x = T.var (H.fresh_cnt ~counter ~ty:(Type.arrow (prefix_types @ [Type.arrow types_w return_type_ul]) return_type) ()) in
   let matrix = T.app var_x (bvars_u @ [inner_lambda_expr]) in
   let subst_value = T.fun_l prefix_types matrix in
@@ -180,7 +180,7 @@ let iterate ?(flex_same=false) ~scope ~counter u v l =
      or it can be the head of either member of the disagreement pair *)
   let positions =
     l 
-    |> CCList.map fst
+    |> FList.map fst
     |> CCList.cons_maybe (T.as_var (T.head_term u))
     |> CCList.cons_maybe (if flex_same then None else T.as_var (T.head_term v))
     |> OSeq.of_list
@@ -188,13 +188,13 @@ let iterate ?(flex_same=false) ~scope ~counter u v l =
       (fun v ->
          let prefix_types, return_type = Type.open_fun (HVar.ty v) in
          prefix_types 
-         |> List.mapi
+         |> FList.mapi
            (fun i type_ul -> (v, prefix_types, return_type, i, type_ul))
          |> List.fast_sort (fun (_,_,_,_,x) (_,_,_,_,y) -> 
              List.length (Type.expected_args y) - List.length (Type.expected_args x))
          |> (fun l -> 
              if not flex_same then l
-             else List.filter (fun (_,_,_,_,ty) -> Type.is_fun ty) l)
+             else FList.filter (fun (_,_,_,_,ty) -> Type.is_fun ty) l)
          |> OSeq.of_list
       )
   in
@@ -226,7 +226,7 @@ let iterate ?(flex_same=false) ~scope ~counter u v l =
                      let alpha' = (Type.arrow [Type.var beta] (Type.var gamma)) in
                      let ty_subst = US.FO.singleton (alpha, scope) (Term.of_ty alpha', scope) in
                      let v' = HVar.cast ~ty:(S.apply_ty ty_subst (HVar.ty v, scope)) v in
-                     let prefix_types' = prefix_types |> CCList.map (fun ty -> S.apply_ty ty_subst (ty, scope)) in
+                     let prefix_types' = prefix_types |> FList.map (fun ty -> S.apply_ty ty_subst (ty, scope)) in
                      let return_type' = S.apply_ty ty_subst (return_type, scope) in
                      OSeq.return @@
                      Some (US.FO.bind ty_subst (v', scope) (iterate_one ~counter types_w prefix_types' return_type' i alpha', scope))

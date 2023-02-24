@@ -262,7 +262,7 @@ let head_term_mono t = match view t with
     app f l1 (* re-apply to type parameters *)
   | AppBuiltin(b, l) ->
     let ty_args, args = CCList.partition is_type l in
-    let ty = Type.arrow (List.map ty args) (ty t) in 
+    let ty = Type.arrow (FList.map ty args) (ty t) in 
     app_builtin ~ty b ty_args
   | _ -> t
 
@@ -273,7 +273,7 @@ let as_app_mono t = match view t with
     app f l1, l2 (* re-apply to type parameters *)
   | AppBuiltin(b, l) ->
     let ty_args, args = CCList.partition is_type l in
-    let ty = Type.arrow (List.map ty args) (ty t) in 
+    let ty = Type.arrow (FList.map ty args) (ty t) in 
     app_builtin ~ty b ty_args, args
   | _ -> t, []
 
@@ -299,17 +299,17 @@ let rec all_combs = function
   | [] -> []
   | x::xs ->
     let rest_combs = all_combs xs in
-    if CCList.is_empty rest_combs then CCList.map (fun t->[t]) x 
-    else CCList.flat_map 
-        (fun i -> CCList.map (fun comb -> i::comb) rest_combs) 
+    if CCList.is_empty rest_combs then FList.map (fun t->[t]) x 
+    else FList.concat_map 
+        (fun i -> FList.map (fun comb -> i::comb) rest_combs) 
         x
 
 let rec cover_with_terms ?(depth=0) ?(recurse=true) t ts =
   let n = List.length ts in
-  let db = CCList.mapi (fun i x -> 
+  let db = FList.mapi (fun i x -> 
       if CCOpt.is_some x then (i, CCOpt.get_exn x) else (-1, false_)) 
       ts
-           |> CCList.filter_map (fun (i,x) ->
+           |> FList.filter_map (fun (i,x) ->
                if i!=(-1) && equal x t then 
                  (assert (Type.equal (ty x) (ty t));
                   Some (bvar ~ty:(ty t) (n-1-i+depth))) 
@@ -320,21 +320,21 @@ let rec cover_with_terms ?(depth=0) ?(recurse=true) t ts =
         | AppBuiltin (hd,args) ->
           if CCList.is_empty args then [app_builtin ~ty:(ty t) hd []]
           else (
-            let args' = List.map (fun a -> cover_with_terms ~depth a ts) args in
+            let args' = FList.map (fun a -> cover_with_terms ~depth a ts) args in
             let args_combined = all_combs args' in
-            List.map (fun args -> app_builtin ~ty:(ty t) hd args) args_combined
+            FList.map (fun args -> app_builtin ~ty:(ty t) hd args) args_combined
           )
         | App (_,args) ->
           assert(not (CCList.is_empty args));
           let hd, args = head_term_mono t, CCList.drop_while is_type args in
           let hd' = cover_with_terms ~recurse:false hd ts in
-          let args' = List.map (fun a -> cover_with_terms ~depth a ts) args in
+          let args' = FList.map (fun a -> cover_with_terms ~depth a ts) args in
           let args_combined = all_combs (hd'::args') in
-          List.map (fun l ->  app (List.hd l) (List.tl l)) args_combined
+          FList.map (fun l ->  app (List.hd l) (List.tl l)) args_combined
         | Fun (ty_var, body) -> 
           let bodies = cover_with_terms ~depth:(depth+1) body ts in
           assert(not (CCList.is_empty bodies));
-          List.map (fun b -> fun_ ty_var b) bodies
+          FList.map (fun b -> fun_ ty_var b) bodies
         | _ -> [t]
       end
     else [t] in
@@ -351,10 +351,10 @@ let max_cover t ts =
     | None -> 
       begin match view t with
         | AppBuiltin (hd,args) -> 
-          let args' = List.map (fun arg -> aux depth arg) args in
+          let args' = FList.map (fun arg -> aux depth arg) args in
           app_builtin ~ty:(ty t) hd args'
         | App (hd,args) -> 
-          let args' = List.map (fun arg -> aux depth arg) args in
+          let args' = FList.map (fun arg -> aux depth arg) args in
           app (aux depth hd) args'
         | Fun (ty_var, body) -> 
           let body' = aux (depth+1) body in
@@ -561,7 +561,7 @@ let rec in_pfho_fragment t =
   | AppBuiltin( _, l)
   | App (_, l) -> 
     if((top_level_exception t || type_ok (ty t)) && 
-       List.map ty l |> List.for_all type_ok
+       FList.map ty l |> List.for_all type_ok
        && List.for_all in_pfho_fragment l) then true
     else (raise (Failure (CCFormat.sprintf "Argument of a term has out-of-fragment type [%a:%a]" T.pp t Type.pp (ty t))))
   | Fun (var_t, body) -> if(type_ok (var_t) &&
@@ -656,8 +656,8 @@ let max_d_l =
 let lambda_depth t =
   let rec aux acc t =
     match view t with
-    | AppBuiltin(_,l) -> max_d_l (List.map (aux acc) l)
-    | App (hd, l) -> max_d_l (List.map (aux acc) (hd::l))
+    | AppBuiltin(_,l) -> max_d_l (FList.map (aux acc) l)
+    | App (hd, l) -> max_d_l (FList.map (aux acc) (hd::l))
     | Fun (_,u) -> aux (inc_depth acc) u 
     | Var _ | DB _ | Const _ -> acc in
   let res = aux None t in
@@ -680,9 +680,9 @@ let comb_depth t =
           inc_depth acc, true
         ) in
       
-      max_d_l (List.map (aux ~comb_streak acc) l)
-    | AppBuiltin(_,l) -> max_d_l (List.map (aux ~comb_streak:false acc) l)
-    | App (hd, l) -> max_d_l (List.map (aux ~comb_streak:false acc) (hd::l))
+      max_d_l (FList.map (aux ~comb_streak acc) l)
+    | AppBuiltin(_,l) -> max_d_l (FList.map (aux ~comb_streak:false acc) l)
+    | App (hd, l) -> max_d_l (FList.map (aux ~comb_streak:false acc) (hd::l))
     | Fun (_, _u) -> invalid_arg "lambdas should have been removed."
     | Var _ | DB _ | Const _ -> acc in
 
@@ -721,11 +721,11 @@ let mk_fresh_skolem ?(prefix="_fresh_sk") =
     in
     let ty =
       Type.forall_fvars ty_vars
-        (Type.arrow (List.map HVar.ty vars) ty_ret)
+        (Type.arrow (FList.map HVar.ty vars) ty_ret)
     in
     ((id,ty), app_full (const id ~ty)
-       (List.map Type.var ty_vars)
-       (List.map var vars) )
+       (FList.map Type.var ty_vars)
+       (FList.map var vars) )
 
 let mk_tmp_cst ~counter ~ty =
   let idx = CCRef.get_then_incr counter in
@@ -839,7 +839,7 @@ module AC(A : AC_SPEC) = struct
                           && (not (Type.is_fun @@ Type.of_term_unsafe @@ T.ty_exn t)) ->
         let l = flatten (head_exn f) l in
         let tyargs, l = split_args_ ~ty:(ty f) l in
-        let l = List.map normalize l in
+        let l = FList.map normalize l in
         let l = List.sort compare l in
         begin match l with
           | x::l' ->
@@ -864,10 +864,10 @@ module AC(A : AC_SPEC) = struct
           | _ -> t  (* partially applied *)
         end
       | T.App (f, l) ->
-        let l = List.map normalize l in
+        let l = FList.map normalize l in
         T.app ~ty:(T.ty_exn t) f l
       | T.AppBuiltin (b,l) ->
-        let l = List.map normalize l in
+        let l = FList.map normalize l in
         T.app_builtin ~ty:(T.ty_exn t) b l
       | T.Bind (b, varty, body) ->
         T.bind ~ty:(T.ty_exn t) ~varty b (normalize body)
@@ -1108,8 +1108,8 @@ module DB = struct
          | Const _  | Var _  | DB _ -> subt
          | Fun (v_ty,body) -> fun_ v_ty (aux (depth+1) body)
          | App (f, l) -> let f' = aux depth f in
-           app f' (List.map (aux depth) l)
-         | AppBuiltin (hd,l) -> app_builtin ~ty:(ty subt) hd (List.map (aux depth) l))
+           app f' (FList.map (aux depth) l)
+         | AppBuiltin (hd,l) -> app_builtin ~ty:(ty subt) hd (FList.map (aux depth) l))
     in aux 0 t
 
   let rec map_vars_shift ?(depth=0) var_map t =
@@ -1121,9 +1121,9 @@ module DB = struct
     | Fun (v_ty,body) -> let depth = depth+1 in
       fun_ v_ty (map_vars_shift ~depth var_map body)
     | App (f, l) -> let f' = map_vars_shift ~depth var_map f in
-      app f' (List.map (map_vars_shift ~depth var_map) l)
+      app f' (FList.map (map_vars_shift ~depth var_map) l)
     | AppBuiltin (hd,l) -> app_builtin ~ty:(ty t) hd
-                             (List.map (map_vars_shift ~depth var_map) l)
+                             (FList.map (map_vars_shift ~depth var_map) l)
 end
 
 let debugf = pp
@@ -1149,7 +1149,7 @@ module TPTP = struct
         Format.fprintf out "(@[%a@])" (Util.pp_list ~sep pp_enclosed) l
       | AppBuiltin (b,l) ->
         (* erasing types for TH0 *)
-        let l = CCList.filter (fun t -> not (Type.is_tType (ty t))) l in
+        let l = FList.filter (fun t -> not (Type.is_tType (ty t))) l in
         if CCList.is_empty l then Format.fprintf out "@[%a@]" Builtin.TPTP.pp b 
         else (
           Format.fprintf out "(@[(%a) @@ %a@])" Builtin.TPTP.pp b (Util.pp_list ~sep:" @ " pp_enclosed) l
@@ -1158,7 +1158,7 @@ module TPTP = struct
       | App (f, l) -> Format.fprintf out "%a" (Util.pp_list ~sep:" @ " pp_enclosed) (f::l)
       | Fun _ ->
         let ty_args, bod = as_fun t in
-        let vars = List.mapi (fun i ty -> i+ !depth, ty) ty_args in
+        let vars = FList.mapi (fun i ty -> i+ !depth, ty) ty_args in
         let pp_db out (i,ty) =
           Format.fprintf out "Y%d : %a" i (Type.TPTP.pp_ho ~depth:!depth) ty
         in
@@ -1249,11 +1249,11 @@ module Conv = struct
         of_ty t
       | PT.App (f, l) ->
         let f = aux f in
-        let l = List.map aux l in
+        let l = FList.map aux l in
         app f l
       | PT.AppBuiltin (b, l) ->
         let ty = Type.Conv.of_simple_term_exn ctx (PT.ty_exn t) in
-        let l = List.map aux l in
+        let l = FList.map aux l in
         app_builtin ~ty b l
       | PT.Bind (Binder.Lambda, v, body) ->
         let ty_arg = Type.Conv.of_simple_term_exn ctx (Var.ty v) in
@@ -1319,7 +1319,7 @@ module Conv = struct
       | Const id -> ST.const ~ty:(aux_ty (ty t)) id
       | App (f,l) ->
         ST.app ~ty:(aux_ty (ty t))
-          (aux_t env f) (List.map (aux_t env) l)
+          (aux_t env f) (FList.map (aux_t env) l)
       | AppBuiltin (b,[_;body]) when Builtin.equal b Builtin.ForallConst ||
                                      Builtin.equal b Builtin.ExistsConst ->
         let b = if Builtin.equal b Builtin.ForallConst then Binder.Forall else Binder.Exists in
@@ -1332,23 +1332,23 @@ module Conv = struct
           let err_msg = CCFormat.sprintf "quantifier wrongly encoded: %a(%a)" T.pp t T.pp orig_term in
           Util.error ~where:"Term" err_msg;
         ) else (
-          let fresh_vars = List.map (fun ty -> 
+          let fresh_vars = FList.map (fun ty -> 
               Type.Conv.incr_maxvar ctx;
               var_of_int ~ty (Type.Conv.get_maxvar ctx)) ty_args in
           let replacement = DBEnv.push_l_rev DBEnv.empty fresh_vars in
           let body  = DB.eval replacement fun_body in
-          let remaining_vars = List.map (fun ty ->
+          let remaining_vars = FList.map (fun ty ->
               Type.Conv.incr_maxvar ctx;
               var_of_int ~ty (Type.Conv.get_maxvar ctx)) (Type.expected_args (ty fun_body)) in
           let body = app body remaining_vars in
-          let vars_converted = List.map convert_var (fresh_vars @ remaining_vars) in
+          let vars_converted = FList.map convert_var (fresh_vars @ remaining_vars) in
           List.fold_right (fun v acc ->
               ST.bind ~ty:(aux_ty Type.prop) b v acc) (vars_converted) (aux_t env body) 
         )
       | AppBuiltin (b,l) ->
         let res = 
           ST.app_builtin ~ty:(aux_ty (ty t))
-            b (List.map (aux_t env) l) in
+            b (FList.map (aux_t env) l) in
         res
       | Fun (ty_arg, body) ->
         let v = Var.makef ~ty:(aux_ty ty_arg) "v_%d" (CCRef.incr_then_get n) in
@@ -1381,8 +1381,8 @@ let rebuild_rec t =
                         pp t Type.pp ty Type.pp (List.nth env i); false));
         bvar ~ty i
       | Const id -> const ~ty id
-      | App (f, l) -> app (aux env f) (List.map (aux env) l)
-      | AppBuiltin (b,l) -> app_builtin ~ty b (List.map (aux env) l)
+      | App (f, l) -> app (aux env f) (FList.map (aux env) l)
+      | AppBuiltin (b,l) -> app_builtin ~ty b (FList.map (aux env) l)
       | Fun (ty_arg,bod) ->
         let ty_arg =
           Type.rebuild_rec ~env ty_arg
@@ -1406,11 +1406,11 @@ let rec normalize_bools t =
     if equal body body' then t
     else fun_ ty body'
   | App(hd, args) ->
-    let hd' = normalize_bools hd and  args' = List.map normalize_bools args in
+    let hd' = normalize_bools hd and  args' = FList.map normalize_bools args in
     if equal hd hd' && same_l args args' then t
     else app hd' args'
   | AppBuiltin((Builtin.And|Builtin.Or) as b, l) ->
-    let l' = List.map normalize_bools l in
+    let l' = FList.map normalize_bools l in
     let sorted = CCList.sort_uniq ~cmp:weight_cmp l' in
     if List.length l = List.length sorted && same_l l sorted then t
     else (
@@ -1431,7 +1431,7 @@ let rec normalize_bools t =
     ) else if T.equal x x' && T.equal y y' then t 
     else app_builtin ~ty:Type.prop b l
   | AppBuiltin(hd, l) -> 
-    let l' = List.map normalize_bools l in
+    let l' = FList.map normalize_bools l in
     if same_l l' l then t
     else app_builtin ~ty:(ty t) hd l'
 

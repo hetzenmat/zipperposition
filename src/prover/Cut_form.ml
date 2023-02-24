@@ -4,6 +4,7 @@
 (** {1 Universally Quantified Conjunction of Clauses} *)
 
 open Logtk
+open Future
 
 module Fmt = CCFormat
 module T = Term
@@ -83,7 +84,7 @@ let pp_zf out (f:t): unit =
 let ind_vars t =
   vars t
   |> T.VarSet.to_list
-  |> List.filter
+  |> FList.filter
     (fun v ->
        let ty = HVar.ty v in
        (* only do induction on variables of infinite types *)
@@ -94,7 +95,7 @@ let ind_vars t =
 
 let apply_subst renaming subst (f,sc): t =
   let cs =
-    List.map (fun lits -> Literals.apply_subst renaming subst (lits,sc)) f.cs
+    FList.map (fun lits -> Literals.apply_subst renaming subst (lits,sc)) f.cs
   in
   make cs
 
@@ -146,7 +147,7 @@ let normalize_form (f:form): form =
         progress := true;
         cs
     and rm_trivial =
-      List.filter (fun c -> not (Literals.is_trivial c))
+      FList.filter (fun c -> not (Literals.is_trivial c))
     in
     let cs = c |> rw_terms |> rw_clause |> rm_trivial in
     if !progress
@@ -166,7 +167,7 @@ let to_s_form (f:t) =
   let module F = TypedSTerm.Form in
   (* convert all clauses with the same variable bindings *)
   let ctx = Term.Conv.create() in
-  let l = List.map (Literals.Conv.to_s_form ~ctx) (cs f) in
+  let l = FList.map (Literals.Conv.to_s_form ~ctx) (cs f) in
   F.and_ l |> F.close_forall
 
 module Pos = struct

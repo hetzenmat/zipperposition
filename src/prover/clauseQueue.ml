@@ -3,6 +3,7 @@
 (** {1 Priority Queue of clauses} *)
 
 open Logtk
+open Future
 
 module O = Ordering
 module Lit = Literal
@@ -41,7 +42,7 @@ let profile_of_string s =
     match CCString.chop_prefix ~pre:"conjecture-relative-var" s with
     | Some suffix ->
       let err_msg = "conjecture-relative-var(ratio:int,var_mul:float,par:[L,S],goal_penalty:[true,false])" in
-      let args = List.map (fun s ->
+      let args = FList.map (fun s ->
           String.trim (CCString.replace ~sub:")" ~by:""
                          (CCString.replace ~sub:"(" ~by:"" s)))
           (CCString.split ~by:"," suffix) in
@@ -340,7 +341,7 @@ module Make(C : Clause_intf.S) = struct
           else
             let dist_vars =
               Literals.vars (C.lits c)
-              |> List.filter (fun v -> not (Type.is_tType (HVar.ty v)))  in
+              |> FList.filter (fun v -> not (Type.is_tType (HVar.ty v)))  in
             let n_vars = List.length dist_vars + 1  in
             let dist_var_penalty = distinct_vars_mul ** (float_of_int n_vars) in
             let goal_dist_penalty =
@@ -608,7 +609,7 @@ module Make(C : Clause_intf.S) = struct
       (* number of distinct term variables *)
       let n_vars =
         Literals.vars (C.lits c)
-        |> List.filter (fun v -> not (Type.is_tType (HVar.ty v)))
+        |> FList.filter (fun v -> not (Type.is_tType (HVar.ty v)))
         |> List.length
       in
       let n =
@@ -1134,7 +1135,7 @@ module Make(C : Clause_intf.S) = struct
       |> Iter.map (fun lit -> match lit with
         | Lit.Equation(lhs,rhs,false) -> 
           if Type.is_prop (Term.ty lhs) && not (Term.is_true_or_false rhs) then (
-            2 - (List.length (List.filter Term.is_appbuiltin [lhs;rhs]))
+            2 - (List.length (FList.filter Term.is_appbuiltin [lhs;rhs]))
           ) else max_int
         | _ -> max_int)
       |> Iter.min
@@ -1144,7 +1145,7 @@ module Make(C : Clause_intf.S) = struct
       let is_arg_cong_child c =
         let rec aux proof =
           let _p_res, step = Proof.S.result proof, Proof.S.step proof in
-          let parents = List.map Proof.Parent.proof (Proof.Step.parents step) in
+          let parents = FList.map Proof.Parent.proof (Proof.Step.parents step) in
           (* clause is not obtained by normalization *)
 
           if Proof.Step.is_simpl step then (
@@ -1344,7 +1345,7 @@ module Make(C : Clause_intf.S) = struct
           if not (List.mem Proof.Tag.T_ho_norm (Proof.Step.tags step)) then default
           else (
             assert(Proof.Step.is_simpl step);
-            let parents = List.map Proof.Parent.proof (Proof.Step.parents step) in
+            let parents = FList.map Proof.Parent.proof (Proof.Step.parents step) in
             assert(List.length parents == 1);
             let calc_w pr =
               TypedSTerm.Seq.subterms (Proof.Result.to_form @@ Proof.S.result pr)
@@ -1410,7 +1411,7 @@ module Make(C : Clause_intf.S) = struct
       with Not_found ->
         let err_msg =
           CCFormat.sprintf "unknown priortity: %s.\noptions:@ {@[%a@]}"
-            s (CCList.pp CCString.pp) (List.map fst parsers) in
+            s (CCList.pp CCString.pp) (FList.map fst parsers) in
         invalid_arg err_msg
   end
 
@@ -1722,7 +1723,7 @@ let parse_wf_with_priority s =
       "weight function is of the form \"ratio:int|priority:name|weight:name(options..)\""
 
 let () =
-  let o = Arg.Symbol ("<custom>" :: List.map fst profiles_, parse_profile) in
+  let o = Arg.Symbol ("<custom>" :: FList.map fst profiles_, parse_profile) in
   let add_queue = Arg.String parse_wf_with_priority in
   Params.add_opts
     [ "--clause-queue", o,

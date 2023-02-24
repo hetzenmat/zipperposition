@@ -60,7 +60,7 @@ let _add_custom_weights weights arg_coeff=
         let values =
           String.sub input (i+1) (String.length input - i - 1)
           |> CCString.split_on_char ':'
-          |> List.map int_of_string
+          |> FList.map int_of_string
         in
         (fun constant ->
            if ID.name constant = name then Precedence.Weight.int (List.hd values)
@@ -115,7 +115,7 @@ let mk_precedence ~db_w ~lmb_w ~signature t seq =
   (* constraints *)
   let constrs =
     t.constrs @
-    List.map (fun (p,rule) -> p, rule seq) t.constr_rules
+    FList.map (fun (p,rule) -> p, rule seq) t.constr_rules
   in
   Util.debugf ~section 2 "@[<2>%d precedence constraint(s)@]"
     (fun k->k(List.length constrs));

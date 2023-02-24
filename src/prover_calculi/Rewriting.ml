@@ -114,7 +114,7 @@ module Make(E : Env_intf.S) = struct
            RW.Rule.lit_as_proof_parent_subst renaming subst (r,sc_r)]
       in
       let clauses =
-        List.map
+        FList.map
           (fun c' -> C.create_a ~trail:(C.trail c) ~penalty:(C.penalty c) c' proof)
           clauses
       in
@@ -146,7 +146,7 @@ module Make(E : Env_intf.S) = struct
               (* create new clauses that correspond to replacing [lit]
                  by [rule.rhs] *)
               let clauses =
-                List.map
+                FList.map
                   (fun c' ->
                      let new_lits =
                        c_guard
@@ -224,7 +224,7 @@ module Make(E : Env_intf.S) = struct
       | _ ->
         Util.incr_stat stat_ctx_narrowing;
         rule_clauses
-        |> List.map
+        |> FList.map
           (fun rule_clause ->
              (* instantiate rule and replace [s'] by [t'] now *)
              let new_lits =
@@ -335,13 +335,13 @@ let rewrite_tst_stmt stmt =
     CCOpt.map (fun (t',p) ->  (Term.Conv.to_simple_term ctx (snf t'), p)) (simpl_term t) in
 
   let aux_l fs =
-    let ts = List.map aux fs in
+    let ts = FList.map aux fs in
     if List.for_all CCOpt.is_none ts then None
     else (
       let proof = ref [] in
       let combined = CCList.combine fs ts in
       let res = 
-        List.map (fun (f,res) -> 
+        FList.map (fun (f,res) -> 
             let f', p_list = CCOpt.get_or ~default:(f,[]) res in
             proof := p_list @ !proof;
             f') combined in
@@ -362,7 +362,7 @@ let rewrite_tst_stmt stmt =
     begin match aux_l fs with 
       | Some (fs', parents) ->
         let rule = Proof.Rule.mk "definition expansion" in
-        let fs_parents = (List.map (fun f -> Proof.Parent.from (Proof.S.mk_f_esa ~rule f stmt_parents)) fs)
+        let fs_parents = (FList.map (fun f -> Proof.Parent.from (Proof.S.mk_f_esa ~rule f stmt_parents)) fs)
                          @ parents in
         let proof = Proof.Step.simp ~rule fs_parents in
         Statement.lemma ~proof fs'
@@ -375,7 +375,7 @@ let rewrite_tst_stmt stmt =
     begin match aux_l ngs with 
       | Some (ng', parents) ->
         let rule = Proof.Rule.mk "definition expansion" in
-        let ng_parents = (List.map (fun f -> Proof.Parent.from (Proof.S.mk_f_esa ~rule f stmt_parents)) ngs)
+        let ng_parents = (FList.map (fun f -> Proof.Parent.from (Proof.S.mk_f_esa ~rule f stmt_parents)) ngs)
                          @ parents in
         let proof = Proof.Step.simp ~rule ng_parents in
         Statement.neg_goal ~skolems ~proof ng'

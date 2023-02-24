@@ -4,6 +4,7 @@
 (** {1 boolean subterms} *)
 
 open Logtk
+open Future
 open Libzipperposition
 
 module T = Term
@@ -172,12 +173,12 @@ module Make(E : Env.S) : S with module Env = E = struct
              | T.AppBuiltin (Builtin.Or, l), false ->
                let lits = CCArray.except_idx (C.lits c) i in
                l
-               |> List.map (fun t -> Literal.mk_prop t sign :: lits |> mk_c)
+               |> FList.map (fun t -> Literal.mk_prop t sign :: lits |> mk_c)
                |> CCOpt.return
              | T.AppBuiltin (Builtin.Or, l), true
              | T.AppBuiltin (Builtin.And, l), false ->
                let lits = CCArray.except_idx (C.lits c) i in
-               (List.map (fun t -> Literal.mk_prop t sign) l @ lits)
+               (FList.map (fun t -> Literal.mk_prop t sign) l @ lits)
                |> mk_c |> CCList.return |> CCOpt.return
              | T.AppBuiltin (Builtin.Eq, [_;t;u]), _ ->
                let lits = CCArray.except_idx (C.lits c) i in

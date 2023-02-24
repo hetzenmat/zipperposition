@@ -85,7 +85,7 @@ let parents (p:t): parent list = match p.step with
   | Goal | Assert | Trivial | By_def _ | Define _ -> []
   | Negated_goal p2 -> [p_of p2]
   | Instantiate {form=p2;_} -> [p_of p2]
-  | Esa (_,l) -> List.map p_of l
+  | Esa (_,l) -> FList.map p_of l
   | Inference {parents=l;_} -> l
 
 let premises (p:t): t list =

@@ -1,3 +1,5 @@
+open Future
+
 module TS = Term.Set
 module T  = Term
 module VT = T.VarTbl
@@ -86,9 +88,9 @@ module Make (S : sig val st : Flex_state.t end) = struct
   let rec of_term term =
     match T.view term with
     | AppBuiltin(b, args) ->
-      app_builtin b (List.map of_term args) TS.empty
+      app_builtin b (FList.map of_term args) TS.empty
     | App(hd, args) ->
-      app (TS.singleton hd) (List.map of_term args) TS.empty
+      app (TS.singleton hd) (FList.map of_term args) TS.empty
     | Fun(ty,body) ->
       fun_ ty (of_term body)
     | _ -> repl (TS.singleton term)
@@ -111,10 +113,10 @@ module Make (S : sig val st : Flex_state.t end) = struct
 
     let rec aux ~depth s_args t : multiterm  =
       (* All the ways in which we can represent term t using solids *)
-      let sols_as_db = List.mapi (fun i t -> 
+      let sols_as_db = FList.mapi (fun i t -> 
           (t,T.bvar ~ty:(T.ty t) (n-i-1+depth))) s_args in
       let matches_of_solids target = 
-        (CCList.filter_map (fun (s, s_db) -> 
+        (FList.filter_map (fun (s, s_db) -> 
             if T.equal s target then Some s_db else None) 
           sols_as_db)
         |> TS.of_list in
@@ -122,17 +124,17 @@ module Make (S : sig val st : Flex_state.t end) = struct
 
       match T.view t with
       | AppBuiltin (hd,args) ->
-        app_builtin hd (List.map (aux ~depth s_args) args) db_hits
+        app_builtin hd (FList.map (aux ~depth s_args) args) db_hits
       | App(hd,args) ->
         assert(not (CCList.is_empty args));
         assert(bvar_or_const hd);
         let hds = TS.add hd @@ matches_of_solids hd in
-        let args = List.map (aux ~depth s_args) args in
+        let args = FList.map (aux ~depth s_args) args in
         app hds args db_hits
       | Fun _ -> 
         let ty_args, body = T.open_fun t in
         let d_inc = List.length ty_args in
-        let s_args' = List.map (T.DB.shift d_inc) s_args in
+        let s_args' = FList.map (T.DB.shift d_inc) s_args in
         let res = aux ~depth:(depth+d_inc) s_args' body in
         fun_l ty_args res
       | DB i when i >= depth ->
@@ -147,7 +149,7 @@ module Make (S : sig val st : Flex_state.t end) = struct
       | AppBuiltin(s_b,s_args,s_repls) ->
         let (t_b,t_args,t_repls) = open_builtin t in
         if s_b = t_b then (
-          let args = List.map (fun (s,t) -> aux s t) @@ 
+          let args = FList.map (fun (s,t) -> aux s t) @@ 
             List.combine s_args t_args in
           app_builtin s_b args (TS.inter s_repls t_repls)
         ) else raise SolidMatchFail
@@ -155,7 +157,7 @@ module Make (S : sig val st : Flex_state.t end) = struct
         let (t_hds,t_args,t_repls) = open_app t in
         let i_hds = TS.inter s_hds t_hds in
         if not @@ TS.is_empty i_hds then (
-          let args = List.map (fun (s,t) -> aux s t) @@ 
+          let args = FList.map (fun (s,t) -> aux s t) @@ 
             List.combine s_args t_args in
           app i_hds args (TS.inter s_repls t_repls)
         ) else raise SolidMatchFail

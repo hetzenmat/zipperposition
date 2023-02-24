@@ -4,6 +4,7 @@
 (** {1 Basic Splitting à la Avatar} *)
 
 open Logtk
+open Future
 open Libzipperposition
 
 module T = Term
@@ -105,7 +106,7 @@ module Make(E : Env.S)(Sat : Sat_solver.S)
     let bool_guard =
       C.trail c
       |> Trail.to_list
-      |> List.map Trail.Lit.neg in
+      |> FList.map Trail.Lit.neg in
 
     begin match !components with
       | [] -> assert (Array.length lits=0); None
@@ -133,7 +134,7 @@ module Make(E : Env.S)(Sat : Sat_solver.S)
           C.trail c |> Trail.filter BBox.must_be_kept
         in
         let clauses_and_names =
-          List.map
+          FList.map
             (fun lits ->
                let lits = Array.of_list lits in
                let bool_name = BBox.inject_lits lits in
@@ -201,7 +202,7 @@ module Make(E : Env.S)(Sat : Sat_solver.S)
       let b_clause =
         C.trail c
         |> Trail.to_list
-        |> List.map Trail.Lit.neg
+        |> FList.map Trail.Lit.neg
       in
       Util.debugf ~section 4 "@[negate trail of @[%a@] (id %d)@ with @[%a@]@]"
         (fun k->k C.pp c (C.id c) BBox.pp_bclause b_clause);
@@ -216,7 +217,7 @@ module Make(E : Env.S)(Sat : Sat_solver.S)
       | Some lits ->
         let skolemizer = 
           Literals.vars lits
-          |> List.map (fun v -> 
+          |> FList.map (fun v -> 
               (v, 0), (snd @@ Term.mk_fresh_skolem [] (HVar.ty v), 0))
           |> Subst.FO.of_list' in
         let lits' = 
@@ -224,7 +225,7 @@ module Make(E : Env.S)(Sat : Sat_solver.S)
           |> CCArray.to_list in
         let proof = 
           Proof.Step.inference ~rule:(Proof.Rule.mk "ground_avatar") [C.proof_parent c] in
-        List.map (fun lit ->
+        FList.map (fun lit ->
             C.create ~penalty:(C.penalty c) ~trail:Trail.empty 
               [negate lit] proof 
           ) lits'
@@ -307,7 +308,7 @@ module Make(E : Env.S)(Sat : Sat_solver.S)
            has been simplified, so that the other branches that have been
            closed can appear in the proof *)
         let proof_removed =
-          List.map (CCFun.compose Sat.get_proof_of_lit Proof.Parent.from) removed_trail
+          FList.map (CCFun.compose Sat.get_proof_of_lit Proof.Parent.from) removed_trail
         in
         let proof =
           Proof.Step.simp ~rule:(Proof.Rule.mk "simpl_trail")
@@ -406,7 +407,7 @@ module Make(E : Env.S)(Sat : Sat_solver.S)
       Proof.Step.esa ~rule:(Proof.Rule.mk "cut") [cut_proof_parent]
     in
     let c_pos =
-      List.map
+      FList.map
         (fun lits ->
            C.create_a ~trail:(Trail.singleton box) ~penalty lits proof_pos)
         (Cut_form.cs f)
@@ -451,7 +452,7 @@ module Make(E : Env.S)(Sat : Sat_solver.S)
       (* map variables to skolems *)
       let subst : Subst.t =
         vars
-        |> List.map
+        |> FList.map
           (fun v ->
              let ty_v = HVar.ty v in
              let id = Ind_cst.make_skolem ty_v in
@@ -471,7 +472,7 @@ module Make(E : Env.S)(Sat : Sat_solver.S)
             ~f:(fun lits ->
                 let lits = Array.map (fun l -> [Literal.negate l]) lits in
                 Array.to_list lits)
-          |> CCList.map
+          |> FList.map
             (fun l ->
                let lits = Array.of_list l in
                let trail = Trail.singleton (BLit.neg @@ cut_lit c) in
@@ -513,7 +514,7 @@ module Make(E : Env.S)(Sat : Sat_solver.S)
     )
 
   let add_imply (l:cut_res list) (res:cut_res) (p:Proof.Step.t): unit =
-    let c = res.cut_lit :: List.map (fun cut -> BLit.neg cut.cut_lit) l in
+    let c = res.cut_lit :: FList.map (fun cut -> BLit.neg cut.cut_lit) l in
     Util.debugf ~section 3
       "(@[<2>add_imply@ :premises (@[<hv>%a@])@ :concl %a@ :proof %a@])"
       (fun k->k (Util.pp_list pp_cut_res) l pp_cut_res res Proof.Step.pp p);
@@ -563,13 +564,13 @@ module Make(E : Env.S)(Sat : Sat_solver.S)
       let proof_st = Statement.proof_step st in
       let f =
         l
-        |> List.map (List.map Ctx.Lit.of_form)
-        |> List.map Array.of_list
+        |> FList.map (FList.map Ctx.Lit.of_form)
+        |> FList.map Array.of_list
         |> Cut_form.make
       in
       let proof =
         Cut_form.cs f
-        |> List.map
+        |> FList.map
           (fun c ->
              Proof.Parent.from @@ Proof.S.mk proof_st @@
              SClause.mk_proof_res @@ SClause.make ~trail:Trail.empty c)

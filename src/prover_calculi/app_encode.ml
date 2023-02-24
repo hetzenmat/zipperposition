@@ -4,6 +4,7 @@
 (** {1 Applicative Encoding} *)
 
 open Logtk
+open Future
 open Libzipperposition
 
 let section = Util.Section.make ~parent:Const.section "app_encode"
@@ -61,7 +62,7 @@ let rec app_encode_ty ty =
   let ty' = match T.view ty with
     | T.App (f, args) ->
       assert (not (T.equal f function_type));
-      T.app ~ty:T.tType (app_encode_ty f) (CCList.map app_encode_ty args)
+      T.app ~ty:T.tType (app_encode_ty f) (FList.map app_encode_ty args)
     | T.AppBuiltin (Builtin.Arrow, ret::args) when (not (T.Ty.is_tType ret)) ->
       let ret_ty = CCList.fold_right
           (fun arg t ->
@@ -70,7 +71,7 @@ let rec app_encode_ty ty =
           args (app_encode_ty ret)
       in ret_ty
     | T.AppBuiltin (f,args) ->
-      T.app_builtin ~ty:T.tType f (CCList.map app_encode_ty args)
+      T.app_builtin ~ty:T.tType f (FList.map app_encode_ty args)
     | T.Const _ -> ty
     | T.Var _ -> ty
     | T.Meta _ -> failwith "Not implemented: Meta"
@@ -154,7 +155,7 @@ let app_encode_lit lit =
   SLiteral.map ~f:(app_encode_term true) lit
 
 (** Encode a clause *)
-let app_encode_lits lits = List.map app_encode_lit lits
+let app_encode_lits lits = FList.map app_encode_lit lits
 
 
 exception E_i of ((T.t SLiteral.t) list, T.t, T.t) Statement.t
@@ -181,7 +182,7 @@ let res_tc =
     ~to_form:(fun ~ctx:_ st ->
         let conv_c (c:(T.t SLiteral.t) list) : _ =
           c 
-          |> List.map SLiteral.to_form
+          |> FList.map SLiteral.to_form
           |> T.Form.or_
         in
         Statement.Seq.forms st
@@ -203,7 +204,7 @@ let app_encode_stmt stmt =
         Statement.map_def ~form:app_encode_lits 
                           ~term:(app_encode_term true) 
                           ~ty:app_encode_ty in
-    Statement.def ~proof (List.map map_single defs)
+    Statement.def ~proof (FList.map map_single defs)
   | Statement.Rewrite def ->
     let new_def = 
         Statement.map_def_rule ~form:app_encode_lits 
@@ -211,8 +212,8 @@ let app_encode_stmt stmt =
                                ~ty:app_encode_ty def in
       Statement.rewrite ~proof new_def
   | Statement.NegatedGoal (skolems,clauses) -> 
-    let skolems = List.map (fun (id, ty) -> (id, app_encode_ty ty)) skolems in
-    Statement.neg_goal ~proof ~skolems (List.map app_encode_lits clauses)
+    let skolems = FList.map (fun (id, ty) -> (id, app_encode_ty ty)) skolems in
+    Statement.neg_goal ~proof ~skolems (FList.map app_encode_lits clauses)
   | Statement.Assert lits -> Statement.assert_ ~proof (app_encode_lits lits)
   | Statement.TyDecl (id, ty) ->
     Statement.ty_decl ~proof:Proof.Step.trivial id (app_encode_ty ty)
@@ -257,4 +258,4 @@ let options =
 
 let () =
   Options.add_opts
-    [ "--app-encode", Arg.Symbol (List.map fst options, fun o -> mode_ := List.assoc o options), " enable applicative encoding"]
+    [ "--app-encode", Arg.Symbol (FList.map fst options, fun o -> mode_ := List.assoc o options), " enable applicative encoding"]

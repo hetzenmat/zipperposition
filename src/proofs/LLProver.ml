@@ -2,6 +2,7 @@
 (** {1 Low Level Prover} *)
 
 open Logtk
+open Future
 
 module T = LLTerm
 module F = LLTerm.Form
@@ -189,8 +190,8 @@ end = struct
           | F.True -> add_diseq F.true_ F.false_ br
           | F.False -> br
           | F.Atom t -> add_eq t F.false_ br
-          | F.And l -> add_form_to_expand (F.or_ (List.map F.not_ l)) br
-          | F.Or l -> add_form_to_expand (F.and_ (List.map F.not_ l)) br
+          | F.And l -> add_form_to_expand (F.or_ (FList.map F.not_ l)) br
+          | F.Or l -> add_form_to_expand (F.and_ (FList.map F.not_ l)) br
           | F.Imply (a,b) -> add_form_to_expand (F.and_ [a; F.not_ b]) br
           | F.Equiv (a,b) ->
             add_form_to_expand (F.or_ [F.and_ [a; F.not_ b]; F.and_ [b; F.not_ a]]) br
@@ -266,7 +267,7 @@ end = struct
   type t = F.t -> F.t list list
 
   let or_ f = match F.view f with
-    | F.Or l -> List.map CCList.return l
+    | F.Or l -> FList.map CCList.return l
     | _ -> []
 
   let and_ f = match F.view f with
@@ -279,7 +280,7 @@ end = struct
   ]
 
   let[@inline] apply (l:t list) (f:F.t) : F.t list list =
-    CCList.flat_map (fun r -> r f) l
+  FList.concat_map (fun r -> r f) l
 end
 
 type branch = Branch.t
@@ -317,7 +318,7 @@ let solve_ (tab:t) : res =
       | Some (f, b_tail) ->
         let new_branches =
           Rule.apply Rule.all f
-          |> List.map
+          |> FList.map
             (fun forms -> Branch.add b_tail forms)
         in
         assert (not @@ CCList.is_empty new_branches);

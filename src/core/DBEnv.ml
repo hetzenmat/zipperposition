@@ -3,6 +3,8 @@
 
 (** {1 De Bruijn environments} *)
 
+open Future
+
 type 'a t = {
   size : int;
   stack : 'a option list;
@@ -14,7 +16,7 @@ let is_empty env = env.size = 0
 
 let make size = {
   size;
-  stack = CCList.range 0 size |> List.map (fun _ -> None);
+  stack = CCList.range 0 size |> FList.map (fun _ -> None);
 }
 
 let singleton x = { size=1; stack = [Some x]; }
@@ -65,7 +67,7 @@ let num_bindings db =
   in count 0 db.stack
 
 let map f db =
-  let stack = List.map
+  let stack = FList.map
       (function
         | None -> None
         | Some x -> Some (f x))
@@ -94,7 +96,7 @@ let of_list l =
 let to_list e = e.stack
 
 let to_list_i e =
-  List.mapi (fun i x -> CCOpt.map (CCPair.make i) x) e.stack
+  FList.mapi (fun i x -> CCOpt.map (CCPair.make i) x) e.stack
 
 let pp pp_x out e =
   let pp_item out = function

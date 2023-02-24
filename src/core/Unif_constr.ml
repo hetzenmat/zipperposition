@@ -3,6 +3,8 @@
 
 (** {1 Unification Constraint} *)
 
+open Future
+
 module T = InnerTerm
 
 type term = T.t
@@ -23,7 +25,7 @@ let apply_subst renaming subst (c:t): term * term =
   Subst.apply renaming subst (c.t2, c.sc2)
 
 let apply_subst_l renaming subst (l:t list): _ list =
-  List.map (apply_subst renaming subst) l
+  FList.map (apply_subst renaming subst) l
 
 let pp out (c:t) =
   CCFormat.fprintf out "(@[%a =?=@ %a@])" T.pp c.t1 T.pp c.t2

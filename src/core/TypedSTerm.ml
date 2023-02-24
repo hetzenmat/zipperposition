@@ -190,7 +190,7 @@ let rec pp out t = match view t with
   | App (f, l) ->
     let l =
       if !InnerTerm.show_type_arguments || is_tType (ty_exn t) then l
-      else List.filter (fun t -> not (ty_exn t |> is_tType)) l
+      else FList.filter (fun t -> not (ty_exn t |> is_tType)) l
     in
     let as_infix = match view f with Const id -> ID.as_infix id | _ -> None in
     let as_prefix = match view f with Const id -> ID.as_prefix id | _ -> None in
@@ -539,7 +539,7 @@ let close_all ~ty s t =
   bind_list ~ty s vars t
 
 let close_with_vars ?(binder=Binder.Forall) vars t =
-  let vars = List.map (fun v -> match view v with
+  let vars = FList.map (fun v -> match view v with
       | Var v -> v
       | _ -> invalid_arg "has to be a variable" ) 
       vars in
@@ -553,7 +553,7 @@ let map ~f ~bind:f_bind b_acc t = match view t with
   | Const id -> const ?loc:t.loc id ~ty:(f b_acc (ty_exn t))
   | App (hd, l) ->
     let hd = f b_acc hd in
-    let l = List.map (f b_acc) l in
+    let l = FList.map (f b_acc) l in
     app ?loc:t.loc ~ty:(f b_acc (ty_exn t)) hd l
   | Bind (s, v, body) ->
     let b_acc', v' = f_bind b_acc v in
@@ -561,13 +561,13 @@ let map ~f ~bind:f_bind b_acc t = match view t with
     bind ?loc:t.loc ~ty:(f b_acc (ty_exn t)) s v' body
   | AppBuiltin (Builtin.TType,_) -> t
   | AppBuiltin (b,l) ->
-    let l = List.map (f b_acc) l in
+    let l = FList.map (f b_acc) l in
     let ty = f b_acc (ty_exn t) in
     app_builtin ?loc:t.loc ~ty b l
   | Record (l, rest) ->
     let ty = f b_acc (ty_exn t) in
     record_flatten ?loc:t.loc ~ty
-      (List.map (CCPair.map_snd (f b_acc)) l)
+      (FList.map (CCPair.map_snd (f b_acc)) l)
       ~rest:(CCOpt.map (f b_acc) rest)
   | Ite (a,b,c) ->
     let a = f b_acc a in
@@ -588,7 +588,7 @@ let map ~f ~bind:f_bind b_acc t = match view t with
   | Match (u, l) ->
     let u = f b_acc u in
     let l =
-      List.map
+      FList.map
         (fun (c, vars, rhs) ->
            let b_acc, vars = CCList.fold_map f_bind b_acc vars in
            c, vars, f b_acc rhs)
@@ -597,7 +597,7 @@ let map ~f ~bind:f_bind b_acc t = match view t with
     match_ ?loc:t.loc u l
   | Multiset l ->
     let ty = f b_acc (ty_exn t) in
-    multiset ?loc:t.loc ~ty (List.map (f b_acc) l)
+    multiset ?loc:t.loc ~ty (FList.map (f b_acc) l)
   | Meta (v,r,k) ->
     let v = Var.update_ty v ~f:(f b_acc) in
     meta ?loc:t.loc (v, r, k)
@@ -671,7 +671,7 @@ module Ty = struct
     | _ -> mk_fun_ ?loc args ret
 
   let app ?loc id l =
-    let ty_id = fun_ (List.map (fun _ -> tType) l) tType in
+    let ty_id = fun_ (FList.map (fun _ -> tType) l) tType in
     app ?loc ~ty:tType (const ?loc ~ty:ty_id id) l
 
   let const ?loc id = const ?loc ~ty:tType id
@@ -795,7 +795,7 @@ module Ty = struct
 end
 
 let fun_l ?loc vars body =
-  let ty = Ty.fun_ ?loc (List.map Var.ty vars) (ty_exn body) in
+  let ty = Ty.fun_ ?loc (FList.map Var.ty vars) (ty_exn body) in
   bind_list ?loc ~ty Binder.Lambda vars body
 
 let sort_ty_vars_first : t Var.t list -> t Var.t list =
@@ -1327,12 +1327,12 @@ let unify ?(allow_open=false) ?loc ?(st=UStack.create()) ?(subst=Subst.empty) t1
       if n1>n2
       then (
         let hd1, tl1 = CCList.take_drop (n1-n2) l1 in
-        let f1' = app f1 hd1 ~ty:Ty.(fun_ (List.map ty_exn tl1) (ty_exn t1)) in
+        let f1' = app f1 hd1 ~ty:Ty.(fun_ (FList.map ty_exn tl1) (ty_exn t1)) in
         unif_rec subst f1' f2;
         unif_l subst tl1 l2
       ) else (
         let hd2, tl2 = CCList.take_drop (n2-n1) l2 in
-        let f2' = app f2 hd2 ~ty:Ty.(fun_ (List.map ty_exn tl2) (ty_exn t2)) in
+        let f2' = app f2 hd2 ~ty:Ty.(fun_ (FList.map ty_exn tl2) (ty_exn t2)) in
         unif_rec subst f1 f2';
         unif_l subst l1 tl2
       )
@@ -1482,7 +1482,7 @@ let apply_unify ?gen_fresh_meta ?allow_open ?loc ?st ?(subst=Subst.empty) ty l =
           (* unify meta with [tyof(l) -> fresh_var()] *)
           let ret = g() |> Ty.meta in
           unify ?allow_open ?loc ?st ~subst ty
-            (Ty.fun_ (List.map ty_exn l) ret);
+            (Ty.fun_ (FList.map ty_exn l) ret);
           ret
       end
     | Ty.Ty_var v, _ when Subst.mem subst v -> 
@@ -1589,7 +1589,7 @@ let simplify_formula t =
 
       if exists_double l || List.exists (equal absorbing_el) l then absorbing_el
       else (
-        let l' = List.filter (fun s -> not (equal s netural_el)) l' in
+        let l' = FList.filter (fun s -> not (equal s netural_el)) l' in
         if List.length l = List.length l' then t
         else (
           if CCList.is_empty l' then netural_el
@@ -1619,7 +1619,7 @@ let simplify_formula t =
     let ty = ty_exn t in
     match view t with 
     | AppBuiltin( ((And|Or) as b) , args) when Ty.is_prop ty ->
-      simplify_and_or t b (List.map aux args)
+      simplify_and_or t b (FList.map aux args)
     | AppBuiltin( Not, [s]) ->
       begin match view s with
       | AppBuiltin(Not, [u]) -> aux u
@@ -1654,9 +1654,9 @@ let simplify_formula t =
     | AppBuiltin( (Neq|Xor), [x;y]) when Ty.is_prop (ty_exn x) ->
       aux (F.not_ (F.eq_or_equiv x y))
     | AppBuiltin(b, args) ->
-      app_builtin ~ty b (List.map aux args)
+      app_builtin ~ty b (FList.map aux args)
     | App (hd, args) ->
-      app ~ty (aux hd) (List.map aux args)
+      app ~ty (aux hd) (FList.map aux args)
     | Bind (s, v, body) ->
       bind ~ty s v (aux body)
     | _ -> t in
@@ -1670,29 +1670,29 @@ let simplify_formula t =
 let rec erase t = match view t with
   | Var v -> STerm.var (Var.to_string v)
   | Const s -> STerm.const (ID.to_string s)
-  | App (f, l) -> STerm.app (erase f) (List.map erase l)
+  | App (f, l) -> STerm.app (erase f) (FList.map erase l)
   | Bind (b,v,t) ->
     STerm.bind b
       [STerm.V (Var.to_string v), Some (erase (Var.ty v))]
       (erase t)
-  | AppBuiltin (b, l) -> STerm.app_builtin b (List.map erase l)
+  | AppBuiltin (b, l) -> STerm.app_builtin b (FList.map erase l)
   | Ite (a,b,c) -> STerm.ite (erase a) (erase b) (erase c)
   | Match (u, l) ->
     let u = erase u in
     let l =
-      List.map
+      FList.map
         (fun (c,vars,rhs) ->
            (* type arguments of [c] are ignored as being implicit *)
            let c = ID.to_string c.cstor_id in
-           let vars = List.map (fun v -> STerm.V (Var.to_string v)) vars in
+           let vars = FList.map (fun v -> STerm.V (Var.to_string v)) vars in
            let rhs = erase rhs in
            STerm.Match_case (c,vars,rhs))
         l
     in
     STerm.match_ u l
-  | Multiset l -> STerm.list_ (List.map erase l)
+  | Multiset l -> STerm.list_ (FList.map erase l)
   | Let (l, u) ->
-    let l = List.map (fun (v,t) -> STerm.V (Var.to_string v), erase t) l in
+    let l = FList.map (fun (v,t) -> STerm.V (Var.to_string v), erase t) l in
     let u = erase u in
     STerm.let_ l u
   | Record (l, rest) ->
@@ -1703,7 +1703,7 @@ let rec erase t = match view t with
         rest
     in
     STerm.record
-      (List.map (fun (n,t) -> n, erase t) l)
+      (FList.map (fun (n,t) -> n, erase t) l)
       ~rest
   | Meta _ -> failwith "cannot erase meta"
 

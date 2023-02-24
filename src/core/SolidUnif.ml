@@ -36,7 +36,7 @@ module Make (St : sig val st : Flex_state.t end) = struct
       let remaining = CCList.drop n types in
       assert(List.length remaining != 0);
       let num_vars = List.length remaining in
-      let vars = List.mapi (fun i ty -> 
+      let vars = FList.mapi (fun i ty -> 
           let ty = S.Ty.apply S.Renaming.none subst (ty,scope) in
           T.bvar ~ty (num_vars-1-i)) remaining in
       let shifted = T.DB.shift num_vars t in
@@ -58,12 +58,12 @@ module Make (St : sig val st : Flex_state.t end) = struct
 
       match T.view t with
       | AppBuiltin(hd, args) -> 
-        let args' = List.map aux args in
+        let args' = FList.map aux args in
         if T.same_l args args' then t 
         else T.app_builtin ~ty:(T.ty t) hd args'
       | App(hd, args) when not @@ T.is_var hd ->
         let hd' = aux hd in
-        let args' = List.map aux args in
+        let args' = FList.map aux args in
         if T.equal hd hd' && T.same_l args args' then t
         else T.app hd' args'
       | App(hd, args) ->
@@ -73,7 +73,7 @@ module Make (St : sig val st : Flex_state.t end) = struct
         if limit && List.length args > solid_limit then
           raise NotInFragment;
 
-        let args' = List.map (fun arg -> 
+        let args' = FList.map (fun arg -> 
             if Type.is_fun (T.ty arg) then (
               let arg = Lambda.eta_reduce arg in
               if (T.is_bvar arg && T.is_ground arg) || not exception_on_error then arg else raise NotInFragment
@@ -96,16 +96,16 @@ module Make (St : sig val st : Flex_state.t end) = struct
       | [] -> []
       | x::xs ->
         let rest_combs = aux xs in
-        if CCList.is_empty rest_combs then CCList.map (fun t->[t]) x 
-        else CCList.flat_map 
-            (fun i -> CCList.map (fun comb -> i::comb) rest_combs) 
+        if CCList.is_empty rest_combs then FList.map (fun t->[t]) x 
+        else FList.concat_map
+            (fun i -> FList.map (fun comb -> i::comb) rest_combs) 
             x
     in
 
     if CCList.for_all (fun l -> List.length l = 1 ) l then [CCList.flatten l]
     else (
       let rec limit_combinations max_c l = 
-        if max_c <= 1 then CCList.map (fun l -> [List.hd l]) l
+        if max_c <= 1 then FList.map (fun l -> [List.hd l]) l
         else (match l with 
             | [] -> [] 
             | x :: xs -> 
@@ -132,10 +132,10 @@ module Make (St : sig val st : Flex_state.t end) = struct
         That is why we set recurse to false, to run this function at most once.  *)
     let rec aux ?(recurse=true) ~depth s_args t : (T.t list)  =
       (* All the ways in which we can represent term t using solids *)
-      let sols_as_db = List.mapi (fun i t -> 
+      let sols_as_db = FList.mapi (fun i t -> 
           (t,T.bvar ~ty:(T.ty t) (n-i-1+depth))) s_args in
       let db_hits = 
-        (CCList.filter_map (fun (s, s_db) -> 
+        (FList.filter_map (fun (s, s_db) -> 
              if T.equal s t then Some s_db else None) 
             sols_as_db) in
       let rest =
@@ -144,8 +144,8 @@ module Make (St : sig val st : Flex_state.t end) = struct
           | AppBuiltin (hd,args)  ->
             if CCList.is_empty args then [t]
             else (
-              let args_combined = all_combs ~combs_limit (List.map (aux ~depth s_args) args) in
-              List.map (T.app_builtin ~ty:(T.ty t) hd) args_combined
+              let args_combined = all_combs ~combs_limit (FList.map (aux ~depth s_args) args) in
+              FList.map (T.app_builtin ~ty:(T.ty t) hd) args_combined
             )
           | App(hd,args) when recurse ->
             if Term.is_var hd then [t]
@@ -153,15 +153,15 @@ module Make (St : sig val st : Flex_state.t end) = struct
               assert(not (CCList.is_empty args));
               let hd, args = T.head_term_mono t, CCList.drop_while T.is_type args in
               let covered_hd = aux ~recurse:(recurse && not (T.is_app hd)) ~depth s_args hd in
-              let covered_args = List.map (aux ~depth s_args) args in
+              let covered_args = FList.map (aux ~depth s_args) args in
               let cobmined = all_combs ~combs_limit (covered_hd :: covered_args) in
-              List.map (fun l -> T.app (List.hd l) (List.tl l)) cobmined)
+              FList.map (fun l -> T.app (List.hd l) (List.tl l)) cobmined)
           | Fun _ -> 
             let ty_args, body = T.open_fun t in
             let d_inc = List.length ty_args in
-            let s_args' = List.map (T.DB.shift d_inc) s_args in
+            let s_args' = FList.map (T.DB.shift d_inc) s_args in
             let res = aux ~depth:(depth+d_inc) s_args' body in
-            List.map (fun t -> T.fun_l ty_args t) res
+            FList.map (fun t -> T.fun_l ty_args t) res
           | DB i when i >= depth -> []
           | _ -> [t]
         with CoveringImpossible -> [] in
@@ -184,16 +184,16 @@ module Make (St : sig val st : Flex_state.t end) = struct
       then target,[]
       else (
         let bvars = 
-          List.mapi (fun i ty -> (i,ty)) bvar_tys
+          FList.mapi (fun i ty -> (i,ty)) bvar_tys
           |> List.rev_map (fun (i,ty) -> T.bvar ~ty i) in
         let n_bvars = List.length bvars in
-        let args' = (List.map (T.DB.shift n_bvars) flex_args) @ bvars in
-        let fresh_var_ty = Type.arrow (List.map T.ty args') (T.ty target) in
+        let args' = (FList.map (T.DB.shift n_bvars) flex_args) @ bvars in
+        let fresh_var_ty = Type.arrow (FList.map T.ty args') (T.ty target) in
         let fresh_var = HVar.fresh_cnt ~counter ~ty:fresh_var_ty () in
         let unif_w_target = T.app (T.var fresh_var) args' in
         let num_f_args = List.length flex_args in
         let flex_args_db =
-          List.mapi (fun i a -> T.bvar ~ty: (T.ty a) (n_bvars+(num_f_args-1-i))) flex_args in
+          FList.mapi (fun i a -> T.bvar ~ty: (T.ty a) (n_bvars+(num_f_args-1-i))) flex_args in
         let replacement = T.app (T.var fresh_var) (flex_args_db @ bvars) in
         replacement, [unif_w_target, target]
       ) in
@@ -252,7 +252,7 @@ module Make (St : sig val st : Flex_state.t end) = struct
       )
       else (
         let covered_l =
-          CCList.flatten (List.mapi (fun i arg -> 
+          CCList.flatten (FList.mapi (fun i arg -> 
               let arg_covers = cover_rigid_skeleton arg args_r in
               let n = List.length arg_covers in
               List.combine 
@@ -260,7 +260,7 @@ module Make (St : sig val st : Flex_state.t end) = struct
                 arg_covers) 
               args_l) in
         let covered_r = 
-          CCList.flatten (List.mapi (fun i arg -> 
+          CCList.flatten (FList.mapi (fun i arg -> 
               let arg_covers = cover_rigid_skeleton arg args_l in
               let n = List.length arg_covers in
               List.combine 
@@ -270,10 +270,10 @@ module Make (St : sig val st : Flex_state.t end) = struct
         let all_covers = covered_l @ covered_r in
         assert (List.for_all (fun (l_arg, r_arg) -> 
             Type.equal (Term.ty l_arg) (Term.ty r_arg)) all_covers);
-        let fresh_var_ty = Type.arrow (List.map (fun (a_l, _) -> T.ty a_l ) all_covers) (T.ty lhs) in
+        let fresh_var_ty = Type.arrow (FList.map (fun (a_l, _) -> T.ty a_l ) all_covers) (T.ty lhs) in
         let fresh_var = T.var (HVar.fresh_cnt ~counter ~ty:fresh_var_ty ()) in
-        let subs_l = T.fun_l (List.map T.ty args_l) (T.app fresh_var (List.map fst all_covers)) in
-        let subs_r = T.fun_l (List.map T.ty args_r) (T.app fresh_var (List.map snd all_covers)) in
+        let subs_l = T.fun_l (FList.map T.ty args_l) (T.app fresh_var (FList.map fst all_covers)) in
+        let subs_r = T.fun_l (FList.map T.ty args_r) (T.app fresh_var (FList.map snd all_covers)) in
         let subst = Subst.FO.bind' subst (hd_l, scope) (subs_l,scope) in
         let subst = Subst.FO.bind' subst (hd_r, scope) (subs_r,scope) in
         US.of_subst subst) in
@@ -301,13 +301,13 @@ module Make (St : sig val st : Flex_state.t end) = struct
         assert(n_l = n_r);
         let same_args = 
           List.combine args_l args_r
-          |> List.mapi (fun i (a,b) -> if T.equal a b then Some (T.bvar ~ty:(T.ty a) (n_l-i-1)) else None)
-          |> CCList.filter_map CCFun.id in
+          |> FList.mapi (fun i (a,b) -> if T.equal a b then Some (T.bvar ~ty:(T.ty a) (n_l-i-1)) else None)
+          |> FList.filter_map CCFun.id in
 
 
-        let fresh_var_ty = Type.arrow (List.map (fun t -> T.ty t) same_args) (T.ty lhs) in
+        let fresh_var_ty = Type.arrow (FList.map (fun t -> T.ty t) same_args) (T.ty lhs) in
         let fresh_var = T.var (HVar.fresh_cnt ~counter ~ty:fresh_var_ty ()) in
-        let subs_val = T.fun_l (List.map T.ty args_l) (T.app fresh_var same_args) in
+        let subs_val = T.fun_l (FList.map T.ty args_l) (T.app fresh_var same_args) in
         let subst = Subst.FO.bind' subst (hd_l,scope) (subs_val,scope) in
         US.of_subst subst) in
     ZProf.exit_prof _span;
@@ -349,8 +349,8 @@ module Make (St : sig val st : Flex_state.t end) = struct
           let res = Subst.FO.bind' subst (head_var,scope) (rigid,scope) in
           [US.of_subst res]
         ) else (
-          let tys = List.map T.ty flex_args in
-          List.map (fun r ->
+          let tys = FList.map T.ty flex_args in
+          FList.map (fun r ->
               let closed_rigid = T.fun_l tys r in
               assert(T.DB.is_closed closed_rigid);
               let subs_flex = Subst.FO.bind' subst (head_var,scope) (closed_rigid,scope) in
@@ -398,7 +398,7 @@ module Make (St : sig val st : Flex_state.t end) = struct
   let project_flex_rigid ~subst ~scope flex rigid =
     assert(T.is_var (T.head_term flex));
     let flex_var, flex_args = T.as_var_exn @@ T.head_term flex,
-                              List.mapi (fun i a -> i,a) (T.args flex) in
+                              FList.mapi (fun i a -> i,a) (T.args flex) in
     let pref_tys, ret_ty = Type.open_fun @@ HVar.ty flex_var in
     let n = List.length pref_tys in
     let trailing_tys = CCList.drop (List.length flex_args) pref_tys in
@@ -406,7 +406,7 @@ module Make (St : sig val st : Flex_state.t end) = struct
     match rigid_hd with 
     | None -> []
     | Some id -> 
-      CCList.filter_map ( fun (i, fa) ->
+      FList.filter_map ( fun (i, fa) ->
           begin match T.head fa with 
             | Some id' when ID.equal id id' && Type.equal (T.ty fa) ret_ty ->
               let subs_term = T.fun_l pref_tys (T.bvar ~ty:ret_ty (n-1-i)) in
@@ -444,13 +444,13 @@ module Make (St : sig val st : Flex_state.t end) = struct
         | (T.Var _, _) ->
           let projected = project_flex_rigid ~subst:(US.subst subst) ~scope body_s' body_t' in
           let covered = cover_flex_rigid ~subst:(US.subst subst) ~counter ~scope  body_s' body_t' in
-          (CCList.flat_map (fun subst -> unify ~scope ~counter ~subst rest) covered) @
-          (CCList.flat_map (fun (subst,s,t) -> unify ~scope ~counter ~subst:(US.of_subst subst) ((s,t)::rest)) projected)
+          (FList.concat_map (fun subst -> unify ~scope ~counter ~subst rest) covered) @
+          (FList.concat_map (fun (subst,s,t) -> unify ~scope ~counter ~subst:(US.of_subst subst) ((s,t)::rest)) projected)
         | (_, T.Var _) ->
           let projected = project_flex_rigid ~subst:(US.subst subst) ~scope body_t' body_s' in
           let covered = cover_flex_rigid ~subst:(US.subst subst) ~counter ~scope  body_t' body_s' in
-          (CCList.flat_map (fun subst -> unify ~scope ~counter ~subst rest) covered) @ 
-          (CCList.flat_map (fun (subst,s,t) -> unify ~scope ~counter ~subst:(US.of_subst subst) ((s,t)::rest)) projected)
+          (FList.concat_map (fun subst -> unify ~scope ~counter ~subst rest) covered) @ 
+          (FList.concat_map (fun (subst,s,t) -> unify ~scope ~counter ~subst:(US.of_subst subst) ((s,t)::rest)) projected)
         | T.AppBuiltin(hd_s, args_s'), T.AppBuiltin(hd_t, args_t') when
             Builtin.equal hd_s hd_t &&
             List.length args_s' + List.length args_s = 

@@ -1,5 +1,6 @@
 
 open Logtk
+open Future
 
 let section = Util.Section.make ~parent:Const.section "bool_sel"
 
@@ -58,7 +59,7 @@ let is_selectable ~forbidden ~top t =
 let get_forbidden_vars ~ord lits =
   (* Check the HOSup paper for the definition of forbidden vars *)
   Literals.maxlits_l ~ord lits 
-  |> CCList.map (fun (l,_) -> l) 
+  |> FList.map (fun (l,_) -> l) 
   |> Array.of_list
   |> CCArray.fold (
       fun vars lit ->
@@ -405,7 +406,7 @@ let parse_combined_function ~ord s =
       Util.invalid_argf
         "expected sel[123](%a)" 
           (CCList.pp ~pp_sep:(CCFormat.return "|") CCString.pp)
-          (List.map fst ctx_funs)
+          (FList.map fst ctx_funs)
 
 let from_string ~ord name lits =
   let res =
@@ -420,7 +421,7 @@ let from_string ~ord name lits =
   res lits
   |> CCFun.tap (fun l ->
     Util.debugf ~section 1 "bool_select(@[%a@])=@.@[%a@]@."
-      (fun k-> k Literals.pp lits (CCList.pp Term.pp) (List.map fst l))
+      (fun k-> k Literals.pp lits (CCList.pp Term.pp) (FList.map fst l))
   )
 
 let () =

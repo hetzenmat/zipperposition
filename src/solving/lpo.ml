@@ -4,6 +4,7 @@
 (** {1 Constraint Solving for LPO} *)
 
 open Logtk
+open Future
 
 module SI = Msat.Solver_intf
 
@@ -72,8 +73,8 @@ module Constraint = struct
     | Not (Not t) -> simplify t
     | Not True -> true_
     | Not False -> true_
-    | Not (And l) -> simplify (or_ (List.map not_ l))
-    | Not (Or l) -> simplify (and_ (List.map not_ l))
+    | Not (And l) -> simplify (or_ (FList.map not_ l))
+    | Not (Or l) -> simplify (and_ (FList.map not_ l))
     | And [] -> true_
     | Or [] -> true_
     | And [x] -> simplify x
@@ -112,7 +113,7 @@ module Solution = struct
      clause that makes at least one a>b false. *)
   let neg_to_constraint sol =
     let module C = Constraint in
-    let l = List.map (fun (a,b) -> C.le a b) sol in
+    let l = FList.map (fun (a,b) -> C.le a b) sol in
     C.or_ l
 
   let pp out s =
@@ -401,7 +402,7 @@ module FO = struct
       C.false_
 
   let orient_lpo_list l =
-    List.map
+    FList.map
       (fun (l,r) ->
          let c = orient_lpo l r in
          let c' = C.simplify c in
@@ -458,7 +459,7 @@ module TypedSTerm = struct
       C.false_
 
   let orient_lpo_list l =
-    List.map
+    FList.map
       (fun (l,r) ->
          let c = orient_lpo l r in
          let c' = C.simplify c in

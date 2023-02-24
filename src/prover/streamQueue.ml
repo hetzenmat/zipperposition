@@ -162,7 +162,7 @@ module Make(A : ARG) = struct
   let rec take_fair_anyway q =
     if H.is_empty q.hp then [None]
     else (
-      let res = CCList.filter_map CCFun.id (take_fair ~full:true (H.size q.hp) q) in
+      let res = FList.filter_map CCFun.id (take_fair ~full:true (H.size q.hp) q) in
       if CCList.is_empty res then take_fair_anyway q
       else (
         q.time_before_fair <- q.ratio;

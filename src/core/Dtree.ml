@@ -2,6 +2,8 @@
 
 (** {1 Perfect Discrimination Tree} *)
 
+open Future
+
 module ST = InnerTerm
 module T = Term
 module S = Subst
@@ -178,7 +180,7 @@ module Make(E : Index.EQUATION) = struct
     let chars = to_list t in
     let k l =
       (* remove tuples that match *)
-      List.filter
+      FList.filter
         (fun (t', eqn', _) -> t' != t || E.compare eqn eqn' <> 0) l
     in
     let tree = goto_leaf dt chars k in

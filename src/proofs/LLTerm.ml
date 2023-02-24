@@ -4,6 +4,7 @@
 (** {1 Terms For Proofs} *)
 
 open Logtk
+open Future
 
 module Fmt = CCFormat
 module I_map = Util.Int_map
@@ -408,7 +409,7 @@ let[@inline] map ~f ~bind:f_bind b_acc t = match view t with
     bind_ b.binder ~ty:(f b_acc @@ ty_exn t) ~ty_var:(f b_acc b.ty_var)
       (f b_acc' b.body)
   | AppBuiltin (b,l) ->
-    app_builtin ~ty:(f b_acc @@ ty_exn t) b (List.map (f b_acc) l)
+    app_builtin ~ty:(f b_acc @@ ty_exn t) b (FList.map (f b_acc) l)
   | Ite (a,b,c) ->
     ite (f b_acc a) (f b_acc b) (f b_acc c)
   | Int_pred (l,o) -> int_pred (Linexp_int.map (f b_acc) l) o
@@ -620,7 +621,7 @@ module Conv = struct
       const id ~ty
     | T.App (f, l) ->
       let f = of_term ctx f in
-      let l = List.map (of_term ctx) l in
+      let l = FList.map (of_term ctx) l in
       app_l f l
     | T.Ite (a,b,c) ->
       let a = of_term ctx a in
@@ -638,7 +639,7 @@ module Conv = struct
     | T.AppBuiltin (Builtin.TType, []) -> t_type
     | T.AppBuiltin (Builtin.Arrow, ret::l) ->
       let ret = of_term ctx ret in
-      let l = List.map (of_term ctx) l in
+      let l = FList.map (of_term ctx) l in
       arrow_l l ret
     | T.AppBuiltin (b, l) ->
       let ty = T.ty_exn t in
@@ -666,7 +667,7 @@ module Conv = struct
   (* default conv for builtins *)
   and conv_builtin ctx ~ty b l =
     let ty = of_term ctx ty in
-    let l = List.map (of_term ctx) l in
+    let l = FList.map (of_term ctx) l in
     app_builtin ~ty b l
 
   and conv_int_pred ctx ~ty b l : term =

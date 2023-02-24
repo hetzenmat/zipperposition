@@ -111,11 +111,11 @@ module Inner = struct
             let f' = snf_rec f in
             if not (T.equal f f') then snf_rec (T.app ~ty f' l)
             else (
-              let l' = List.map snf_rec l in
+              let l' = FList.map snf_rec l in
               if T.equal f f' && T.same_l l l' then t else T.app ~ty f' l'
             )
           | T.AppBuiltin (b, l) ->
-            let l' = List.map snf_rec l in
+            let l' = FList.map snf_rec l in
             if T.same_l l l' then t else T.app_builtin ~ty b l'
           | T.Var _ | T.Const _ | T.DB _ -> t
           | T.Bind (b, varty, body) ->
@@ -147,7 +147,7 @@ module Inner = struct
             let body = T.DB.shift n_missing body in
             (* build the fully-abstracted term *)
             let dbvars =
-              List.mapi (fun i ty_arg -> T.bvar (n_missing-i-1) ~ty:ty_arg) missing_args
+              FList.mapi (fun i ty_arg -> T.bvar (n_missing-i-1) ~ty:ty_arg) missing_args
             in
             T.fun_l ty_args (aux (T.app ~ty:ty_ret body dbvars))
           ) else if not top_level_only then (
@@ -156,10 +156,10 @@ module Inner = struct
             let body = match T.view body with
               | T.Const _ | T.Var _ | T.DB _ -> body
               | T.App (f, l) ->
-                let l' = List.map aux l in
+                let l' = FList.map aux l in
                 if T.same_l l l' then body else T.app ~ty f l'
               | T.AppBuiltin (b, l) ->
-                let l' = List.map aux l in
+                let l' = FList.map aux l in
                 if T.same_l l l' then body else T.app_builtin ~ty b l'
               | T.Bind (b, varty, body') ->
                 assert (b <> Binder.Lambda);
@@ -223,7 +223,7 @@ module Inner = struct
             | T.App (_,[]) -> assert false
             | T.App (f, l) ->
               let f' = aux f in
-              let l' = List.map aux l in
+              let l' = FList.map aux l in
               if T.equal f f' && T.same_l l l'
               then t
               else T.app ~ty f' l'
@@ -238,7 +238,7 @@ module Inner = struct
               if T.equal body' body then t
               else T.app_builtin ~ty:(T.ty_exn t) hd [tyarg; body']
             | T.AppBuiltin (b,l) ->
-              let l' = List.map aux l in
+              let l' = FList.map aux l in
               if T.same_l l l' then t else T.app_builtin ~ty b l'
           end)
       else t
@@ -316,7 +316,7 @@ let rec is_lambda_pattern t = match T.view (whnf t) with
   | T.Fun (_, body) -> is_lambda_pattern body
 and all_distinct_bound args =
   try
-    List.map (fun arg ->
+    FList.map (fun arg ->
         match T.view (eta_reduce arg) with
         | T.DB i -> i | _ -> raise Exit) args
     |> Util.Int_set.of_list

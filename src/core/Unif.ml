@@ -434,12 +434,12 @@ module Inner = struct
   let lift_terms (l:T.t list) (rhs:T.t) : T.t =
     assert (List.for_all T.is_ground l);
     let vars =
-      List.map (fun t -> HVar.fresh ~ty:(T.ty_exn t) ()) l
+      FList.map (fun t -> HVar.fresh ~ty:(T.ty_exn t) ()) l
     in
     (* now replace [l] by [vars] *)
     let body =
       let m =
-        List.map2 (fun t v -> t, T.var v) l vars
+        FList.map2 (fun t v -> t, T.var v) l vars
         |> T.Map.of_list
       in
       T.replace_m rhs m
@@ -450,7 +450,7 @@ module Inner = struct
   (* assuming all elements are [Some x], get the list of [x] *)
   let env_l_dense (e:'a DBEnv.t) : 'a list =
     DBEnv.to_list e
-    |> List.map
+    |> FList.map
       (function | Some x -> x | None -> assert false)
 
   (* Abstract on given bound variables *)
@@ -459,7 +459,7 @@ module Inner = struct
     let n = List.length l in
     let env =
       DBEnv.to_list_i bvars
-      |> CCList.filter_map
+      |> FList.filter_map
         (function
           | None -> None
           | Some (i, _) -> match CCList.find_idx (T.is_bvar_i i) l with
@@ -471,7 +471,7 @@ module Inner = struct
       |> DBEnv.of_list
     in
     T.DB.eval env t
-    |> T.fun_l (List.map T.ty_exn l)
+    |> T.fun_l (FList.map T.ty_exn l)
 
   let restrict_fun1
     = fun subst ~op ~ty ~to_:subset ~scope (v,args) ->
@@ -479,7 +479,7 @@ module Inner = struct
       (* only keep bound args *)
       let n_old = List.length args in
       let args =
-        List.filter
+        FList.filter
           (fun t -> match T.view t with
              | T.DB i -> DBEnv.mem subset i
              | _ -> assert false)
@@ -493,14 +493,14 @@ module Inner = struct
         else fail() 
       | _ -> 
         (* fresh variable *)
-        let ty_fun = T.arrow (List.map T.ty_exn args) ty in
+        let ty_fun = T.arrow (FList.map T.ty_exn args) ty in
         let f = HVar.fresh ~ty:ty_fun () in
         (* new function *)
         let rhs =
           T.app ~ty
             (T.var f)
-            (List.mapi (fun i a -> T.bvar ~ty:(T.ty_exn a) (n-i-1)) args)
-          |> T.fun_l (List.map T.ty_exn args)
+            (FList.mapi (fun i a -> T.bvar ~ty:(T.ty_exn a) (n-i-1)) args)
+          |> T.fun_l (FList.map T.ty_exn args)
         in
         US.bind subst (v,scope) (rhs,scope)
 
@@ -519,7 +519,7 @@ module Inner = struct
       assert (not (US.mem subst (v2,scope)));
       (* compute intersection *)
       let inter =
-        List.filter
+        FList.filter
           (fun t -> match T.view t with
              | T.DB i ->
                DBEnv.mem bvars.B_vars.left i &&
@@ -528,21 +528,21 @@ module Inner = struct
           l1
       in
       (* type of new function *)
-      let ty_fun = T.arrow (List.map T.ty_exn inter) ty_ret in
+      let ty_fun = T.arrow (FList.map T.ty_exn inter) ty_ret in
       (* fresh variable *)
       let f = HVar.fresh ~ty:ty_fun () in
       (* build terms to replace [v1] and [v2] *)
       let mk_rhs l =
         let n = List.length l in
         let args =
-          List.map
+          FList.map
             (fun a ->
                let i = CCList.find_idx (T.equal a) l |> CCOpt.get_exn |> fst in
                T.bvar ~ty:(T.ty_exn a) (n-i-1))
             inter
         in
         let body = T.app ~ty:ty_ret (T.var f) args in
-        T.fun_l (List.map T.ty_exn l) body
+        T.fun_l (FList.map T.ty_exn l) body
       in
       let rhs1 = mk_rhs l1 in
       let rhs2 = mk_rhs l2 in
@@ -815,7 +815,7 @@ module Inner = struct
           (f1,scope)
           (T.app ~ty:(T.ty_exn f1)
              (T.DB.shift n t2)
-             (List.mapi (fun i ty->T.bvar ~ty (n-i-1)) new_vars), scope)
+             (FList.mapi (fun i ty->T.bvar ~ty (n-i-1)) new_vars), scope)
       | _, T.Bind (Binder.Lambda, _, _) ->
         (* same as above *)
         assert (l2=[]);
@@ -828,7 +828,7 @@ module Inner = struct
           subst
           (T.app ~ty:(T.ty_exn f2)
              (T.DB.shift n t1)
-             (List.mapi (fun i ty -> T.bvar ~ty (n-i-1)) new_vars), scope)
+             (FList.mapi (fun i ty -> T.bvar ~ty (n-i-1)) new_vars), scope)
           (f2,scope)
       | T.Const id1, T.Const id2 ->
         (* first-order applications *)
@@ -860,7 +860,7 @@ module Inner = struct
            (Scoped.pp T.pp) (f1,scope) (CCFormat.Dump.list T.pp) l1
            (Scoped.pp T.pp) (t2,scope) US.pp subst B_vars.pp bvars; *)
         if !_allow_pattern_unif && distinct_bvar_l ~bvars:bvars.B_vars.left l1 
-           && CCList.subset ~eq:(=) (T.DB.unbound t2) (List.map T.as_bvar_exn l1) 
+           && CCList.subset ~eq:(=) (T.DB.unbound t2) (FList.map T.as_bvar_exn l1) 
         then (
           (* flex/rigid pattern unif *)
           flex_rigid  ~op ~bvars:bvars.B_vars.left subst f1 l1 t2 ~scope
@@ -883,7 +883,7 @@ module Inner = struct
           (Scoped.pp T.pp) (f2,scope) (CCFormat.Dump.list T.pp) l2
           (Scoped.pp T.pp) (t1,scope) US.pp subst B_vars.pp bvars;*)
         if !_allow_pattern_unif && distinct_bvar_l ~bvars:bvars.B_vars.right l2 
-           && CCList.subset ~eq:(=) (T.DB.unbound t1) (List.map T.as_bvar_exn l2) 
+           && CCList.subset ~eq:(=) (T.DB.unbound t1) (FList.map T.as_bvar_exn l2) 
            && op=O_unify 
         then (
           (* flex/rigid pattern unif *)
@@ -1015,12 +1015,12 @@ module Inner = struct
     let rhs =
       T.app ~ty:ty_ret
         (T.var v2)
-        (List.map
+        (FList.map
            (fun a ->
               let i = CCList.find_idx (T.equal a) l1 |> CCOpt.get_exn|>fst in
               T.bvar ~ty:(T.ty_exn a) (n-i-1))
            l2)
-      |> T.fun_l (List.map T.ty_exn l1)
+      |> T.fun_l (FList.map T.ty_exn l1)
     in
     let subst = US.bind subst (v1,scope) (rhs,scope) in
     (*Format.printf "(@[flex_flex_match_yield@ :subst %a@])@." US.pp subst;*)

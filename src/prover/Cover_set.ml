@@ -4,6 +4,7 @@
 (** {1 Cover Set} *)
 
 open Logtk
+open Future
 
 module T = Term
 module Fmt = CCFormat
@@ -108,25 +109,25 @@ module State_ = struct
   type 'a mm = t -> (t * 'a) list
   let fail : _ mm = fun _ -> []
   let yield : 'a -> 'a mm = fun x st -> [st, x]
-  let yield_l : 'a list -> 'a mm = fun l st -> List.map (fun x -> st,x) l
+  let yield_l : 'a list -> 'a mm = fun l st -> FList.map (fun x -> st,x) l
   let (>>=) : 'a mm -> ('a -> 'b m) -> 'b mm
     = fun x_mm f st ->
       let xs = x_mm st in
-      List.map (fun (st,x) -> f x st) xs
+      FList.map (fun (st,x) -> f x st) xs
   let (>|=) : 'a mm -> ('a -> 'b) -> 'b mm
     = fun x_mm f st ->
       let xs = x_mm st in
-      List.map (fun (st,x) -> st, f x) xs
+      FList.map (fun (st,x) -> st, f x) xs
   let (>>>=) : 'a mm -> ('a -> 'b mm) -> 'b mm
     = fun x_mm f st ->
       let xs = x_mm st in
-      CCList.flat_map
+      FList.concat_map
         (fun (st,x) -> f x st)
         xs
   let (>>|=) : 'a mm -> ('a -> 'b) -> 'b mm
     = fun x_mm f st ->
       let xs = x_mm st in
-      List.map (fun (st,x) -> st, f x) xs
+      FList.map (fun (st,x) -> st, f x) xs
   let get : t mm = fun st -> [st, st]
   let set : t -> unit m = fun st _ -> st, ()
 
@@ -150,7 +151,7 @@ module State_ = struct
         yield (x'::tl')
 
   let run : 'a mm -> t -> 'a list
-    = fun m st -> List.map snd (m st)
+    = fun m st -> FList.map snd (m st)
 end
 
 let make_coverset_ ~cover_set_depth ~depth (ty:Type.t)(ity:Ind_ty.t) : t =
@@ -192,14 +193,14 @@ let make_coverset_ ~cover_set_depth ~depth (ty:Type.t)(ity:Ind_ty.t) : t =
       let ty_f = cstor.Ind_ty.cstor_ty in
       (* apply to ground type parameters *)
       let ty_params =
-        List.map
+        FList.map
           (fun v ->
              let v = Type.var v in
              Subst.Ty.apply Subst.Renaming.none subst (v,scope))
           ity.Ind_ty.ty_vars
       in
       let ty_f_applied = Type.apply ty_f ty_params in
-      let ty_params = List.map T.of_ty ty_params in
+      let ty_params = FList.map T.of_ty ty_params in
       let n_ty_params, ty_args_f, _ = Type.open_poly_fun ty_f_applied in
       assert (n_ty_params=0);
       if ty_args_f=[]

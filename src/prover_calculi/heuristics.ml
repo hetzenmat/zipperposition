@@ -4,6 +4,7 @@
 (** {1 Heuristics} *)
 
 open Logtk
+open Future
 open Libzipperposition
 
 module T = Term
@@ -68,7 +69,7 @@ module Make(E : Env.S) = struct
       (* number of distinct term variables *)
       let n_vars =
         (Literals.vars lits
-         |> List.filter (fun v -> not (Type.is_tType (HVar.ty v)))
+         |> FList.filter (fun v -> not (Type.is_tType (HVar.ty v)))
          |> List.length)
       in
       if n_vars > !max_vars then (

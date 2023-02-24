@@ -561,10 +561,10 @@ module Make(E : Env.S) : S with module Env = E = struct
       let subst = Unif.FO.unify_syn (pos_term, pos_sc) (neg_term, neg_sc) in
       let renaming = Subst.Renaming.create () in
       let lits =
-        (List.map (fun lit -> 
+        (FList.map (fun lit -> 
           L.apply_subst renaming subst (lit, pos_sc)) 
         (CCArray.except_idx (C.lits pos_cl) pos_idx)) @
-        (List.map (fun lit -> 
+        (FList.map (fun lit -> 
           L.apply_subst renaming subst (lit, neg_sc)) 
         (CCArray.except_idx (C.lits neg_cl) neg_idx))
       in
@@ -629,7 +629,7 @@ module Make(E : Env.S) : S with module Env = E = struct
           let neg_cl' = C.apply_subst ~renaming (neg_cl, neg_sc) subst in    
           let apply t = Subst.FO.apply renaming subst t in  
           let lits =
-            (List.filter_map (fun (p,n) ->
+            (FList.filter_map (fun (p,n) ->
                let lhs = apply (p, pos_sc) and rhs = apply (n, neg_sc) in
                if Term.equal lhs rhs then None else Some (L.mk_neq lhs rhs))
             (List.combine pos_args neg_args)) @ 
@@ -646,7 +646,7 @@ module Make(E : Env.S) : S with module Env = E = struct
     let sym = task.sym in
     let gates_l = CS.to_list task.possible_gates in
     let filter_gates ?(sign=None) ~lit_num_filter gates_l =
-      List.filter (fun cl ->
+      FList.filter (fun cl ->
         not (is_tauto cl) &&
         lit_num_filter (Array.length (C.lits cl)) &&
         (match (CCArray.find_idx (fun lit -> 
@@ -784,15 +784,15 @@ module Make(E : Env.S) : S with module Env = E = struct
       let find_definition_set cls =
         List.iter (fun (_i,lits,c) ->
           if not (is_tauto c) then (
-            CCList.filter_map BBox.inject_lit (CCArray.to_list lits)
+            FList.filter_map BBox.inject_lit (CCArray.to_list lits)
             |> SAT.add_clause ~proof:(C.proof_step c))
         ) cls;
         (match SAT.check ~full:true () with
         | Sat_solver.Unsat _ -> 
           let proof = Proof.S.step (SAT.get_proof ()) in
-          let parents = List.map (fun p -> Proof.S.step @@ Proof.Parent.proof p) (Proof.Step.parents proof) in
+          let parents = FList.map (fun p -> Proof.S.step @@ Proof.Parent.proof p) (Proof.Step.parents proof) in
           Util.debugf ~section 5 "SAT prover found unsat set: %d@." (fun k -> k  (CCList.length parents));
-          let used_cls = CCList.filter_map (fun (_,_,cl) -> 
+          let used_cls = FList.filter_map (fun (_,_,cl) -> 
             CCOpt.return_if (CCList.mem ~eq:Proof.Step.equal (C.proof_step cl) parents) cl) cls  in
           Util.debugf ~section 5 "used clauses: @[%a@]@." (fun k -> k (CCList.pp C.pp) used_cls);
           split_clauses used_cls
@@ -818,7 +818,7 @@ module Make(E : Env.S) : S with module Env = E = struct
         in
         let cls = 
           (i,CCArray.of_list @@ CCArray.except_idx (C.lits x) i,x)
-            :: (CCList.filter_map (rename_clause ~name_lit) xs) in
+            :: (FList.filter_map(rename_clause ~name_lit) xs) in
         (match find_definition_set cls with
         | Some (core_pos,core_neg) ->
           let to_remove = CS.of_list (core_pos @ core_neg) in
@@ -864,8 +864,8 @@ module Make(E : Env.S) : S with module Env = E = struct
     if !_logic == Nonequational then neq_resolver else eq_resolver
 
   let calc_resolvents ~sym ~pos ~neg =
-    CCList.flat_map (fun pos_cl ->
-      CCList.filter_map (fun neg_cl ->
+    FList.concat_map (fun pos_cl ->
+      FList.filter_map(fun neg_cl ->
         get_resolver () ~sym ~pos_cl ~neg_cl
       ) neg
     ) pos
@@ -893,7 +893,7 @@ module Make(E : Env.S) : S with module Env = E = struct
         | _ -> false
       in
       let term_of_lits lits =
-        T.Form.or_l (List.map L.to_ho_term lits)
+        T.Form.or_l (FList.map L.to_ho_term lits)
       in
 
       (* steal the variables from the first positive clause *)
@@ -901,19 +901,19 @@ module Make(E : Env.S) : S with module Env = E = struct
       let vars = Term.args hd_t in
       let ty_vars, tm_vars = CCList.partition T.is_type vars in
 
-      let tl_pos_renamed = List.map (rename_pos_sym_vars vars) tl_pos in
-      let leftovers = List.map (fun cl ->
-          term_of_lits (List.filter (fun lit -> not (is_sym_lit lit)) (Array.to_list (C.lits cl))))
+      let tl_pos_renamed = FList.map (rename_pos_sym_vars vars) tl_pos in
+      let leftovers = FList.map (fun cl ->
+          term_of_lits (FList.filter (fun lit -> not (is_sym_lit lit)) (Array.to_list (C.lits cl))))
         (hd_pos :: tl_pos_renamed)
       in
-      let body = T.Form.or_l (List.map T.Form.not_ leftovers) in
-      (ty_vars, T.fun_of_fvars (List.map T.as_var_exn tm_vars) body)
+      let body = T.Form.or_l (FList.map T.Form.not_ leftovers) in
+      (ty_vars, T.fun_of_fvars (FList.map T.as_var_exn tm_vars) body)
     in
 
     let replace_sym pos neg (ty_vars, lam) cl =
       let rec replace_by_lam t =
         match T.view t with
-        | AppBuiltin (b, l) -> T.app_builtin ~ty:(T.ty t) b (List.map replace_by_lam l)
+        | AppBuiltin (b, l) -> T.app_builtin ~ty:(T.ty t) b (FList.map replace_by_lam l)
         | Var _v -> t
         | DB _i -> t
         | App (f, l) ->
@@ -927,21 +927,21 @@ module Make(E : Env.S) : S with module Env = E = struct
                 Subst.empty ty_vars ty_args
               in
               let lam' = Subst.FO.apply Subst.Renaming.none subst (lam, 0) in
-              T.app lam' (List.map replace_by_lam tm_args)
+              T.app lam' (FList.map replace_by_lam tm_args)
             else
-              T.app f (List.map replace_by_lam l)
-          | _ -> T.app f (List.map replace_by_lam l)
+              T.app f (FList.map replace_by_lam l)
+          | _ -> T.app f (FList.map replace_by_lam l)
           end
         | Const s -> if ID.equal s sym then lam else t
         | Fun (ty, t') -> T.fun_ ty (replace_by_lam t')
       in
       let lits = Array.to_list (C.lits cl) in
-      let new_lits = List.map (Literal.map replace_by_lam) lits in
+      let new_lits = FList.map (Literal.map replace_by_lam) lits in
       let proof =
         Proof.Step.simp
           ~tags:[Proof.Tag.T_ho; Proof.Tag.T_cannot_orphan]
           ~rule:(Proof.Rule.mk "pred_inlining")
-          (List.map C.proof_parent (cl :: pos @ neg))
+          (FList.map C.proof_parent (cl :: pos @ neg))
       in
       C.create ~penalty:(C.penalty cl) ~trail:(C.trail_l (cl :: pos @ neg)) new_lits proof
     in
@@ -957,12 +957,12 @@ module Make(E : Env.S) : S with module Env = E = struct
         let new_cls = 
           (match find_lit_by_sym_opt true cl with
           | Some _ ->
-            CCList.filter_map (fun neg_cl -> 
+            FList.filter_map(fun neg_cl -> 
               get_resolver () ~sym ~pos_cl:cl ~neg_cl) neg
           | None ->
             (match find_lit_by_sym_opt false cl with
             | Some _ ->
-              CCList.filter_map (fun pos_cl -> 
+              FList.filter_map(fun pos_cl -> 
                 get_resolver () ~sym ~pos_cl ~neg_cl:cl) pos
             | None ->
               let (ty_vars, lam) = lambda_term_for_sym (List.hd pos) (List.tl pos) in

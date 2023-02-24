@@ -51,7 +51,7 @@ module Make(E : Env.S) : S with module Env = E = struct
     let enocde_stmt st =
       let rule = Proof.Rule.mk "lams2combs" in
       let rules = curry_optimizations @ bunder_optimizations in
-      E.cr_return @@ List.map (fun c -> 
+      E.cr_return @@ FList.map (fun c -> 
         if has_lams_c c then (
           let proof = Proof.Step.simp [C.proof_parent c] ~rule in
           let lits' = Literals.map (abf ~rules) (C.lits c) in
@@ -79,7 +79,7 @@ module Make(E : Env.S) : S with module Env = E = struct
     let type_of_vars ~args ~ret =
       let open Ty in
       if CCList.is_empty args then Ty.var ret
-      else List.map Ty.var args ==> Ty.var ret
+      else FList.map Ty.var args ==> Ty.var ret
 
     (* Create the arguments of type appropriate to be applied to the combinator *)
     let s_arg1 =
@@ -142,7 +142,7 @@ module Make(E : Env.S) : S with module Env = E = struct
 
 
     let instantiate_var_w_comb ~var =
-      CCList.filter_map (fun (comb, penalty) ->
+      FList.filter_map (fun (comb, penalty) ->
         try
           Some (Unif.FO.unify_syn (comb, 0) (var, 1), penalty)
         with Unif.Fail -> None
@@ -181,7 +181,7 @@ module Make(E : Env.S) : S with module Env = E = struct
         (* variable names as in Ahmed's paper (unpublished) *)
         let var = T.head_term u in
         assert(T.is_var var);
-        CCList.filter_map (fun (subst, comb_penalty) ->
+        FList.filter_map (fun (subst, comb_penalty) ->
           let renaming = Subst.Renaming.create () in
           let lit_idx, lit_pos = Lits.Pos.cut u_pos in
           let comb_penalty = max comb_penalty 1 in
@@ -278,7 +278,7 @@ module Make(E : Env.S) : S with module Env = E = struct
         assert(not (T.is_fun t)); (* no lambdas if combinators are on *)
         let ty_args, _ret_ty = Type.open_fun (T.ty t) in
         let n = List.length ty_args in
-        let bvars = List.mapi (fun i ty -> T.bvar ~ty (n-i-1)) ty_args in
+        let bvars = FList.mapi (fun i ty -> T.bvar ~ty (n-i-1)) ty_args in
         let t' = T.app t bvars in
         let body = CCOpt.get_or ~default:t' (comb_normalize t') in
         T.fun_l ty_args body

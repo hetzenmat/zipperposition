@@ -4,6 +4,7 @@
 (** {1 Boolean Clause} *)
 
 open Logtk
+open Future
 
 type bool_lit = BBox.Lit.t
 
@@ -23,7 +24,7 @@ let pp_in = function
   | Output_format.O_normal -> pp
   | Output_format.O_none -> CCFormat.silent
 
-let to_form ~ctx:_ c = List.map BBox.to_s_form c |> TypedSTerm.Form.or_
+let to_form ~ctx:_ c = FList.map BBox.to_s_form c |> TypedSTerm.Form.or_
 
 exception E_proof of t
 

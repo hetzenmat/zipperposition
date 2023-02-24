@@ -4,6 +4,7 @@
 (** {1 Induction through Cut} *)
 
 open Logtk
+open Future
 open Libzipperposition
 
 module Lits = Literals
@@ -489,7 +490,7 @@ module Make
     begin
       [l1; l2]
       |> CCList.sort_uniq ~cmp:(CCList.compare Ind_cst.ind_skolem_compare)
-      |> List.filter (fun l -> not (CCList.is_empty l))
+      |> FList.filter (fun l -> not (CCList.is_empty l))
     end
 
   (* goal for induction *)
@@ -513,7 +514,7 @@ module Make
       let proof_parent = A.cut_proof_parent cut in
       let infos = UntypedAST.A.(
           [app "induction"
-             (List.map (fun v -> quoted (HVar.to_string_tstp v)) vars)])
+             (FList.map (fun v -> quoted (HVar.to_string_tstp v)) vars)])
       in
       Proof.Step.inference [proof_parent]
         ~infos ~rule:(Proof.Rule.mk "induction") ~tags:[Proof.Tag.T_ind]
@@ -523,7 +524,7 @@ module Make
       Cut_form.vars g
       |> (fun set -> T.VarSet.diff set (T.VarSet.of_list vars))
       |> T.VarSet.to_list
-      |> List.map
+      |> FList.map
         (fun v ->
            let ty_v = HVar.ty v in
            let id = Ind_cst.make_skolem ty_v in
@@ -533,7 +534,7 @@ module Make
     in
     (* make cover-sets for the variables, for the {b skolemized} type *)
     let c_sets =
-      List.map
+      FList.map
         (fun v ->
            let ty = Subst.Ty.apply Subst.Renaming.none subst_skolems (HVar.ty v,0) in
            v, Cover_set.make ~cover_set_depth ~depth ty)
@@ -554,12 +555,12 @@ module Make
         ~f:(fun (v,set) ->
             Cover_set.cases ~which:`All set
             |> Iter.to_list
-            |> List.map (fun case -> [v,case]))
+            |> FList.map (fun case -> [v,case]))
       |> CCList.flat_map
         (fun (cases:(T.var * Cover_set.case) list) ->
            assert (cases<>[]);
            (* literal for this case *)
-           let b_lit_case = BBox.inject_case (List.map snd cases) in
+           let b_lit_case = BBox.inject_case (FList.map snd cases) in
            CCList.Ref.push b_lits b_lit_case;
            (* clauses [goal[v := t'] <- b_lit(case), ¬cut.blit]
               for every [t'] sub-constant of [case] *)
@@ -567,7 +568,7 @@ module Make
              Util.seq_map_l cases
                ~f:(fun (v,case) ->
                    Cover_set.Case.sub_constants case
-                   |> CCList.filter_map
+                   |> FList.filter_map
                      (fun sub_cst ->
                         (* only keep sub-constants that have the same type as [v] *)
                         if Type.equal (Ind_cst.ty sub_cst) (HVar.ty v) then (
@@ -578,13 +579,13 @@ module Make
                (fun v_and_t_list ->
                   let subst =
                     v_and_t_list
-                    |> List.map (fun (v,t) -> (v,0),(t,1))
+                    |> FList.map (fun (v,t) -> (v,0),(t,1))
                     |> Subst.FO.of_list' ?init:None
                   in
                   let renaming = Subst.Renaming.create () in
                   let g' = Cut_form.apply_subst renaming subst (g,0) in
                   Cut_form.cs g'
-                  |> List.map
+                  |> FList.map
                     (fun lits ->
                        let trail =
                          [ b_lit_case;
@@ -599,7 +600,7 @@ module Make
            let neg_clauses =
              let subst =
                cases
-               |> List.map (fun (v,c) -> (v,0),(Cover_set.Case.to_term c,1))
+               |> FList.map (fun (v,c) -> (v,0),(Cover_set.Case.to_term c,1))
                |> Subst.FO.of_list' ~init:subst_skolems
              in
              let renaming = Subst.Renaming.create () in
@@ -613,7 +614,7 @@ module Make
                  ~f:(fun lits ->
                      let lits = Array.map (fun l -> [Literal.negate l]) lits in
                      Array.to_list lits)
-               |> CCList.map
+               |> FList.map
                  (fun l ->
                     let lits = Array.of_list l in
                     let trail =
@@ -793,7 +794,7 @@ module Make
       let vars =
         Cut_form.vars f
         |> T.VarSet.to_list
-        |> List.filter
+        |> FList.filter
           (fun v ->
              not (Type.is_tType (HVar.ty v)) &&
              (Iter.length @@ var_active_pos_seq f v >= 2) &&
@@ -867,7 +868,7 @@ module Make
       in
       begin
         subterms
-        |> CCList.filter_map
+        |> FList.filter_map
           (fun t ->
              (* introduce variable for [t] *)
              let v =
@@ -996,7 +997,7 @@ module Make
         (fun vars ->
            (* eliminate non-inductive variables *)
            let vars =
-             List.filter (fun v -> Ind_ty.is_inductive_type @@ HVar.ty v) vars
+             FList.filter (fun v -> Ind_ty.is_inductive_type @@ HVar.ty v) vars
            in
            if vars=[] then None else Some vars)
       |> Iter.to_rev_list
@@ -1016,7 +1017,7 @@ module Make
       | ivars ->
         (* filter on which variables we do induction *)
         let ivars =
-          List.filter
+          FList.filter
             (fun v ->
                let ok = should_do_ind_on_var g v in
                if not ok then (
@@ -1031,7 +1032,7 @@ module Make
         (* for each variable, build a coverset of its type,
            and do a case distinction on the [top] constant of this
            coverset. *)
-        CCList.flat_map (ind_on_vars cut) clusters
+          FList.concat_map (ind_on_vars cut) clusters
     end
 
   let new_lemma_ =
@@ -1055,7 +1056,7 @@ module Make
              assert (new_goals <> []);
              let g0 = g in
              let new_cuts =
-               List.map
+               FList.map
                  (fun g ->
                     A.introduce_cut ~depth:(A.cut_depth cut) g
                       (Proof.Step.lemma @@ Proof.Src.internal [new_lemma_()])
@@ -1092,7 +1093,7 @@ module Make
       in
       (* (constant -> variable) list *)
       let pairs =
-        List.mapi
+        FList.mapi
           (fun i (id,ty) ->
              assert (not (Type.is_tType @@ ty));
              T.const ~ty id, T.var (HVar.make ~ty (i+offset)))
@@ -1116,14 +1117,14 @@ module Make
                 List.partition Literal.is_constraint lits_l
               in
               let replace_lits =
-                List.map (Literal.map (fun t -> T.replace_m t pairs))
+                FList.map (Literal.map (fun t -> T.replace_m t pairs))
               in
               let guard = replace_lits guard in
               let other_lits = replace_lits other_lits in
-              List.map
+              FList.map
                 (fun other_lit -> Literal.negate other_lit :: guard)
                 other_lits)
-        |> List.map Array.of_list
+        |> FList.map Array.of_list
         |> Goal.of_form
       end
     )
@@ -1138,7 +1139,7 @@ module Make
     let pp_csts = Util.pp_list Fmt.(pair ~sep:(return ":@ ") ID.pp Type.pp) in
     (* remove trivial clauses *)
     let clauses =
-      List.filter (fun c -> not @@ Literals.is_trivial @@ C.lits c) clauses
+      FList.filter (fun c -> not @@ Literals.is_trivial @@ C.lits c) clauses
     in
     Util.debugf ~section 5
       "(@[<2>consider_proving_by_induction@ \
@@ -1162,7 +1163,7 @@ module Make
     if (ignore_depth || depth < max_depth) && no_pos_lemma_in_trail () then (
       let goal =
         generalize_clauses
-          (List.map C.lits clauses)
+          (FList.map C.lits clauses)
           ~generalize_on
         |> Goal.simplify
       in
@@ -1213,7 +1214,7 @@ module Make
       | Statement.NegatedGoal (skolems, _) ->
         (* find inductive skolems in there *)
         let ind_skolems =
-          List.filter
+          FList.filter
             (fun (id,ty) -> Ind_cst.id_is_ind_skolem id ty)
             skolems
         in
@@ -1230,7 +1231,7 @@ module Make
                with avatar splitting. *)
             let clauses =
               C.of_statement st
-              |> List.map (fun c -> fst (E.basic_simplify c))
+              |> FList.map (fun c -> fst (E.basic_simplify c))
             in
             prove_by_ind clauses ~ignore_depth:true ~generalize_on:consts;
             (* "skip" in any case, because the proof is done in a cut anyway *)

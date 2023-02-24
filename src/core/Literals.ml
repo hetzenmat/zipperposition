@@ -3,6 +3,8 @@
 
 (** {1 Array of literals} *)
 
+open Future
+
 module BV = CCBV
 module T = Term
 module S = Subst
@@ -277,7 +279,7 @@ module Conv = struct
         let clause_vars = T.VarSet.of_iter (var_seq) in
         let vars = clause_vars
                    |> T.VarSet.to_list 
-                   |> CCList.map (fun v -> T.Conv.to_simple_term ctx (T.var v))  in
+                   |> FList.map (fun v -> T.Conv.to_simple_term ctx (T.var v))  in
         let disjuncts =
           match or_args with
           | [] -> assert false
@@ -294,7 +296,7 @@ module Conv = struct
         Type.Conv.set_maxvar res (Seq.vars lits |> T.Seq.max_var);
         res) in
     Array.to_list lits
-    |> List.map (Literal.Conv.to_s_form ?hooks ?allow_free_db ~ctx)
+    |> FList.map (Literal.Conv.to_s_form ?hooks ?allow_free_db ~ctx)
     |> TypedSTerm.Form.or_
 end
 
@@ -500,7 +502,7 @@ let is_shielded var (lits:t) : bool =
 
 let unshielded_vars ?(filter=fun _->true) lits: _ list =
   vars lits
-  |> List.filter
+  |> FList.filter
     (fun var ->
        filter var &&
        not (is_shielded var lits))
@@ -508,7 +510,7 @@ let unshielded_vars ?(filter=fun _->true) lits: _ list =
 let vars_distinct lits = 
   let dif_vars = vars lits in
   let dif_ids  = 
-    List.sort_uniq CCOrd.int @@ List.map HVar.id dif_vars in
+    List.sort_uniq CCOrd.int @@ FList.map HVar.id dif_vars in
   List.length dif_ids = List.length dif_vars
 
 let ground_lits lits = 

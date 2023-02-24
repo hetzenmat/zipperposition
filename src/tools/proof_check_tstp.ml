@@ -4,6 +4,7 @@
 (** {5 Simple Proof checker for TSTP} *)
 
 open Logtk
+open Future
 open Logtk_parsers
 
 module A = Ast_tptp
@@ -94,15 +95,15 @@ let mk_proof_obligation proof =
           let f = T.close_all Binder.Forall f in
           A.FOF(step.TT.id, A.R_conjecture, f, []), step
         | TT.InferClause (c, lazy step) ->
-          let c = List.map slit_to_form c in
+          let c = FList.map slit_to_form c in
           let c = T.close_all Binder.Forall (T.or_ c) in
           A.FOF(step.TT.id, A.R_conjecture, c, []), step
         | _ -> assert false
       in
-      let premises = CCList.filter_map
+      let premises = FList.filter_map
           (fun parent -> match parent with
              | TT.InferClause (c, lazy step') ->
-               let c = List.map slit_to_form c in
+               let c = FList.map slit_to_form c in
                let c = T.close_all Binder.Forall (T.or_ c) in
                Some (A.FOF(step'.TT.id, A.R_axiom, c, []))
              | TT.InferForm(f, lazy step') ->
@@ -218,7 +219,7 @@ let all_paths_correct ~valid ~checked =
 let check_structure ~minimum ~checked =
   let valid step =
     let l = CheckedTrace.get ~checked step in
-    List.length (List.filter is_success l) >= minimum
+    List.length (FList.filter is_success l) >= minimum
   in
   all_paths_correct ~valid ~checked
 

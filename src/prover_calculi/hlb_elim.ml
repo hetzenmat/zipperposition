@@ -1,4 +1,5 @@
 open Logtk
+open Future
 open Libzipperposition
 
 module T = Term
@@ -595,7 +596,7 @@ module Make(E : Env.S) : S with module Env = E = struct
         let lit_l = List.rev @@ CCBV.select bv (C.lits cl) in
         let proof = 
           Proof.Step.simp ~rule:(Proof.Rule.mk "unit_hle/fle")
-          (List.map C.proof_parent (cl :: CS.to_list !proofset))
+          (FList.map C.proof_parent (cl :: CS.to_list !proofset))
         in
         let res = C.create ~penalty:(C.penalty cl) ~trail:(C.trail cl) lit_l proof in
 
@@ -609,7 +610,7 @@ module Make(E : Env.S) : S with module Env = E = struct
       let lit_l = [CCArray.get (C.lits cl) idx] in
       let proof =
         Proof.Step.simp ~rule:(Proof.Rule.mk (if prop_kind = Failed then "flr" else "unit_htr"))
-        (List.map C.proof_parent (cl :: CS.to_list ps))
+        (FList.map C.proof_parent (cl :: CS.to_list ps))
       in
       let repl = C.create ~penalty:(C.penalty cl) ~trail:(C.trail cl) lit_l proof in
       penalize_hidden_tautology repl;
@@ -676,7 +677,7 @@ module Make(E : Env.S) : S with module Env = E = struct
         let lit_l = List.rev @@ CCBV.select bv (C.lits cl) in
         let proof = 
           Proof.Step.simp ~rule:(Proof.Rule.mk "hidden_literal_elimination")
-          (List.map C.proof_parent (cl :: CS.to_list !proofset))
+          (FList.map C.proof_parent (cl :: CS.to_list !proofset))
         in
         let res = C.create ~penalty:(C.penalty cl) ~trail:(C.trail cl) lit_l proof in
 
@@ -689,7 +690,7 @@ module Make(E : Env.S) : S with module Env = E = struct
       let lit_l = [CCArray.get (C.lits cl) i; CCArray.get (C.lits cl) j] in
       let proof = 
         Proof.Step.simp ~rule:(Proof.Rule.mk "hidden_tautology_elimination")
-        (List.map C.proof_parent (cl :: CS.to_list proofset))
+        (FList.map C.proof_parent (cl :: CS.to_list proofset))
       in
       let repl = C.create ~penalty:(C.penalty cl) ~trail:(C.trail cl) lit_l proof in 
       penalize_hidden_tautology repl;

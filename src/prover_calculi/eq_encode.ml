@@ -69,7 +69,7 @@ let eq_encode_lit lit =
   | _ -> lit
 
 (** Encode a clause *)
-let eq_encode_lits lits = List.map eq_encode_lit lits
+let eq_encode_lits lits = FList.map eq_encode_lit lits
 
 
 exception E_i of ((T.t SLiteral.t) list, T.t, T.t) Statement.t
@@ -96,7 +96,7 @@ let res_tc =
     ~to_form:(fun ~ctx:_ st ->
         let conv_c (c:(T.t SLiteral.t) list) : _ =
           c 
-          |> List.map SLiteral.to_form
+          |> FList.map SLiteral.to_form
           |> T.Form.or_
         in
         Statement.Seq.forms st
@@ -115,7 +115,7 @@ let eq_encode_stmt stmt =
   | Statement.Goal _lits -> failwith "Not implemented: Goal"
   | Statement.Def _ | Statement.Rewrite _  | Statement.TyDecl _ -> stmt
   | Statement.NegatedGoal (skolems,clauses) -> 
-    Statement.neg_goal ~proof ~skolems (List.map eq_encode_lits clauses)
+    Statement.neg_goal ~proof ~skolems (FList.map eq_encode_lits clauses)
   | Statement.Assert lits -> Statement.assert_ ~proof (eq_encode_lits lits)
 
 

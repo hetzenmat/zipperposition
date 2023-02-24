@@ -180,7 +180,7 @@ module Ctx = struct
   (* enter new scope for the variables with those names *)
   let with_vars ctx vs ~f =
     let names =
-      List.map
+      FList.map
         (fun v ->
            let name = Var.name v in
            Hashtbl.add ctx.env name (`Var v);
@@ -268,7 +268,7 @@ module Ctx = struct
   let fresh_fun_ty ?(dest=`BindDefault) ~arity ctx =
     let ret = fresh_ty_meta_var ctx ~dest () in
     let new_vars = fresh_ty_meta_vars ~dest ctx arity in
-    let ty = T.Ty.fun_ (List.map (fun v->T.Ty.meta v) new_vars) (T.Ty.meta ret) in
+    let ty = T.Ty.fun_ (FList.map (fun v->T.Ty.meta v) new_vars) (T.Ty.meta ret) in
     ty
 
   let find_close_names ctx (s:string): string list =
@@ -394,7 +394,7 @@ let rec infer_ty_ ?loc ctx ty =
     | PT.AppBuiltin (Builtin.TType, []) -> T.Ty.tType
     | PT.AppBuiltin (Builtin.Arrow, ret :: args) ->
       let ret = aux ret in
-      let args = List.map aux args in
+      let args = FList.map aux args in
       T.Ty.fun_ ?loc args ret
     | PT.AppBuiltin (Builtin.HasType, [t;ty]) ->
       (* cast *)
@@ -439,7 +439,7 @@ let rec infer_ty_ ?loc ctx ty =
       error_ ?loc "@[<2>`@[%a@]`@ is not a valid type@]" PT.pp ty
   and aux_app id ty l =
     unify ?loc (T.Ty.returns ty) T.Ty.tType;
-    let l = List.map aux l in
+    let l = FList.map aux l in
     (* ensure that the type is well-typed (!) *)
     let ty_res = apply_unify ctx ~allow_open:false ?loc ty l in
     unify ?loc ty_res T.Ty.tType;
@@ -464,7 +464,7 @@ let add_implicit_params ctx ty_fun l =
     let tyvars, args, _ = T.Ty.unfold ty_fun in
     let l' =
       if List.length l = List.length args
-      then List.map (fun _ -> PT.wildcard) tyvars
+      then FList.map (fun _ -> PT.wildcard) tyvars
       else []
     in
     l'@l
@@ -492,7 +492,7 @@ let rec infer_rec ?loc ctx (t:PT.t) : T.t =
         | `ID (id, ty_id) ->
           (* implicit parameters, e.g. for [nil] *)
           let l =
-            add_implicit_params ctx ty_id [] |> List.map (infer_rec ?loc ctx)
+            add_implicit_params ctx ty_id [] |> FList.map (infer_rec ?loc ctx)
           in
           let ty = apply_unify ctx ?loc ~allow_open:true ty_id l in
           T.app ?loc ~ty (T.const ?loc ~ty:ty_id id) l
@@ -500,7 +500,7 @@ let rec infer_rec ?loc ctx (t:PT.t) : T.t =
     | PT.Const s ->
       let id, ty_id = Ctx.get_id_ ?loc ~arity:0 ~attrs:t.PT.attrs ctx s in
       (* implicit parameters, e.g. for [nil] *)
-      let l = add_implicit_params ctx ty_id [] |> List.map (infer_rec ?loc ctx) in
+      let l = add_implicit_params ctx ty_id [] |> FList.map (infer_rec ?loc ctx) in
       let ty = apply_unify ctx ?loc ~allow_open:true ty_id l in
       T.app ?loc ~ty (T.const ?loc ~ty:ty_id id) l
     | PT.App ({PT.term=PT.Var v; _}, l) ->
@@ -509,10 +509,10 @@ let rec infer_rec ?loc ctx (t:PT.t) : T.t =
         | `Var v ->
           let l = add_implicit_params ctx (Var.ty v) l in
           (* infer types for arguments *)
-          let l = List.map (infer_rec ?loc ctx) l in
+          let l = FList.map (infer_rec ?loc ctx) l in
           Util.debugf ~section 50 "@[<2>apply@ @[<2>%a:@,%a@]@ to [@[<2>@[%a@]]:@,[@[%a@]@]]@]"
             (fun k->k Var.pp v T.pp (Var.ty v) (Util.pp_list T.pp) l
-                (Util.pp_list T.pp) (List.map T.ty_exn l));
+                (Util.pp_list T.pp) (FList.map T.ty_exn l));
           let ty = apply_unify ctx ?loc ~allow_open:true (Var.ty v) l in
           T.app ?loc ~ty (T.var ?loc v) l
       end
@@ -522,10 +522,10 @@ let rec infer_rec ?loc ctx (t:PT.t) : T.t =
     | PT.App (f,l) ->
       (* higher order application *)
       let f = infer_rec ?loc ctx f in
-      let l = List.map (infer_rec ?loc ctx) l in
+      let l = FList.map (infer_rec ?loc ctx) l in
       Util.debugf ~section 50 "@[<2>apply@ @[<2>%a:@,%a@]@ to [@[<2>@[%a@]]:@,[@[%a@]@]]@]"
         (fun k->k T.pp f T.pp (T.ty_exn f) (Util.pp_list T.pp) l
-            (Util.pp_list T.pp) (List.map T.ty_exn l));
+            (Util.pp_list T.pp) (FList.map T.ty_exn l));
       let ty = apply_unify ctx ?loc ~allow_open:true (T.ty_exn f) l in
       T.app ?loc ~ty f l
     | PT.Ite (a,b,c) ->
@@ -566,7 +566,7 @@ let rec infer_rec ?loc ctx (t:PT.t) : T.t =
       res
     | PT.With (l, u) ->
       let vars =
-        List.map
+        FList.map
           (fun (v,ty) ->
              let ty = infer_ty_ ?loc ctx ty in
              v, Some ty)
@@ -594,13 +594,13 @@ let rec infer_rec ?loc ctx (t:PT.t) : T.t =
       T.multiset ?loc ~ty []
     | PT.List (t::l) ->
       let t = infer_rec ?loc ctx t in
-      let l = List.map (infer_rec ?loc ctx) l in
+      let l = FList.map (infer_rec ?loc ctx) l in
       let ty = T.Ty.multiset (T.ty_exn t) in
       T.multiset ?loc ~ty (t::l)
     | PT.Record (l,rest) ->
       (* infer types of fields *)
       let ty_l, l =
-        List.map
+        FList.map
           (fun (n,t) ->
              let t' = infer_rec ?loc ctx t in
              (n, T.ty_exn t'), (n, t'))
@@ -622,15 +622,15 @@ let rec infer_rec ?loc ctx (t:PT.t) : T.t =
       T.Ty.meta v
     | PT.AppBuiltin (Builtin.Arrow, ret :: args) ->
       let ret = infer_ty_exn ctx ret in
-      let args = List.map (infer_ty_exn ctx) args in
+      let args = FList.map (infer_ty_exn ctx) args in
       T.Ty.fun_ ?loc args ret
     | PT.AppBuiltin (Builtin.True, []) -> T.Form.true_
     | PT.AppBuiltin (Builtin.False, []) -> T.Form.false_
     | PT.AppBuiltin (Builtin.And, l) when List.length l >= 2 ->
-      let l = List.map (infer_prop_ ?loc ctx) l in
+      let l = FList.map (infer_prop_ ?loc ctx) l in
       T.Form.and_ ?loc l
     | PT.AppBuiltin (Builtin.Or, l)  when List.length l >= 2 ->
-      let l = List.map (infer_prop_ ?loc ctx) l in
+      let l = FList.map (infer_prop_ ?loc ctx) l in
       T.Form.or_ ?loc l
     | PT.AppBuiltin (((Builtin.Equiv | Builtin.Xor | Builtin.Imply) as conn), [a;b]) ->
       let a = infer_prop_ ?loc ctx a
@@ -674,7 +674,7 @@ let rec infer_rec ?loc ctx (t:PT.t) : T.t =
       with_non_inferred_typed_vars ?loc ctx vars
         ~f:(fun vars' ->
             let t' = infer_rec ?loc ctx t' in
-            let ty = T.Ty.fun_ ?loc (List.map Var.ty vars') (T.ty_exn t') in
+            let ty = T.Ty.fun_ ?loc (FList.map Var.ty vars') (T.ty_exn t') in
             check_ty_quantifier_free ?loc ty;
             T.bind_list ?loc ~ty Binder.Lambda vars' t')
     | PT.Bind (Binder.ForallTy, vars, t') ->
@@ -701,7 +701,7 @@ let rec infer_rec ?loc ctx (t:PT.t) : T.t =
     | PT.AppBuiltin (Builtin.Distinct, ([] | [_])) -> T.Form.true_
     | PT.AppBuiltin (Builtin.Distinct, l) ->
       (* [distinct(l)] is boolean typed *)
-      let l = List.map (infer_rec ?loc ctx) l in
+      let l = FList.map (infer_rec ?loc ctx) l in
       let x = match l with x::_ -> x | _ -> assert false in
       List.iter (fun y -> unify ?loc (T.ty_exn x) (T.ty_exn y)) l;
       T.app_builtin ?loc ~ty:T.Ty.prop Builtin.Distinct l
@@ -724,7 +724,7 @@ let rec infer_rec ?loc ctx (t:PT.t) : T.t =
           let i,j = T.Ty.arity ty_b in
           (* some builtin are ad-hoc polymorphic (eq, $less, ...) so
              we need to add wildcards *)
-          let l = List.map (infer_rec ?loc ctx) l in
+          let l = FList.map (infer_rec ?loc ctx) l in
           let l =
             if i>0 && List.length l = j
                    (* if some type arguments are already given, then the term
@@ -735,7 +735,7 @@ let rec infer_rec ?loc ctx (t:PT.t) : T.t =
                 "@[<2>add %d implicit type arguments to@ `@[<1>%a@ (%a)@]`@]"
                 (fun k->k i Builtin.pp b (Util.pp_list T.pp) l);
               let metas = Ctx.fresh_ty_meta_vars ~dest:`Generalize ctx i in
-              let metas = List.map (T.Ty.meta ?loc) metas in
+              let metas = FList.map (T.Ty.meta ?loc) metas in
               metas @ l
             ) else l
           in
@@ -751,10 +751,10 @@ let rec infer_rec ?loc ctx (t:PT.t) : T.t =
 and infer_app ?loc ctx id ty_id (l:PT.t list) : T.t =
   let l = add_implicit_params ctx ty_id l in
   (* infer types for arguments *)
-  let l = List.map (infer_rec ?loc ctx) l in
+  let l = FList.map (infer_rec ?loc ctx) l in
   Util.debugf ~section 50 "@[<2>apply@ @[<2>%a:@,%a@]@ to [@[<2>@[%a@]]:@,[@[%a@]@]]@]"
     (fun k->k ID.pp id T.pp ty_id (Util.pp_list T.pp) l
-        (Util.pp_list T.pp) (List.map T.ty_exn l));
+        (Util.pp_list T.pp) (FList.map T.ty_exn l));
   let ty = apply_unify ctx ?loc ~allow_open:true ty_id l in
   T.app ?loc ~ty (T.const ?loc ~ty:ty_id id) l
 
@@ -778,7 +778,7 @@ and infer_match ?loc ctx ~ty_matched t data (l:PT.match_branch list)
              let rhs = infer_rec ?loc ctx rhs in
              check_ty (T.ty_exn rhs);
              (* now cover every missing case *)
-             CCList.filter_map
+             FList.filter_map
                (fun (c_id,c_ty,_) ->
                   if List.exists (ID.equal c_id) !seen
                   then None
@@ -788,7 +788,7 @@ and infer_match ?loc ctx ~ty_matched t data (l:PT.match_branch list)
                     assert (_vars=[]);
                     unify ?loc ty_ret ty_matched;
                     let vars =
-                      List.mapi (fun i ty -> Var.makef ~ty "x_%d" i) ty_args
+                      FList.mapi (fun i ty -> Var.makef ~ty "x_%d" i) ty_args
                     in
                     let cstor =
                       { T.cstor_id=c_id; cstor_ty=c_ty; cstor_args=ty_params; }
@@ -816,7 +816,7 @@ and infer_match ?loc ctx ~ty_matched t data (l:PT.match_branch list)
                  ID.pp c_id (List.length ty_s_args) (List.length vars);
              );
              with_typed_vars_ ?loc ~infer_ty:(fun ?loc:_ _ ty -> ty) ctx
-               (List.map2 (fun v ty_arg -> v, Some ty_arg) vars ty_s_args)
+               (FList.map2 (fun v ty_arg -> v, Some ty_arg) vars ty_s_args)
                ~f:(fun vars ->
                    (* now we have everything in scope, we can convert [rhs] *)
                    let rhs = infer_rec ?loc ctx rhs in
@@ -829,7 +829,7 @@ and infer_match ?loc ctx ~ty_matched t data (l:PT.match_branch list)
       l
   in
   let missing =
-    CCList.filter_map
+    FList.filter_map
       (fun (id,_,_) ->
          if List.exists (fun (c,_,_) -> ID.equal id c.T.cstor_id) l
          then None else Some id)
@@ -873,7 +873,7 @@ let infer ctx t =
 let infer_clause_exn ctx c =
   let _span = ZProf.enter_prof prof_infer in
   try
-    let c = List.map (infer_prop_ ctx) c in
+    let c = FList.map (infer_prop_ ctx) c in
     Ctx.exit_scope ctx;
     ZProf.exit_prof _span;
     c
@@ -1023,7 +1023,7 @@ let rec as_def ?loc ?of_ bound t =
 let infer_defs ?loc ctx (l:A.def list): (_,_,_) Stmt.def list =
   (* first, declare all *)
   let decls =
-    List.map
+    FList.map
       (fun d ->
          let id = ID.make d.A.def_id in
          let ty = infer_ty_exn ctx d.A.def_ty in
@@ -1039,10 +1039,10 @@ let infer_defs ?loc ctx (l:A.def list): (_,_,_) Stmt.def list =
       l
   in
   (* now, infer type of each definition *)
-  List.map
+  FList.map
     (fun (id, ty, rules) ->
        let rules =
-         List.map
+         FList.map
            (fun r ->
               let r = infer_prop_exn ctx r in
               as_def ?loc ~of_:id Var.Set.empty r)
@@ -1107,12 +1107,12 @@ let infer_statement_exn ?(file="<no file>") ctx st =
     | A.Data l ->
       (* declare the inductive types *)
       let data_types =
-        List.map
+        FList.map
           (fun d ->
              let data_ty = ID.make d.A.data_name in
              (* the type [data_ty : type -> type -> ... -> type] *)
              let ty_of_data_ty =
-               T.Ty.fun_ (List.map (fun _ -> T.Ty.tType) d.A.data_vars) T.Ty.tType
+               T.Ty.fun_ (FList.map (fun _ -> T.Ty.tType) d.A.data_vars) T.Ty.tType
              in
              Ctx.declare ?loc ctx data_ty ty_of_data_ty;
              data_ty, ty_of_data_ty)
@@ -1120,24 +1120,24 @@ let infer_statement_exn ?(file="<no file>") ctx st =
       in
       (* now we can infer the types of each constructor *)
       let l' =
-        List.map2
+        FList.map2
           (fun d (data_ty,ty_of_data_ty) ->
              (* locally, declare type variables *)
              with_non_inferred_typed_vars ?loc ctx
-               (List.map (fun v->PT.V v, Some PT.tType) d.A.data_vars)
+               (FList.map (fun v->PT.V v, Some PT.tType) d.A.data_vars)
                ~f:(fun ty_vars ->
                    (* return type of every constructor: [data_ty ty_vars] *)
                    let ty_ret =
-                     T.Ty.app data_ty (List.map (T.Ty.var ?loc:None) ty_vars)
+                     T.Ty.app data_ty (FList.map (T.Ty.var ?loc:None) ty_vars)
                    in
                    (* infer type of constructors *)
                    let cstors =
-                     List.map
+                     FList.map
                        (fun (name, args) ->
                           let c_id = ID.make name in
                           (* type of c: forall ty_vars. ty_args -> ty_ret *)
                           let args =
-                            List.mapi
+                            FList.mapi
                               (fun i (p,ty) ->
                                  let ty = infer_ty_exn ctx ty in
                                  (* type of projector *)
@@ -1153,7 +1153,7 @@ let infer_statement_exn ?(file="<no file>") ctx st =
                                  ty, (p_id, p_ty))
                               args
                           in
-                          let ty_args = List.map fst args in
+                          let ty_args = FList.map fst args in
                           let ty_c =
                             T.Ty.forall_l ty_vars (T.Ty.fun_ ty_args ty_ret)
                           in
@@ -1184,7 +1184,7 @@ let infer_statement_exn ?(file="<no file>") ctx st =
   Ctx.exit_scope ctx;
   let aux =
     Ctx.pop_new_types ctx
-    |> List.map
+    |> FList.map
       (fun (id,ty) ->
          let proof = Proof.Step.intro (Proof.Src.internal []) Proof.R_decl in
          Stmt.ty_decl ~proof id ty)

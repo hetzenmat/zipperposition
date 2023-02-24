@@ -362,11 +362,11 @@ module Make(E : Env.S) : S with module Env = E = struct
       let orig_sign = L.is_positivoid ((C.lits orig_cl).(l_idx)) in
       (* literals against which unifiable part of the clause needs to be checked *)
       let for_tautology_checking =
-        List.filter (fun (lit, _) -> 
+        FList.filter (fun (lit, _) -> 
           L.is_positivoid lit = orig_sign 
           && L.is_predicate_lit lit) 
-        ((List.map (fun x -> x,sc_orig) (CCArray.except_idx (C.lits orig_cl) l_idx)) @  
-         List.map (fun x -> x, sc_partner) nonunifiable)
+        ((FList.map (fun x -> x,sc_orig) (CCArray.except_idx (C.lits orig_cl) l_idx)) @  
+         FList.map (fun x -> x, sc_partner) nonunifiable)
       in
       if CCList.is_empty unifiable then true
       else (
@@ -389,7 +389,7 @@ module Make(E : Env.S) : S with module Env = E = struct
           Util.debugf ~section 30 
             "check: @. lit: @[%a@]@. unif: @[%a@]@. non_unif: @[%a@]@. partner_cl: @[%a@]@."
             (fun k -> k L.pp ((C.lits orig_cl).(l_idx)) (CCList.pp T.pp) 
-                             (List.map fst unifiable) 
+                             (FList.map fst unifiable) 
                              (CCList.pp L.pp) nonunifiable C.pp partner);
           
           is_valid_compl_lits ||
@@ -520,7 +520,7 @@ module Make(E : Env.S) : S with module Env = E = struct
       (* Literals from same_hd_atms part might need to be tested for congruence
          with literals of the same head, but opposite sign from either clause *)
       let for_congruence_testing =
-        CCList.filter_map (fun lit -> 
+        FList.filter_map (fun lit -> 
           if L.is_predicate_lit lit && L.is_positivoid lit = orig_sign then (
             CCOpt.flat_map (fun t -> 
               CCOpt.return_if 

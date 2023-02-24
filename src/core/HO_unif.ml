@@ -39,7 +39,7 @@ let add_var_to_term t =
   let prefix,matrix_r = Term.open_fun (Lambda.eta_expand t) in
   let fresh_var = HVar.fresh ~ty:(Type.arrow prefix Type.prop) () in
   let n = List.length prefix in
-  let bvars = List.mapi (fun i ty -> T.bvar ~ty (n-i-1)) prefix in
+  let bvars = FList.mapi (fun i ty -> T.bvar ~ty (n-i-1)) prefix in
   let matrix_l = T.app (T.var fresh_var) bvars in
   T.fun_l prefix (T.Form.or_ matrix_l matrix_r)
 
@@ -50,7 +50,7 @@ let enum_prop ?(mode=`Full) ?(add_var=false) ((v:Term.var), sc_v)
   assert (Type.is_prop ty_ret);
   let project ~db_vars db_i =
     let db_ty_args, _ = Type.open_fun (T.ty db_i) in
-    let new_args = List.mapi (fun i ty_arg -> 
+    let new_args = FList.mapi (fun i ty_arg -> 
       let var_ty = Type.arrow ty_args ty_arg in
       T.app (T.var (HVar.make ~ty:var_ty (offset+i+1))) db_vars
     ) db_ty_args in
@@ -58,13 +58,13 @@ let enum_prop ?(mode=`Full) ?(add_var=false) ((v:Term.var), sc_v)
   if n>0 then [] (* FIXME: what to do? *)
   else (
     (* local variables to build the λ-term *)
-    let vars = List.mapi (fun i ty -> HVar.make ~ty i) ty_args in
+    let vars = FList.mapi (fun i ty -> HVar.make ~ty i) ty_args in
     (* projection with "¬": [λvars. ¬ (F vars)] *)
     let l_not = match mode with
       | `Neg | `Full | `Pragmatic ->
         let f = HVar.make offset ~ty:ty_v in
         [T.fun_of_fvars vars
-          (T.Form.not_ (T.app (T.var f) (List.map T.var vars)))]
+          (T.Form.not_ (T.app (T.var f) (FList.map T.var vars)))]
       | _ -> []
     (* projection with "∧": [λvars. (F1 vars) ∧ (F2 vars)] *)
     and l_and = match mode with
@@ -73,8 +73,8 @@ let enum_prop ?(mode=`Full) ?(add_var=false) ((v:Term.var), sc_v)
         let g = HVar.make (offset+1) ~ty:ty_v in
         [T.fun_of_fvars vars
            (T.Form.and_
-              (T.app (T.var f) (List.map T.var vars))
-              (T.app (T.var g) (List.map T.var vars)))]
+              (T.app (T.var f) (FList.map T.var vars))
+              (T.app (T.var g) (FList.map T.var vars)))]
       | _ -> []
     and l_or = match mode with
       | `Full | `Or ->
@@ -82,14 +82,14 @@ let enum_prop ?(mode=`Full) ?(add_var=false) ((v:Term.var), sc_v)
         let g = HVar.make (offset+1) ~ty:ty_v in
         [T.fun_of_fvars vars
            (T.Form.or_
-              (T.app (T.var f) (List.map T.var vars))
-              (T.app (T.var g) (List.map T.var vars)))]
+              (T.app (T.var f) (FList.map T.var vars))
+              (T.app (T.var g) (FList.map T.var vars)))]
       | _ -> []
     (* projection with "=": [λvars. (F1 vars) = (F2 vars)]
        where [F1 : Πa. ty_args -> a] *)
     and l_eq = 
       let n = List.length vars in
-      let db_vars = List.mapi (fun i ty -> T.bvar ~ty (n-i-1)) ty_args in
+      let db_vars = FList.mapi (fun i ty -> T.bvar ~ty (n-i-1)) ty_args in
       match mode with
       | `Full | `Eq ->
         let a = HVar.make offset ~ty:Type.tType in
@@ -98,8 +98,8 @@ let enum_prop ?(mode=`Full) ?(add_var=false) ((v:Term.var), sc_v)
         let g = HVar.make (offset+2) ~ty:ty_fun in
         [T.fun_of_fvars vars
            (T.Form.eq
-              (T.app (T.var f) (List.map T.var vars))
-              (T.app (T.var g) (List.map T.var vars)))] @
+              (T.app (T.var f) (FList.map T.var vars))
+              (T.app (T.var g) (FList.map T.var vars)))] @
         (CCList.flat_map_i (fun i db_i -> 
           CCList.flat_map_i (fun j db_j ->
             if i < j && Type.equal (T.ty db_i) (T.ty db_j) then (
@@ -115,12 +115,12 @@ let enum_prop ?(mode=`Full) ?(add_var=false) ((v:Term.var), sc_v)
     and l_quants = match mode with
       | `Full | `Quants ->
         let n = List.length ty_args in
-        CCList.mapi (fun i ty -> 
+        FList.mapi (fun i ty -> 
             if Type.is_fun ty && Type.returns_prop ty then (
               let arg_typeargs,_ = Type.open_fun ty in
               let m = List.length arg_typeargs in
               let form_body = T.app (T.bvar ~ty (m+n-i-1)) 
-                  (List.mapi (fun j ty -> T.bvar ~ty (m-j-1)) arg_typeargs) in
+                  (FList.mapi (fun j ty -> T.bvar ~ty (m-j-1)) arg_typeargs) in
               let forall = T.close_quantifier Builtin.ForallConst arg_typeargs form_body in
               let exists = T.close_quantifier Builtin.ExistsConst arg_typeargs form_body in
               let forall, exists = CCPair.map_same (T.fun_l ty_args) (forall, exists) in
@@ -144,7 +144,7 @@ let enum_prop ?(mode=`Full) ?(add_var=false) ((v:Term.var), sc_v)
         let bvars = 
           snd @@ List.fold_right (fun ty (idx, res) -> 
               (idx+1, T.bvar ~ty idx :: res)) arg_tys (0, []) in
-        let fresh_vars = List.mapi (fun i ty -> 
+        let fresh_vars = FList.mapi (fun i ty -> 
             let var_ty = Type.arrow arg_tys ty in
             T.app (T.var (HVar.make ~ty:var_ty (offset+i))) bvars
           ) arg_tys in
@@ -155,13 +155,13 @@ let enum_prop ?(mode=`Full) ?(add_var=false) ((v:Term.var), sc_v)
     and l_simpl_op = match mode with
       | `Pragmatic | `Simple -> 
         let n = List.length vars in
-        let db_vars = List.mapi (fun i ty -> T.bvar ~ty (n-i-1)) ty_args in
-        CCList.mapi (fun i db_i ->
+        let db_vars = FList.mapi (fun i ty -> T.bvar ~ty (n-i-1)) ty_args in
+        FList.mapi (fun i db_i ->
           let projs = if Type.returns_prop (Term.ty db_i) then (
               [T.fun_l ty_args (project ~db_vars db_i)]
             ) else [] in
           let log_ops = 
-            CCList.mapi (fun j db_j ->
+            FList.mapi (fun j db_j ->
                 if i < j && Type.equal (T.ty db_i) (T.ty db_j) then (
                   let res = [T.fun_l ty_args (T.Form.eq (db_i) (db_j));
                              T.fun_l ty_args (T.Form.neq (db_i) (db_j));] in
@@ -202,9 +202,9 @@ let enum_prop ?(mode=`Full) ?(add_var=false) ((v:Term.var), sc_v)
 
     in
     let lambdas =
-      CCList.flat_map
+      FList.concat_map
         (fun (ts,penalty) -> 
-          List.map (fun t -> 
+          FList.map (fun t -> 
               assert (T.DB.is_closed t);
 
               (* Caching of primitive enumeration terms, so that trigger-based instantiation
@@ -297,7 +297,7 @@ module U = struct
     in
     Lambda.whnf t
 
-  let mk_pairs env l1 l2 = List.map2 (fun t u -> env, t, u) l1 l2
+  let mk_pairs env l1 l2 = FList.map2 (fun t u -> env, t, u) l1 l2
 
   (* perform syntactic unification aggressively on rigid/rigid pairs *)
   let flatten_rigid_rigid sc subst pairs : pair list option =
@@ -351,7 +351,7 @@ module U = struct
     let ty_t_args, t_body = T.open_fun t in
     assert (ty_t_args<>[]);
     assert (not (T.is_fun t_body));
-    let all_args = List.map T.ty args @ ty_t_args in
+    let all_args = FList.map T.ty args @ ty_t_args in
     (* allocate new variable *)
     let offset, v' =
       let ty_v' = Type.arrow all_args (T.ty t_body) in
@@ -363,7 +363,7 @@ module U = struct
       let n = List.length all_args in
       let rhs =
         T.app (T.var v')
-          (List.mapi (fun i ty -> T.bvar ~ty (n-i-1)) all_args)
+          (FList.mapi (fun i ty -> T.bvar ~ty (n-i-1)) all_args)
         |> T.fun_l all_args
       in
       env, T.var v, rhs
@@ -372,8 +372,8 @@ module U = struct
       let n = List.length ty_t_args in
       let lhs =
         T.app (T.var v')
-          (List.map (T.DB.shift n) args @
-           List.mapi (fun i ty -> T.bvar ~ty (n-i-1)) ty_t_args) in
+          (FList.map (T.DB.shift n) args @
+           FList.mapi (fun i ty -> T.bvar ~ty (n-i-1)) ty_t_args) in
       ty_t_args @ env, lhs, t_body
     in
     let new_pairs = [ bind_v; new_pair_body ] in
@@ -393,21 +393,21 @@ module U = struct
     let n_params, ty_args, ty_ret = Type.open_poly_fun (T.ty t) in
     assert (n_params=0);
     let n_ty_args = List.length ty_args in
-    let all_ty_args = List.map T.ty args @ ty_args in
+    let all_ty_args = FList.map T.ty args @ ty_args in
     let hd_t = T.head_term t in
     (* bound variables for [ty_args] *)
     let vars_right =
-      List.mapi (fun i ty -> T.bvar ~ty (n_ty_args-i-1)) ty_args
+      FList.mapi (fun i ty -> T.bvar ~ty (n_ty_args-i-1)) ty_args
     (* bound variables that abstract over [args].
        Careful about shifting them, they are inside the scope of [vars_right]. *)
     and vars_left =
       let n = n_ty_args + List.length args in
-      List.mapi (fun i arg -> T.bvar ~ty:(T.ty arg) (n-i-1)) args
+      FList.mapi (fun i arg -> T.bvar ~ty:(T.ty arg) (n-i-1)) args
     in
     let all_vars = vars_left @ vars_right in
     (* now unify [v args…vars_right = t vars_right] *)
     let rhs = T.app (T.DB.shift n_ty_args t) vars_right in
-    let lhs_args = List.map (T.DB.shift n_ty_args) args @ vars_right in
+    let lhs_args = FList.map (T.DB.shift n_ty_args) args @ vars_right in
     (* projections: if [k]-th element of [args…vars] has type [τ1…τm → ty_ret],
        then we can try [v := λx1…xn. x_k (F1 x1…xn)…(Fm x1…xn)]
        where the [F] are fresh,
@@ -422,20 +422,20 @@ module U = struct
              (* now make fresh variables for [ty_args_i] *)
              let offset, f_vars =
                ty_args_i
-               |> List.map (Type.arrow all_ty_args)
+               |> FList.map (Type.arrow all_ty_args)
                |> mk_fresh_vars offset
              in
              (* [λall_vars. (F1 all_vars)…(Fm all_vars)] *)
              let lambda =
                let f_vars_applied =
-                 List.map (fun f_var -> T.app (T.var f_var) all_vars) f_vars
+                 FList.map (fun f_var -> T.app (T.var f_var) all_vars) f_vars
                in
                T.app (List.nth all_vars i) f_vars_applied
-               |> T.fun_l (List.map T.ty all_vars)
+               |> T.fun_l (FList.map T.ty all_vars)
              (* [x_k (F1 args…vars_right)…(Fm args…vars_right] *)
              and lhs =
                let f_vars_applied =
-                 List.map (fun f_var -> T.app (T.var f_var) lhs_args) f_vars
+                 FList.map (fun f_var -> T.app (T.var f_var) lhs_args) f_vars
                in
                T.app (List.nth lhs_args i) f_vars_applied
              in
@@ -450,23 +450,23 @@ module U = struct
       | T.AppBuiltin (b,l) when vars_right=[] && T.args t=[] ->
         (* imitate builtin *)
         let ty_params, l = CCList.take_drop_while T.is_type l in
-        let ty_args_t = List.map T.ty l in
+        let ty_args_t = FList.map T.ty l in
         let offset, f_vars =
           ty_args_t
-          |> List.map (Type.arrow all_ty_args)
+          |> FList.map (Type.arrow all_ty_args)
           |> mk_fresh_vars offset
         in
         (* [λall_vars. b (F1 all_vars)…(Fm all_vars)] *)
         let lambda =
           let f_vars_applied =
-            List.map (fun f_var -> T.app (T.var f_var) all_vars) f_vars
+            FList.map (fun f_var -> T.app (T.var f_var) all_vars) f_vars
           in
           T.app_builtin ~ty:(T.ty t) b f_vars_applied
-          |> T.fun_l (List.map T.ty all_vars)
+          |> T.fun_l (FList.map T.ty all_vars)
         (* [b (F1 args…vars_right)…(Fm args…vars_right)] *)
         and lhs =
           let f_vars_applied =
-            List.map (fun f_var -> T.app (T.var f_var) lhs_args) f_vars
+            FList.map (fun f_var -> T.app (T.var f_var) lhs_args) f_vars
           in
           T.app_builtin ~ty:(T.ty t) b (ty_params @ f_vars_applied)
         in
@@ -481,20 +481,20 @@ module U = struct
         assert (n=0);
         let offset, f_vars =
           ty_args_t
-          |> List.map (Type.arrow all_ty_args)
+          |> FList.map (Type.arrow all_ty_args)
           |> mk_fresh_vars offset
         in
         (* [λall_vars. f (F1 all_vars)…(Fm all_vars)] *)
         let lambda =
           let f_vars_applied =
-            List.map (fun f_var -> T.app (T.var f_var) all_vars) f_vars
+            FList.map (fun f_var -> T.app (T.var f_var) all_vars) f_vars
           in
           T.app t_mono f_vars_applied
-          |> T.fun_l (List.map T.ty all_vars)
+          |> T.fun_l (FList.map T.ty all_vars)
         (* [f (F1 args…vars_right)…(Fm args…vars_right)] *)
         and lhs =
           let f_vars_applied =
-            List.map (fun f_var -> T.app (T.var f_var) lhs_args) f_vars
+            FList.map (fun f_var -> T.app (T.var f_var) lhs_args) f_vars
           in
           T.app t_mono f_vars_applied
         in
@@ -616,7 +616,7 @@ module U = struct
                   assert (n_params=0);
                   (* apply to DB indices *)
                   let n = List.length ty_args in
-                  let args = List.mapi (fun i ty -> T.bvar ~ty (n-i-1)) ty_args in
+                  let args = FList.mapi (fun i ty -> T.bvar ~ty (n-i-1)) ty_args in
                   let pair = ty_args @ env, T.app hd1 args, T.app hd2 args in
                   push_new "eta" ~penalty ~subst ~offset [pair]
                 | T.Var v, (T.Const _ | T.AppBuiltin _ | T.DB _) ->
@@ -690,7 +690,7 @@ module U = struct
     let renaming = Subst.Renaming.create() in
     let subst = Unif_subst.subst us in
     let pairs =
-      List.map
+      FList.map
         (fun (env,t,u) ->
            let t = Subst.FO.apply renaming subst (T.fun_l env t,0) in
            let u = Subst.FO.apply renaming subst (T.fun_l env u,0) in

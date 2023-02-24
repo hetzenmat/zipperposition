@@ -2,6 +2,7 @@
 (* This file is free software, part of Zipperposition. See file "license" for more details. *)
 
 open Logtk
+open Future
 
 module Lits = Literals
 
@@ -60,7 +61,7 @@ let pp_payload out = function
     Format.fprintf out "@<1>⟦lemma %a@<1>⟧" Cut_form.pp f
   | Case c ->
     Format.fprintf out "@<1>⟦@[<hv1>%a@]@<1>⟧"
-      (Util.pp_list ~sep:" ∧ " Literal.pp) (List.map Cover_set.Case.to_lit c)
+      (Util.pp_list ~sep:" ∧ " Literal.pp) (FList.map Cover_set.Case.to_lit c)
 
 (* index for components (to ensure α-equivalence components map to the same
    boolean lit *)
@@ -264,7 +265,7 @@ let to_s_form (lit:t) =
     | Case l ->
       let ctx = T.Conv.create () in
       l
-      |> List.map
+      |> FList.map
         (fun t -> Cover_set.Case.to_lit t |> Literal.Conv.to_s_form ~ctx)
       |> F.and_
   in
@@ -283,7 +284,7 @@ let pp_bclause out lits =
 let pp_tstp out b =
   let pp_box_unsigned out b = match payload b with
     | Case p ->
-      let lits = List.map Cover_set.Case.to_lit p |> Array.of_list in
+      let lits = FList.map Cover_set.Case.to_lit p |> Array.of_list in
       Literals.pp_tstp out lits
     | Clause_component lits ->
       CCFormat.within "(" ")" Literals.pp_tstp_closed out lits
@@ -303,7 +304,7 @@ let pp_zf out i =
     | Case c ->
       Format.fprintf out "(@[<hv>%a@])"
         (Util.pp_list ~sep:" && " Literal.pp_zf)
-        (List.map Cover_set.Case.to_lit c)
+        (FList.map Cover_set.Case.to_lit c)
   in
   if not (Lit.sign i) then CCFormat.string out "~";
   pp_payload out (payload i)

@@ -4,6 +4,7 @@
 (** {1 Utils for ZF} *)
 
 open Logtk
+open Future
 
 module A = UntypedAST
 
@@ -28,7 +29,7 @@ let rec parse_lexbuf_ ?cache ?(recursive=true) ~dir lex =
   if recursive
   then (
     let cache = CCOpt.get_lazy create_parse_cache cache in
-    CCList.flat_map
+    FList.concat_map
       (fun st -> match st.A.stmt with
          | A.Include s ->
            begin match find_file s ~dir with

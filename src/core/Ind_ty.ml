@@ -3,6 +3,8 @@
 
 (** {1 Inductive Types} *)
 
+open Future
+
 module T = Term
 
 let section = Util.Section.make "ind_ty"
@@ -170,7 +172,7 @@ let declare_ty id ~ty_vars constructors ~proof =
   let rec ity = {
     ty_id=id;
     ty_vars;
-    ty_pattern=Type.app id (List.map Type.var ty_vars);
+    ty_pattern=Type.app id (FList.map Type.var ty_vars);
     ty_constructors=constructors;
     ty_is_rec=lazy (is_rec_ ity);
     ty_proof=proof;
@@ -197,7 +199,7 @@ let declare_ty id ~ty_vars constructors ~proof =
 let mk_constructor id ty args =
   let rec c = lazy (
     let args =
-      List.mapi
+      FList.mapi
         (fun i (ty_arg,(p_id,p_ty)) ->
            let p = {p_id; p_ty; p_cstor=c; p_index=i} in
            ty_arg, p)

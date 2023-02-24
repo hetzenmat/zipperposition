@@ -3,6 +3,8 @@
 
 (** {1 Skolem symbols} *)
 
+open Future
+
 module T = TypedSTerm
 module Stmt = Statement
 module Fmt = CCFormat
@@ -130,11 +132,11 @@ let skolem_form ~ctx subst var form =
     "@[<2>creating skolem for@ `@[%a@]`@ with tyvars=[@[%a@]],@ vars=[@[%a@]],@ subst={@[%a@]}@]"
     (fun k->k T.pp form (Util.pp_list Var.pp_full) tyvars
         (Util.pp_list Var.pp_full) vars (Var.Subst.pp T.pp) subst);
-  let tyvars_t = List.map (fun v->T.Ty.var v) tyvars in
-  let vars_t = List.map (fun v->T.var v |> T.Subst.eval subst) vars in
+  let tyvars_t = FList.map (fun v->T.Ty.var v) tyvars in
+  let vars_t = FList.map (fun v->T.var v |> T.Subst.eval subst) vars in
   (* type of the symbol: quantify over type vars, apply to vars' types *)
   let ty_var = T.Subst.eval subst (Var.ty var) in
-  let ty = ty_forall_l tyvars (T.Ty.fun_ (List.map Var.ty vars) ty_var) in
+  let ty = ty_forall_l tyvars (T.Ty.fun_ (FList.map Var.ty vars) ty_var) in
   let prefix = "sk_" in
   let f = fresh_skolem_prefix ~ctx ~ty prefix in
   let skolem_t = T.app ~ty:ty_var (T.const ~ty f) (tyvars_t @ vars_t) in
@@ -208,10 +210,10 @@ let define_form ?(pattern="zip_tseitin") ~ctx ~rw_rules ~polarity ~parents form 
   let create_new ~ctx ~rw_rules ~polarity ~parents ~form = 
     incr_counter ctx;
     let tyvars, vars = collect_vars Var.Subst.empty form in
-    let vars_t = List.map (fun v->T.var v) vars in
-    let tyvars_t = List.map (fun v->T.Ty.var v) tyvars in
+    let vars_t = FList.map (fun v->T.var v) vars in
+    let tyvars_t = FList.map (fun v->T.Ty.var v) tyvars in
     (* similar to {!skolem_form}, but always return [prop] *)
-    let ty = ty_forall_l tyvars (T.Ty.fun_ (List.map Var.ty vars) T.Ty.prop) in
+    let ty = ty_forall_l tyvars (T.Ty.fun_ (FList.map Var.ty vars) T.Ty.prop) in
     (* not a skolem (but a defined term). Will be defined, not declared. *)
     let f = fresh_id ~start0:true ~ctx pattern in
     ID.set_payload f ID.Attr_cnf_def;
@@ -301,7 +303,7 @@ let define_term ?(pattern="fun_") ~ctx ~parents rules : term_definition =
   let id = fresh_id ~start0:true ~ctx pattern in
   (* convert rules *)
   let rules =
-    List.map
+    FList.map
       (fun (args,rhs) ->
          let all_vars =
            Iter.of_list (rhs::args)

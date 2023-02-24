@@ -330,7 +330,7 @@ let close_all s t =
   let vars = Seq.free_vars t
              |> StringSet.of_iter
              |> StringSet.elements
-             |> List.map (fun v->V v,None)
+             |> FList.map (fun v->V v,None)
   in
   bind s vars t
 
@@ -688,11 +688,11 @@ let rec apply_subst (subst:subst) (t:t): t =
     | Var Wildcard -> t
     | Const c -> const ?loc c
     | AppBuiltin (b, l) ->
-      let l = List.map (apply_subst subst) l in
+      let l = FList.map (apply_subst subst) l in
       app_builtin ?loc b l
     | App (hd, l) ->
       let hd = apply_subst subst hd in
-      let l = List.map (apply_subst subst) l in
+      let l = FList.map (apply_subst subst) l in
       app ?loc hd l
     | Ite (a,b,c) ->
       let a = apply_subst subst a in
@@ -702,7 +702,7 @@ let rec apply_subst (subst:subst) (t:t): t =
     | Match (u,l) ->
       let u = apply_subst subst u in
       let l =
-        List.map
+        FList.map
           (function
             | Match_default rhs -> Match_default (apply_subst subst rhs)
             | Match_case (c,vars,rhs) ->
@@ -724,16 +724,16 @@ let rec apply_subst (subst:subst) (t:t): t =
       let_ ?loc l u
     | With (l, u) ->
       (* variables are actually free, do not rename them *)
-      let l = List.map (fun (v,t) -> v, apply_subst subst t) l in
+      let l = FList.map (fun (v,t) -> v, apply_subst subst t) l in
       let u = apply_subst subst u in
       with_ ?loc l u
     | Bind (b, vars, body) ->
       let subst, vars = CCList.fold_map copy_fresh_tyvar subst vars in
       let body = apply_subst subst body in
       bind ?loc b vars body
-    | List l -> list_ ?loc (List.map (apply_subst subst) l)
+    | List l -> list_ ?loc (FList.map (apply_subst subst) l)
     | Record (l, row) ->
-      let l = List.map (fun (name,t) -> name, apply_subst subst t) l in
+      let l = FList.map (fun (name,t) -> name, apply_subst subst t) l in
       record ?loc l ~rest:row
   end
 

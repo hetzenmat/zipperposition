@@ -4,6 +4,7 @@
 (** {1 Implementation of Phases} *)
 
 open Logtk
+open Future
 open Logtk_parsers
 open Logtk_proofs
 open Libzipperposition
@@ -631,7 +632,7 @@ let process_files_and_print ?(params=Params.default) files =
     print file env res >>= fun () ->
     check res
   in
-  let phases = List.map f files in
+  let phases = FList.map f files in
   Phases.run_parallel phases >>= fun r ->
   print_stats () >>= fun () ->
   Phases.return r

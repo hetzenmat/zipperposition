@@ -125,49 +125,49 @@ let neg_goal ?attrs ~proof ~skolems l = mk_ ?attrs ~proof (NegatedGoal (skolems,
 
 let map_data ~ty:fty d =
   { d with
-    data_args = List.map (Var.update_ty ~f:fty) d.data_args;
+    data_args = FList.map (Var.update_ty ~f:fty) d.data_args;
     data_ty = fty d.data_ty;
     data_cstors =
-      List.map (fun (id,ty,args) ->
-          id, fty ty, List.map (fun (ty,(p_id,p_ty)) -> fty ty,(p_id, fty p_ty)) args)
+      FList.map (fun (id,ty,args) ->
+          id, fty ty, FList.map (fun (ty,(p_id,p_ty)) -> fty ty,(p_id, fty p_ty)) args)
         d.data_cstors;
   }
 
 let map_def_rule ~form:fform ~term:fterm ~ty:fty d = 
   match d with
   | Def_term {vars;id;ty;args;rhs;as_form} ->
-    let vars = List.map (Var.update_ty ~f:fty) vars in
-    Def_term {vars;id;ty=fty ty;args=List.map fterm args;
+    let vars = FList.map (Var.update_ty ~f:fty) vars in
+    Def_term {vars;id;ty=fty ty;args=FList.map fterm args;
               rhs=fterm rhs; as_form=fform as_form}
   | Def_form {vars;lhs;rhs;polarity;as_form} ->
-    let vars = List.map (Var.update_ty ~f:fty) vars in
+    let vars = FList.map (Var.update_ty ~f:fty) vars in
     Def_form {vars;lhs=SLiteral.map ~f:fterm lhs;
-              rhs=List.map fform rhs;polarity;
-              as_form=List.map fform as_form}
+              rhs=FList.map fform rhs;polarity;
+              as_form=FList.map fform as_form}
 
 let map_def ~form:fform ~term:fterm ~ty:fty d =
   { d with
     def_ty=fty d.def_ty;
     def_rules=
-      List.map (map_def_rule ~form:fform ~term:fterm ~ty:fty) d.def_rules;
+      FList.map (map_def_rule ~form:fform ~term:fterm ~ty:fty) d.def_rules;
   }
 
 let map ~form ~term ~ty st =
   let map_view ~form ~term ~ty:fty = function
     | Def l ->
-      let l = List.map (map_def ~form ~term ~ty) l in
+      let l = FList.map (map_def ~form ~term ~ty) l in
       Def l
     | Rewrite d ->
       let d = map_def_rule ~form ~term ~ty d in
       Rewrite d
     | Data l ->
-      let l = List.map (map_data ~ty:fty) l in
+      let l = FList.map (map_data ~ty:fty) l in
       Data l
-    | Lemma l -> Lemma (List.map form l)
+    | Lemma l -> Lemma (FList.map form l)
     | Goal f -> Goal (form f)
     | NegatedGoal (sk,l) ->
-      let sk = List.map (fun (i,ty)->i, fty ty) sk in
-      NegatedGoal (sk,List.map form l)
+      let sk = FList.map (fun (i,ty)->i, fty ty) sk in
+      NegatedGoal (sk, FList.map form l)
     | Assert f -> Assert (form f)
     | TyDecl (id, ty) -> TyDecl (id, fty ty)
   in
@@ -199,14 +199,14 @@ let conv_rule ~proof (r:_ def_rule) : Rewrite.rule = match r with
   | Def_form {lhs;rhs;_} ->
     (* returns either a term or a lit rule (depending on whether RHS is atomic) *)
     let lhs = Literal.Conv.of_form lhs in
-    let rhs = List.map (List.map Literal.Conv.of_form) rhs in
+    let rhs = FList.map (FList.map Literal.Conv.of_form) rhs in
     Rewrite.Rule.make_lit lhs rhs ~proof
 
 let conv_rule_i ~proof (r:_ def_rule) = match r with
   | Def_term {id;ty;args;rhs;_} ->
     let ctx = Type.Conv.create () in
     let ty = Type.Conv.of_simple_term_exn ctx ty in
-    let args = List.map (Term.Conv.of_simple_term_exn ctx) args in
+    let args = FList.map (Term.Conv.of_simple_term_exn ctx) args in
     let rhs = Lambda.snf (Term.Conv.of_simple_term_exn ctx rhs) in
     let _rhs_rewritten, rw_rules = Rewrite.Term.normalize_term rhs in
        let proof_parents = Proof.Parent.from proof :: Rewrite.Rule.set_as_proof_parents rw_rules in
@@ -233,7 +233,7 @@ let conv_rule_i ~proof (r:_ def_rule) = match r with
 (* convert rules *)
 let conv_rules (l:_ def_rule list) proof : definition =
   assert (l <> []);
-  List.map (conv_rule ~proof) l
+  FList.map (conv_rule ~proof) l
   |> Rewrite.Rule_set.of_list
 
 let terms_of_rule (d:_ def_rule): _ Iter.t = match d with
@@ -280,7 +280,7 @@ let get_formulas_from_defs st =
 
 
   match view st with 
-  | Def defs -> CCList.flat_map (fun d -> CCList.flat_map get_from_rule d.def_rules) defs
+  | Def defs -> FList.concat_map (fun d -> FList.concat_map get_from_rule d.def_rules) defs
   | Rewrite def_rule  -> get_from_rule def_rule
   | _ -> []
 
@@ -411,7 +411,7 @@ let signature ?(init=Signature.empty) ?(conj_syms=Iter.empty) seq =
 
 let conv_attrs =
   let module A = UntypedAST in
-  CCList.filter_map
+  FList.filter_map
     (function
       | A.A_app (("ac" | "AC"), []) -> Some A_AC
       | A.A_app (("sos" | "SOS"), []) -> Some A_sos
@@ -432,7 +432,7 @@ let attr_to_ua : attr -> UntypedAST.attr =
 let fpf = Format.fprintf
 
 let pp_attr out a = UntypedAST.pp_attr out (attr_to_ua a)
-let pp_attrs out l = UntypedAST.pp_attrs out (List.map attr_to_ua l)
+let pp_attrs out l = UntypedAST.pp_attrs out (FList.map attr_to_ua l)
 
 let pp_typedvar ppty out v = fpf out "(@[%a:%a@])" Var.pp v ppty (Var.ty v)
 let pp_typedvar_l ppty = Util.pp_list ~sep:" " (pp_typedvar ppty)
@@ -468,7 +468,7 @@ let pp_input_def = pp_def TypedSTerm.pp TypedSTerm.pp TypedSTerm.pp
 
 let attrs_ua st =
   let src_attrs = Proof.Step.to_attrs st.proof in
-  List.rev_append src_attrs (List.map attr_to_ua st.attrs)
+  List.rev_append src_attrs (FList.map attr_to_ua st.attrs)
 
 let pp ppf ppt ppty out st =
   let attrs = attrs_ua st in
@@ -691,7 +691,7 @@ let sine_axiom_selector
       ID.Tbl.to_list tbl
       |> CCList.sort (fun (_s1, occ1) (_s2, occ2) -> CCInt.compare occ2 occ1)
       |> CCList.take k
-      |> CCList.map fst
+      |> FList.map fst
       |> ID.Set.of_list in
   
   Util.debugf ~section 3 "most common symbols are: @[%a@]@." 
@@ -707,12 +707,12 @@ let sine_axiom_selector
   let triggered_1 = triggered_by_syms ~triggers conj_syms in
 
   ID.Tbl.iter (fun id set -> 
-    Util.debugf ~section 1 "@[%a/%d@] > @[%a@]" (fun k -> k ID.pp id (ID.id id) (CCList.pp CCString.pp) (List.map name (InpStmSet.elements set)))
+    Util.debugf ~section 1 "@[%a/%d@] > @[%a@]" (fun k -> k ID.pp id (ID.id id) (CCList.pp CCString.pp) (FList.map name (InpStmSet.elements set)))
   ) triggers; 
 
   Util.debugf ~section 2 "layer 0" CCFun.id;
   Util.debugf ~section 2 "symbols: @[%a@]" (fun k -> k (ID.Set.pp ID.pp) conj_syms);
-  Util.debugf ~section 2 "axs: @[%a@]" (fun k -> k (CCList.pp CCString.pp) (List.map name triggered_1));
+  Util.debugf ~section 2 "axs: @[%a@]" (fun k -> k (CCList.pp CCString.pp) (FList.map name triggered_1));
 
   let rec take_axs k processed_syms k_triggered_axs = 
     if k >= depth_end then []
@@ -723,7 +723,7 @@ let sine_axiom_selector
       let k_p_1_triggered_ax = triggered_by_syms ~triggers unprocessed in
       Util.debugf ~section 2 "layer @[%d@]" (fun c -> c k );
       Util.debugf ~section 2 "symbols: @[%a@]" (fun k -> k (ID.Set.pp ID.pp) unprocessed);
-      Util.debugf ~section 2 "axs: @[%a@]" (fun k -> k (CCList.pp CCString.pp) (List.map name k_p_1_triggered_ax));
+      Util.debugf ~section 2 "axs: @[%a@]" (fun k -> k (CCList.pp CCString.pp) (FList.map name k_p_1_triggered_ax));
       taken @ (take_axs (k+1) (ID.Set.union processed_syms unprocessed) k_p_1_triggered_ax)) 
   in
 
@@ -742,7 +742,7 @@ let sine_axiom_selector
       (take_axs 1 conj_syms triggered_1)) in
 
   Util.debugf ~section 1 "taken %d/%d axioms:@ @[%a@]@." 
-    (fun k -> k (List.length taken_axs) (List.length axioms) (CCList.pp CCString.pp) (List.map name taken_axs));
+    (fun k -> k (List.length taken_axs) (List.length axioms) (CCList.pp CCString.pp) (FList.map name taken_axs));
   Util.debugf ~section 2 "take_conj_defs:%b@." (fun k -> k take_conj_defs);
 
   let res = helper_axioms @ taken_axs @ goals in
@@ -853,7 +853,7 @@ module TPTP = struct
     | NegatedGoal (_,l) ->
       let role = "negated_conjecture" in
       let parents = 
-        List.map (fun p -> `Name (Proof.S.name ~namespace @@ Proof.Parent.proof p))
+        FList.map (fun p -> `Name (Proof.S.name ~namespace @@ Proof.Parent.proof p))
              (Proof.Step.parents @@ st.proof)
       in
       List.iter
@@ -973,12 +973,12 @@ let scan_stmt_for_defined_cst (st:(clause,Term.t,Type.t) t): unit = match view s
     let proof = as_proof_c st in
     let ids_and_levels =
       l
-      |> List.filter
+      |> FList.filter
         (fun {def_ty=ty; def_rewrite=b; _} ->
            (* definitions require [b=true] or the LHS be a constant *)
            let _, args, _ = Type.open_poly_fun ty in
            b || CCList.is_empty args)
-      |> List.map
+      |> FList.map
         (fun {def_id; def_rules; _} ->
            let lev =
              Iter.of_list def_rules
@@ -1017,9 +1017,9 @@ let scan_stmt_for_ind_ty st = match view st with
     List.iter
       (fun d ->
          let ty_vars =
-           List.mapi (fun i v -> HVar.make ~ty:(Var.ty v) i) d.data_args
+           FList.mapi (fun i v -> HVar.make ~ty:(Var.ty v) i) d.data_args
          and cstors =
-           List.map
+           FList.map
              (fun (c,ty,args) -> Ind_ty.mk_constructor c ty args)
              d.data_cstors
          in
@@ -1037,12 +1037,12 @@ let scan_simple_stmt_for_ind_ty st = match view st with
     List.iter
       (fun d ->
          let ty_vars =
-           List.mapi (fun i v -> HVar.make ~ty:(Var.ty v |> conv_ty) i) d.data_args
+           FList.mapi (fun i v -> HVar.make ~ty:(Var.ty v |> conv_ty) i) d.data_args
          and cstors =
-           List.map
+           FList.map
              (fun (c,ty,args) ->
                 let args =
-                  List.map
+                  FList.map
                     (fun (ty,(p_id,p_ty)) -> conv_ty ty, (p_id, conv_ty p_ty))
                     args in
                 Ind_ty.mk_constructor c (conv_ty ty) args)
@@ -1059,7 +1059,7 @@ let def_sym = ref IdMap.empty;;
 
 let get_rw_rule ?weight_incr:(w_i=1000000) c  =
   let distinct_free_vars l =
-    l |> List.map (fun t -> Term.as_var t |>
+    l |> FList.map (fun t -> Term.as_var t |>
                             (fun v -> match v with
                                | Some x -> Some (HVar.id x)
                                | None -> None) )
@@ -1067,13 +1067,13 @@ let get_rw_rule ?weight_incr:(w_i=1000000) c  =
     |> (fun set -> not (OptionSet.mem None set) && OptionSet.cardinal set = List.length l) in
 
   let make_rw sym vars rhs =
-    let ty_vars = List.filter (fun v -> Type.is_tType (Term.ty v)) vars in
-    let vars = List.filter (fun v -> not (Type.is_tType (Term.ty v))) vars in
+    let ty_vars = FList.filter (fun v -> Type.is_tType (Term.ty v)) vars in
+    let vars = FList.filter (fun v -> not (Type.is_tType (Term.ty v))) vars in
     let n_new = List.length vars in
     let var_db_map =
       CCList.foldi (fun acc i v -> Term.Map.add v (n_new-i-1) acc) Term.Map.empty vars in
     let vars_to_db = Term.DB.map_vars_shift var_db_map rhs in
-    let abs_rhs =  (Term.fun_l ((CCList.map Term.ty vars)) vars_to_db) in
+    let abs_rhs =  (Term.fun_l ((FList.map Term.ty vars)) vars_to_db) in
     assert(Term.DB.is_closed abs_rhs);
     let r = Rewrite.Term.Rule.make ~proof:(as_proof_c c) sym (Type.close_forall (Term.ty abs_rhs)) ty_vars abs_rhs in
     let rule = Rewrite.T_rule r in
@@ -1117,7 +1117,7 @@ let get_rw_rule ?weight_incr:(w_i=1000000) c  =
                                not (List.mem t2 [Term.true_; Term.false_]) ->
       assert(Type.equal (Term.ty t1) (Term.ty t2));
       let ty = Term.ty t1 in
-      let fresh_vars = List.map (fun ty -> Term.var (HVar.fresh ~ty ())) (Type.expected_args ty) in
+      let fresh_vars = FList.map (fun ty -> Term.var (HVar.fresh ~ty ())) (Type.expected_args ty) in
       let t1, t2 = Lambda.snf @@ Term.app t1 fresh_vars, Lambda.snf @@ Term.app t2 fresh_vars in
       if (Term.weight t2 - Term.weight t1 <= w_i) then (
         match conv_terms_rw t1 t2 with

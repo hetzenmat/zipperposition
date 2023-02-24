@@ -4,6 +4,8 @@
 
 (** {1 Fingerprint term indexing} *)
 
+open Future
+
 module T = Term
 module I = Index
 module S = Subst
@@ -34,7 +36,7 @@ let expand_otf_ body =
   if CCList.is_empty extra_args then body else (
     let n = List.length extra_args in
     T.app (T.DB.shift n body) 
-      (List.mapi (fun i ty -> T.bvar ~ty (n-1-i)) extra_args)
+      (FList.mapi (fun i ty -> T.bvar ~ty (n-1-i)) extra_args)
   )
 
 (* compute a feature for a given position *)
@@ -66,7 +68,7 @@ let rec gfpf ?(depth=0) pos t =
       let hd, args = unfold body in
       if if_and_or body then Ignore
       else (
-        let args = List.filter (fun x -> not @@ T.is_type x) args in
+        let args = FList.filter (fun x -> not @@ T.is_type x) args in
         (*                 if we are sampling something of variable type, it might eta-expand *)
         if T.is_var hd || (Type.is_var (snd (Type.open_fun (Term.ty body)))) then B
         else (
@@ -116,9 +118,9 @@ let pp_feature out = function
 (** compute a feature vector for some positions *)
 let fp positions =
   (* list of fingerprint feature functions *)
-  let fpfs = List.map gfpf positions in
+  let fpfs = FList.map gfpf positions in
   fun t ->
-    List.map (fun fpf -> fpf t) fpfs
+    FList.map (fun fpf -> fpf t) fpfs
 (* Format.printf "@[Fingerprinting:@ @[%a@]=@[%a@].@]\n" T.pp t (CCList.pp pp_feature) res; *)
 
 

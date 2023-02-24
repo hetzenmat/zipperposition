@@ -4,6 +4,7 @@
 (** {1 Applicative Encoding} *)
 
 open Logtk
+open Future
 open Libzipperposition
 module T = TypedSTerm
 
@@ -212,15 +213,15 @@ let bool_encode_ty ty_orig =
     match T.view ty with
       | T.App (f, args) ->
         T.app ~ty:T.tType (aux f) 
-          (CCList.map aux args)
+          (FList.map aux args)
       | T.AppBuiltin (Builtin.Arrow, ret::args) ->
         let ret' = aux ret in
-        let args' = List.map aux args in
+        let args' = FList.map aux args in
         T.Ty.fun_ args' ret'
       | T.AppBuiltin (f,args) ->
         assert(f != Builtin.Arrow);
         if f == Builtin.Prop then bool_clone_ty
-        else T.app_builtin ~ty:T.tType f (List.map aux args)
+        else T.app_builtin ~ty:T.tType f (FList.map aux args)
       | T.Const _ -> ty
       | T.Var _ -> ty
       | T.Bind (b,v,t) -> T.bind ~ty:T.tType b v (aux t)
@@ -252,7 +253,7 @@ let bool_encode_term t_orig  =
           | T.App (f, []) -> aux f
           | T.App (f, args) ->
             let f' = aux f in
-            let args' = List.map aux args in
+            let args' = FList.map aux args in
             T.app ~ty f' args'
           | T.AppBuiltin (((And|Or) as b), ts) ->
             let head = if b == And then and_term else or_term in
@@ -285,12 +286,12 @@ let bool_encode_term t_orig  =
             let ty_arg = List.hd args in
             let head = if b = ForallConst then forall_term else exists_term in
             app_bool head [ty_arg; x]
-          | T.AppBuiltin (Not, l) -> app_bool not_term (List.map aux l)
+          | T.AppBuiltin (Not, l) -> app_bool not_term (FList.map aux l)
           | T.AppBuiltin (True, []) -> true_term
           | T.AppBuiltin (False, []) -> false_term
           | T.AppBuiltin (f, ts) ->
             assert (not ((T.equal t T.Form.true_) || (T.equal t T.Form.false_)));
-            T.app_builtin ~ty f (List.map aux ts)
+            T.app_builtin ~ty f (FList.map aux ts)
           | T.Bind (Binder.Lambda, var, body) ->
             let var' = encode_var var in
             let body' = aux body in
@@ -328,7 +329,7 @@ let bool_encode_lit lit =
     SLiteral.map ~f:bool_encode_term lit
 
 (** Encode a clause *)
-let bool_encode_lits lits = List.map bool_encode_lit lits
+let bool_encode_lits lits = FList.map bool_encode_lit lits
 
 exception E_i of ((T.t SLiteral.t) list, T.t, T.t) Statement.t
 
@@ -354,7 +355,7 @@ let res_tc =
     ~to_form:(fun ~ctx:_ st ->
         let conv_c (c:(T.t SLiteral.t) list) : _ =
           c 
-          |> List.map SLiteral.to_form
+          |> FList.map SLiteral.to_form
           |> T.Form.or_
         in
         Statement.Seq.forms st
@@ -377,7 +378,7 @@ let bool_encode_stmt stmt =
         Statement.map_def ~form:bool_encode_lits 
                           ~term:bool_encode_term 
                           ~ty:bool_encode_ty in
-      Statement.def ~proof (List.map map_single def)
+      Statement.def ~proof (FList.map map_single def)
     | Statement.Rewrite def ->
       let new_def = 
         Statement.map_def_rule ~form:bool_encode_lits 
@@ -385,8 +386,8 @@ let bool_encode_stmt stmt =
                                ~ty:bool_encode_ty def in
       Statement.rewrite ~proof new_def
     | Statement.NegatedGoal (skolems,clauses) -> 
-      let skolems = List.map (fun (id, ty) -> (id, bool_encode_ty ty)) skolems in
-      Statement.neg_goal ~proof ~skolems (List.map bool_encode_lits clauses)
+      let skolems = FList.map (fun (id, ty) -> (id, bool_encode_ty ty)) skolems in
+      Statement.neg_goal ~proof ~skolems (FList.map bool_encode_lits clauses)
     | Statement.Assert lits -> Statement.assert_ ~proof (bool_encode_lits lits)
     | Statement.TyDecl (id, ty) ->
       Statement.ty_decl ~proof:Proof.Step.trivial id (bool_encode_ty ty) in

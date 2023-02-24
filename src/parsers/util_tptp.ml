@@ -4,6 +4,7 @@
 (** {1 Utils related to TPTP parsing} *)
 
 open Logtk
+open Future
 
 module T = TypedSTerm
 module PT = STerm
@@ -244,9 +245,9 @@ let to_ast st =
     let name = A.string_of_name name in
     let attr_name = UA.attr_name name in
     let attrs' =
-      CCList.flat_map
+      FList.concat_map
         (function
-          | A.GNode ("attrs", l) -> CCList.flat_map attr_of_info l
+          | A.GNode ("attrs", l) -> FList.concat_map attr_of_info l
           | _ -> [])
         info
     in

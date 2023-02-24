@@ -45,14 +45,14 @@ let pp_clause out =
   Format.fprintf out "@[<2>%a@]" (Util.pp_list ~sep:" ∨ " (SLiteral.pp T.pp))
 
 let clause_to_fo ?(ctx=Term.Conv.create()) c =
-  List.map (SLiteral.map ~f:(Term.Conv.of_simple_term_exn ctx)) c
+  FList.map (SLiteral.map ~f:(Term.Conv.of_simple_term_exn ctx)) c
 
 let as_lit = SLiteral.of_form
 let as_lit_opt t = try Some (as_lit t) with _ -> None
 
 (* check whether the formula is already in CNF *)
 let as_clause f = match F.view f with
-  | F.Or l -> List.map as_lit l
+  | F.Or l -> FList.map as_lit l
   | F.And _
   | F.Equiv _
   | F.Xor _
@@ -78,7 +78,7 @@ let as_cnf f = match F.view f with
   | F.Atom _
   | F.Neq _
   | F.Eq _ -> [[as_lit f]]
-  | F.And l -> List.map as_clause l
+  | F.And l -> FList.map as_clause l
   | F.Equiv _
   | F.Xor _
   | F.Imply _
@@ -200,7 +200,7 @@ module Flatten = struct
     = fun seq -> seq T.Subst.empty |> Iter.map snd |> Iter.to_rev_list
 
   let apply_subst_vars_ subst vars =
-    List.map
+    FList.map
       (fun v -> try Var.Subst.find_exn subst v with Not_found -> T.var v)
       vars
 
@@ -230,12 +230,12 @@ module Flatten = struct
     (* variable names, for re-use *)
     let names =
       if List.length vars_t > List.length vars_u
-      then List.map Var.name vars_t
-      else List.map Var.name vars_u
+      then FList.map Var.name vars_t
+      else FList.map Var.name vars_u
     in
     (* make variables for full application *)
     let vars =
-      List.mapi
+      FList.mapi
         (fun i ty ->
            let name = try List.nth names i with _ -> Printf.sprintf "x_%d" i in
            Var.of_string ~ty name)
@@ -243,9 +243,9 @@ module Flatten = struct
     in
     let mk_args_subst vars' =
       let n = List.length vars' in
-      List.map T.var (CCList.drop n vars),
+      FList.map T.var (CCList.drop n vars),
       Var.Subst.of_list
-        (List.combine vars' (CCList.take n vars |> List.map T.var))
+        (List.combine vars' (CCList.take n vars |> FList.map T.var))
     in
     let args_t, subst_t = mk_args_subst vars_t in
     let args_u, subst_u = mk_args_subst vars_u in
@@ -324,7 +324,7 @@ module Flatten = struct
             aux Pos_toplevel vars a >|= fun a ->
             T.app ~ty:(T.ty_exn b)
               (T.const def.Skolem.td_id ~ty:def.Skolem.td_ty)
-              (List.map T.var closure @ [a])
+              (FList.map T.var closure @ [a])
         end
       | T.Let (l,u) ->
         (* add let-bound terms to substitution without processing them.
@@ -349,7 +349,7 @@ module Flatten = struct
               let ty = T.ty_exn u in
               T.app ~ty
                 (T.const_of_cstor c)
-                (c.T.cstor_args @ List.map T.var c_vars)
+                (c.T.cstor_args @ FList.map T.var c_vars)
             in
             (* bind [x = c vars] *)
             let subst = T.Subst.add T.Subst.empty x case in
@@ -391,7 +391,7 @@ module Flatten = struct
             aux Pos_inner vars u >|= fun u ->
             T.app ~ty:(T.ty_exn t)
               (T.const def.Skolem.td_id ~ty:def.Skolem.td_ty)
-              (List.map T.var closure @ [u])
+              (FList.map T.var closure @ [u])
         end
       | T.AppBuiltin (Builtin.Greater, [ty;a;b]) when T.equal T.Ty.rat (T.ty_exn a) ->
         aux pos vars (T.app_builtin ~ty:T.Ty.prop Builtin.Less [ty;b;a])
@@ -507,11 +507,11 @@ let miniscope ?(distribute_exists=false) f =
       begin match F.view f' with
         | F.And l ->
           (* forall x (and l) -> and (forall x f' \ f' in l) *)
-          let l = List.map miniscope l in
+          let l = FList.map miniscope l in
           let with_v, without_v = List.partition (T.var_occurs ~var) l in
-          F.and_ (List.map (F.forall var) with_v @ without_v)
+          F.and_ (FList.map (F.forall var) with_v @ without_v)
         | F.Or l ->
-          let l = List.map miniscope l in
+          let l = FList.map miniscope l in
           let with_v, without_v = List.partition (T.var_occurs ~var) l in
           F.or_ (F.forall var (F.or_ with_v) :: without_v)
         | _ -> F.forall var (miniscope f')
@@ -519,24 +519,24 @@ let miniscope ?(distribute_exists=false) f =
     | F.Exists (var, f') ->
       begin match F.view f' with
         | F.And l ->
-          let l = List.map miniscope l in
+          let l = FList.map miniscope l in
           let with_v, without_v = List.partition (T.var_occurs ~var) l in
           F.and_
             (F.exists var (F.and_ with_v) :: without_v)
         | F.Or l ->
-          let l = List.map miniscope l in
+          let l = FList.map miniscope l in
           let with_v, without_v = List.partition (T.var_occurs ~var) l in
           (* see whether we push the existential into the formulas [with_v], in
               which the variable occurs, or whether we keep it outside *)
           let with_v = if distribute_exists
-            then List.map (F.exists var) with_v
+            then FList.map (F.exists var) with_v
             else [F.exists var (F.or_ with_v)]
           in
           F.or_ (with_v @ without_v)
         | _ -> F.exists var (miniscope f')
       end
-    | F.And l -> F.and_ (List.map miniscope l)
-    | F.Or l -> F.or_ (List.map miniscope l)
+    | F.And l -> F.and_ (FList.map miniscope l)
+    | F.Or l -> F.or_ (FList.map miniscope l)
     | F.Imply (f1, f2) -> F.imply (miniscope f1) (miniscope f2)
     | F.Equiv (f1, f2) -> F.equiv (miniscope f1) (miniscope f2)
     | F.Xor (f1, f2) -> F.xor (miniscope f1) (miniscope f2)
@@ -570,9 +570,9 @@ let rec nnf f =
       | F.Neq (a,b) -> nnf (T.Form.eq_or_equiv a b)
       | F.Eq (a,b) -> nnf (T.Form.neq_or_xor a b)
       | F.And l ->
-        F.or_ (List.map (fun f -> nnf (F.not_ f)) l)
+        F.or_ (FList.map (fun f -> nnf (F.not_ f)) l)
       | F.Or l ->
-        F.and_ (List.map (fun f -> nnf (F.not_ f)) l)
+        F.and_ (FList.map (fun f -> nnf (F.not_ f)) l)
       | F.Xor (a,b) ->
         nnf (F.equiv a b)
       | F.Equiv (a,b) ->
@@ -587,8 +587,8 @@ let rec nnf f =
       | F.False -> F.true_
       | F.Atom _ -> f
     end
-  | F.And l -> F.and_ (List.map nnf l)
-  | F.Or l -> F.or_ (List.map nnf l)
+  | F.And l -> F.and_ (FList.map nnf l)
+  | F.Or l -> F.or_ (FList.map nnf l)
   | F.Imply (f1, f2) ->
     if T.equal f1 F.true_ then nnf f2
     else if T.equal f1 F.false_ then F.true_ 
@@ -616,8 +616,8 @@ let rec nnf f =
 let skolemize ~ctx f =
   let _span = ZProf.enter_prof prof_skolemize in
   let rec skolemize subst f = match F.view f with
-    | F.And l -> F.and_ (List.map (skolemize subst) l)
-    | F.Or l -> F.or_ (List.map (skolemize subst) l)
+    | F.And l -> F.and_ (FList.map (skolemize subst) l)
+    | F.Or l -> F.or_ (FList.map (skolemize subst) l)
     | F.Not f' -> F.not_ (skolemize subst f')
     | F.Xor _
     | F.Imply _
@@ -804,7 +804,7 @@ let introduce_defs ~ctx ~is_pos stmt f =
   and maybe_rename_subformulas ~polarity a b f = match F.view f with 
     | F.And l ->
       let l' =
-        List.mapi
+        FList.mapi
           (fun i f' ->
              let a' = a in
              let b' = E.(b */ prod_p ~pos:false ~except:i l 0) in
@@ -814,7 +814,7 @@ let introduce_defs ~ctx ~is_pos stmt f =
       F.and_ l'
     | F.Or l ->
       let l' =
-        List.mapi
+        FList.mapi
           (fun i f' ->
              let a' = E.(a */ prod_p ~pos:true ~except:i l 0) in
              let b' = b in
@@ -913,7 +913,7 @@ let rec to_cnf_rec f = match F.view f with
   | F.Not _ -> [[as_lit f]]
   | F.And l ->
     (* simply concat sub-CNF *)
-    CCList.flat_map to_cnf_rec l
+    FList.concat_map to_cnf_rec l
   | F.Or [] -> assert false
   | F.Or l ->
     Util.map_product ~f:to_cnf_rec l
@@ -944,7 +944,7 @@ type options =
 (* return new sources, without modifying anything *)
 let new_src ~ctx : Stmt.input_t list =
   Skolem.new_definitions ~ctx
-  |> CCList.flat_map Skolem.def_as_stmt
+  |> FList.concat_map Skolem.def_as_stmt
 
 let rule_flatten = Proof.Rule.mk "cnf.flatten"
 let rule_rename = Proof.Rule.mk "cnf.tseitin"
@@ -952,13 +952,13 @@ let rule_rename = Proof.Rule.mk "cnf.tseitin"
 (* proof for a preprocessing step *)
 let proof_preprocess stmt defs rule : Proof.Step.t =
   let stmt = Stmt.as_proof_i stmt in
-  let defs = List.map Stmt.as_proof_i defs in
-  Proof.Step.esa ~rule (List.map Proof.Parent.from (stmt::defs))
+  let defs = FList.map Stmt.as_proof_i defs in
+  Proof.Step.esa ~rule (FList.map Proof.Parent.from (stmt::defs))
 
 (* pop and return new statements *)
 let pop_new_defs ~ctx : (_,_,_) Stmt.t list =
   Skolem.pop_new_definitions ~ctx
-  |> CCList.flat_map Skolem.def_as_stmt
+  |> FList.concat_map Skolem.def_as_stmt
 
 let pp_stmt out st = Stmt.pp T.pp T.pp_inner T.pp_inner out st
 
@@ -971,7 +971,7 @@ let flatten ~ctx ~lazy_cnf ~should_define seq : _ Iter.t =
       let vars, body = F.unfold_forall f in
       flatten_rec ~should_define ~lazy_cnf ctx stmt Pos_toplevel vars body >>= fun body ->
       get_subst >|= fun subst ->
-      let vars = List.map (Var.update_ty ~f:(T.Subst.eval subst)) vars in
+      let vars = FList.map (Var.update_ty ~f:(T.Subst.eval subst)) vars in
       let body = T.Subst.eval subst body in
       F.forall_l vars body
     end |> to_list'
@@ -983,12 +983,12 @@ let flatten ~ctx ~lazy_cnf ~should_define seq : _ Iter.t =
         flatten_rec_l ~of_:id ~should_define ~lazy_cnf ctx stmt Pos_toplevel vars args >>= fun args ->
         flatten_rec ~of_:id ~lazy_cnf ~should_define ctx stmt Pos_toplevel vars rhs >>= fun rhs ->
         get_subst >|= fun subst ->
-        let args = List.map (T.Subst.eval subst) args in
+        let args = FList.map (T.Subst.eval subst) args in
         let rhs = T.Subst.eval subst rhs in
         args, rhs
       end
       |> to_list'
-      |> List.map (fun (args,rhs) -> Stmt.Def_term {vars;id;ty;args;rhs;as_form})
+      |> FList.map (fun (args,rhs) -> Stmt.Def_term {vars;id;ty;args;rhs;as_form})
     | Stmt.Def_form {vars;lhs;rhs;polarity;as_form} ->
       begin
         let of_ = match lhs with
@@ -999,11 +999,11 @@ let flatten ~ctx ~lazy_cnf ~should_define seq : _ Iter.t =
         flatten_rec_l ?of_ ~should_define ~lazy_cnf ctx stmt Pos_toplevel vars rhs >>= fun rhs ->
         get_subst >|= fun subst ->
         let lhs = SLiteral.map ~f:(T.Subst.eval subst) lhs in
-        let rhs = List.map (T.Subst.eval subst) rhs in
+        let rhs = FList.map (T.Subst.eval subst) rhs in
         lhs, rhs
       end
       |> to_list'
-      |> List.map
+      |> FList.map
         (fun (lhs,rhs) -> Stmt.Def_form {vars;lhs;rhs;polarity;as_form})
   in
   seq
@@ -1021,23 +1021,23 @@ let flatten ~ctx ~lazy_cnf ~should_define seq : _ Iter.t =
          | Stmt.TyDecl _ -> [stmt]
          | Stmt.Rewrite d ->
            flatten_def stmt d
-           |> List.map
+           |> FList.map
              (fun d' ->
                 Stmt.rewrite ~attrs ~proof:(proof ()) d')
          | Stmt.Def l ->
            let l =
-             List.map
+             FList.map
                (fun d ->
-                  let rules = CCList.flat_map (flatten_def stmt) d.Stmt.def_rules in
+                  let rules = FList.concat_map (flatten_def stmt) d.Stmt.def_rules in
                   { d with Stmt.def_rules=rules })
                l
            in
            [Stmt.def ~attrs ~proof:(proof ()) l]
          | Stmt.Assert f ->
            flatten_axiom stmt f
-           |> List.map (fun f -> Stmt.assert_ ~attrs ~proof:(proof()) f)
+           |> FList.map (fun f -> Stmt.assert_ ~attrs ~proof:(proof()) f)
          | Stmt.Lemma l ->
-           List.map
+           FList.map
              (fun f -> Stmt.lemma ~attrs ~proof:(proof ()) [F.and_ (flatten_axiom stmt f)]) l
          | Stmt.Goal f ->
            [Stmt.goal ~attrs ~proof:(proof ()) (F.and_ (flatten_axiom stmt f))]
@@ -1082,16 +1082,16 @@ let simplify_and_rename ~ctx ~disable_renaming ~preprocess seq =
       if ty_args=[] then Stmt.Def_term{vars;id;ty=ty_id;args;rhs;as_form}
       else (
         let new_vars =
-          List.mapi (fun i ty -> Var.makef ~ty "x_%d" i) ty_args
+          FList.mapi (fun i ty -> Var.makef ~ty "x_%d" i) ty_args
         in
         let vars = vars @ new_vars in
         let rhs =
-          T.app_whnf ~ty:ty_ret rhs (List.map T.var new_vars)
+          T.app_whnf ~ty:ty_ret rhs (FList.map T.var new_vars)
         in
         if T.Ty.is_prop ty_ret then (
           let lhs_t =
             T.app_whnf ~ty:ty_ret (T.const ~ty:ty_id id)
-              (args @ List.map T.var new_vars)
+              (args @ FList.map T.var new_vars)
           and rhs_t =
             process_form stmt ~is_goal:false rhs
           in
@@ -1101,12 +1101,12 @@ let simplify_and_rename ~ctx ~disable_renaming ~preprocess seq =
           Stmt.Def_form {vars;lhs;rhs;polarity=`Equiv;as_form}
         ) else (
           let vars = vars @ new_vars in
-          let args = args @ List.map T.var new_vars in
+          let args = args @ FList.map T.var new_vars in
           Stmt.Def_term {vars;id;ty=ty_id;args;rhs;as_form}
         )
       )
     | Stmt.Def_form {vars;polarity;lhs;rhs;as_form} ->
-      let rhs = List.map (process_form stmt ~is_goal:false) rhs in
+      let rhs = FList.map (process_form stmt ~is_goal:false) rhs in
       Stmt.Def_form {lhs;rhs;vars;polarity;as_form}
   in
   let res =
@@ -1125,10 +1125,10 @@ let simplify_and_rename ~ctx ~disable_renaming ~preprocess seq =
            | Stmt.TyDecl _ -> stmt
            | Stmt.Def l ->
              let l =
-               List.map
+               FList.map
                  (fun d ->
                     let rules =
-                      List.map (process_def stmt) d.Stmt.def_rules
+                      FList.map (process_def stmt) d.Stmt.def_rules
                     in
                     let new_d = { d with Stmt.def_rules=rules } in
                     Util.debugf ~section 2
@@ -1147,7 +1147,7 @@ let simplify_and_rename ~ctx ~disable_renaming ~preprocess seq =
              let f = process_form stmt ~is_goal:false f in
              Stmt.assert_ ~attrs ~proof:(proof ()) f
            | Stmt.Lemma l ->
-             let l = List.map (process_form stmt ~is_goal:true) l in
+             let l = FList.map (process_form stmt ~is_goal:true) l in
              Stmt.lemma ~attrs ~proof:(proof()) l
            | Stmt.Goal f ->
              let f = process_form stmt ~is_goal:true f in
@@ -1190,15 +1190,15 @@ let cnf_of_iter ~ctx ?(opts=[]) (seq:Stmt.input_t Iter.t) : _ CCVector.t =
   let lazy_cnf = List.mem LazyCnf opts in
   let preprocess =
     T.simplify_formula ::
-    CCList.filter_map
+    FList.filter_map
       (function InitialProcessing f -> Some f | _ -> None)
       opts
   and post_nnf =
-    CCList.filter_map
+    FList.filter_map
       (function PostNNF f -> Some f | _ -> None)
       opts
   and post_skolem =
-    CCList.filter_map
+    FList.filter_map
       (function PostSkolem f -> Some f | _ -> None)
       opts
   in
@@ -1266,13 +1266,13 @@ let cnf_of_iter ~ctx ?(opts=[]) (seq:Stmt.input_t Iter.t) : _ CCVector.t =
            positive:   lhs <=> cnf(rhs)
            negative: ¬ lhs <=> cnf(¬ rhs) *)
         let c_pos () =
-          let rhs = CCList.flat_map conv_form rhs in
-          let as_form = List.map (fun rhs -> SLiteral.negate lhs :: rhs) rhs in
+          let rhs = FList.concat_map conv_form rhs in
+          let as_form = FList.map (fun rhs -> SLiteral.negate lhs :: rhs) rhs in
           Stmt.Def_form {vars;lhs;rhs;polarity=`Imply;as_form}
         and c_neg () =
           let rhs = conv_form (F.not_ (F.and_ rhs)) in
           let as_form : clause list =
-            List.map (fun rhs -> lhs :: List.map SLiteral.negate rhs) rhs
+            FList.map (fun rhs -> lhs :: FList.map SLiteral.negate rhs) rhs
           in
           Stmt.Def_form {
             vars;lhs=SLiteral.negate lhs; rhs; as_form; polarity=`Imply;
@@ -1312,10 +1312,10 @@ let cnf_of_iter ~ctx ?(opts=[]) (seq:Stmt.input_t Iter.t) : _ CCVector.t =
            (conv_form f)
        | Stmt.Def l ->
          let l =
-           List.map
+           FList.map
              (fun d ->
                 let rules =
-                  d.Stmt.def_rules |> CCList.flat_map conv_def
+                  d.Stmt.def_rules |> FList.concat_map conv_def
                 in
                 { d with Stmt.def_rules = rules })
              l
@@ -1324,7 +1324,7 @@ let cnf_of_iter ~ctx ?(opts=[]) (seq:Stmt.input_t Iter.t) : _ CCVector.t =
        | Stmt.Rewrite d ->
          let st_l =
            conv_def d
-           |> List.map (Stmt.rewrite ~attrs ~proof)
+           |> FList.map (Stmt.rewrite ~attrs ~proof)
          in
          CCVector.append_list res st_l;
        | Stmt.Data l ->
@@ -1333,7 +1333,7 @@ let cnf_of_iter ~ctx ?(opts=[]) (seq:Stmt.input_t Iter.t) : _ CCVector.t =
          CCVector.push res (Stmt.ty_decl ~attrs ~proof id ty)
        | Stmt.Lemma l ->
          let proof = proof_cnf stmt in
-         let l = CCList.flat_map conv_form l in
+         let l = FList.concat_map conv_form l in
          CCVector.push res (Stmt.lemma ~attrs ~proof l)
        | Stmt.Goal f ->
          (* intermediate statement to represent the negation step *)
@@ -1386,15 +1386,15 @@ let convert seq =
   let conv_ty ty_ctx = Type.Conv.of_simple_term_exn ty_ctx in
   let conv_def t_ctx ty_ctx = function
     | Stmt.Def_term {vars;id;ty;args;rhs;as_form} ->
-      let vars = List.map (Var.update_ty ~f:(conv_ty ty_ctx)) vars in
-      let as_form = List.map (SLiteral.map ~f:(conv_t t_ctx)) as_form in
-      Stmt.Def_term{vars;id;ty=(conv_ty ty_ctx) ty;args=List.map (conv_t t_ctx) args;
+      let vars = FList.map (Var.update_ty ~f:(conv_ty ty_ctx)) vars in
+      let as_form = FList.map (SLiteral.map ~f:(conv_t t_ctx)) as_form in
+      Stmt.Def_term{vars;id;ty=(conv_ty ty_ctx) ty;args=FList.map (conv_t t_ctx) args;
                     rhs=(conv_t t_ctx) rhs;as_form}
     | Stmt.Def_form {vars;lhs;rhs;polarity;_} ->
-      let vars = List.map (Var.update_ty ~f:(conv_ty ty_ctx)) vars in
+      let vars = FList.map (Var.update_ty ~f:(conv_ty ty_ctx)) vars in
       let lhs = SLiteral.map ~f:(conv_t t_ctx) lhs in
-      let rhs = List.map (clause_to_fo ~ctx:t_ctx) rhs in
-      let as_form = List.map (fun rhs -> lhs :: rhs) rhs in
+      let rhs = FList.map (clause_to_fo ~ctx:t_ctx) rhs in
+      let as_form = FList.map (fun rhs -> lhs :: rhs) rhs in
       Stmt.Def_form { vars;lhs;rhs;polarity;as_form}
   in
   let conv_statement st =
@@ -1409,21 +1409,21 @@ let convert seq =
         let c = clause_to_fo ~ctx:t_ctx c in
         Stmt.goal ~attrs ~proof c
       | Stmt.NegatedGoal (sk,l) ->
-        let skolems = List.map (fun (id,ty)->id, (conv_ty ty_ctx) ty) sk in
-        let l = List.map (clause_to_fo ~ctx:t_ctx) l in
+        let skolems = FList.map (fun (id,ty)->id, (conv_ty ty_ctx) ty) sk in
+        let l = FList.map (clause_to_fo ~ctx:t_ctx) l in
         Stmt.neg_goal ~attrs ~proof ~skolems l
       | Stmt.Lemma l ->
-        let l = List.map (clause_to_fo ~ctx:t_ctx) l in
+        let l = FList.map (clause_to_fo ~ctx:t_ctx) l in
         Stmt.lemma ~attrs ~proof l
       | Stmt.Assert c ->
         let c = clause_to_fo ~ctx:t_ctx c in
         Stmt.assert_ ~attrs ~proof c
       | Stmt.Data l ->
-        let l = List.map (Stmt.map_data ~ty:(conv_ty ty_ctx)) l in
+        let l = FList.map (Stmt.map_data ~ty:(conv_ty ty_ctx)) l in
         Stmt.data ~attrs ~proof l
       | Stmt.Def l ->
         let l =
-          List.map
+          FList.map
             (fun d ->
                Stmt.map_def d ~term:(conv_t t_ctx) ~ty:(conv_ty ty_ctx)
                  ~form:(clause_to_fo ~ctx:t_ctx))

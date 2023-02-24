@@ -802,7 +802,7 @@ module Make(Env : Env.S) : S with module Env = Env = struct
             Term.Map.add t new_sk_vars acc)
           Term.Map.empty new_sk in
       let new_lits =
-        List.mapi (fun _ lit ->
+        FList.mapi (fun _ lit ->
           Lit.map (fun t ->
             Term.Map.fold 
               (fun sk sk_v acc -> Term.replace ~old:sk ~by:sk_v acc)
@@ -959,7 +959,7 @@ module Make(Env : Env.S) : S with module Env = Env = struct
       let lits_p = Array.to_list (C.lits info.passive) in
       let lits_p = Lit.apply_subst_list renaming subst (lits_p, sc_p) in
       (* assert (T.equal (Lits.Pos.at (Array.of_list lits_p) info.passive_pos) u'); *)
-      let lits_p = List.map (Lit.map (fun t-> T.replace t ~old:u' ~by:t')) lits_p in
+      let lits_p = FList.map (Lit.map (fun t-> T.replace t ~old:u' ~by:t')) lits_p in
       let c_guard = Literal.of_unif_subst renaming us in
       (* build clause *)
       let new_lits = c_guard @ lits_a @ lits_p in
@@ -1209,7 +1209,7 @@ module Make(Env : Env.S) : S with module Env = Env = struct
     in
 
     if Env.should_force_stream_eval () then (
-      Env.get_finite_infs (List.map (fun (_,_,x) -> x) inf_res)
+      Env.get_finite_infs (FList.map (fun (_,_,x) -> x) inf_res)
     ) else(
       let clauses, streams = force_getting_cl inf_res in
       StmQ.add_lst (Env.get_stm_queue ()) streams; 
@@ -1229,7 +1229,7 @@ module Make(Env : Env.S) : S with module Env = Env = struct
     in
     
     if Env.should_force_stream_eval () then (
-      Env.get_finite_infs (List.map (fun (_,_,x) -> x) inf_res)
+      Env.get_finite_infs (FList.map (fun (_,_,x) -> x) inf_res)
     ) else (
       let clauses, streams = force_getting_cl inf_res in
       StmQ.add_lst (Env.get_stm_queue ()) streams; 
@@ -1290,9 +1290,9 @@ module Make(Env : Env.S) : S with module Env = Env = struct
       else []
     in
     if Env.should_force_stream_eval () then (
-      Env.get_finite_infs (List.map (fun (_,x,_) -> x) new_clauses) 
+      Env.get_finite_infs (FList.map (fun (_,x,_) -> x) new_clauses) 
     ) else (
-      let stm_res = List.map (fun (p,s,parents) -> Stm.make ~penalty:p ~parents (s)) new_clauses in
+      let stm_res = FList.map (fun (p,s,parents) -> Stm.make ~penalty:p ~parents (s)) new_clauses in
       StmQ.add_lst (Env.get_stm_queue ()) stm_res;
       ZProf.exit_prof _span;
       [])
@@ -1346,9 +1346,9 @@ module Make(Env : Env.S) : S with module Env = Env = struct
       else []
     in
     if Env.should_force_stream_eval () then (
-      Env.get_finite_infs (List.map (fun (_,x,_) -> x) new_clauses)
+      Env.get_finite_infs (FList.map (fun (_,x,_) -> x) new_clauses)
     ) else (
-      let stm_res = List.map (fun (p,s,parents) -> Stm.make ~penalty:p ~parents (s)) new_clauses in
+      let stm_res = FList.map (fun (p,s,parents) -> Stm.make ~penalty:p ~parents (s)) new_clauses in
       StmQ.add_lst (Env.get_stm_queue ()) stm_res;
       ZProf.exit_prof _span;
       []
@@ -1377,12 +1377,12 @@ module Make(Env : Env.S) : S with module Env = Env = struct
                 else (
                   let scope_passive, scope_active = 0, 1 in
                   let hd_up, args_up = T.as_app u_p in
-                  let arg_types = List.map T.ty args_up in
+                  let arg_types = FList.map T.ty args_up in
                   let n = List.length args_up in
                   let var_up = T.as_var_exn hd_up in
                   let var_w = HVar.fresh ~ty:(Type.arrow arg_types (T.ty t)) () in
                   let var_z = HVar.fresh ~ty:(Type.arrow (arg_types @ [T.ty t]) (T.ty u_p)) () in
-                  let db_args = List.mapi (fun i ty -> T.bvar ~ty (n-1-i)) arg_types in
+                  let db_args = FList.mapi (fun i ty -> T.bvar ~ty (n-1-i)) arg_types in
                   let term_w,term_z = T.var var_w, T.var var_z in
                   let w_db = T.app term_w db_args in
                   let z_db = T.app term_z (db_args @ [w_db]) in
@@ -1420,9 +1420,9 @@ module Make(Env : Env.S) : S with module Env = Env = struct
       |> Iter.to_rev_list
     in
     if Env.should_force_stream_eval () then (
-      Env.get_finite_infs (List.map (fun (_,x,_) -> x) new_clauses)
+      Env.get_finite_infs (FList.map (fun (_,x,_) -> x) new_clauses)
     ) else (
-      let stm_res = List.map (fun (p,s,parents) -> Stm.make ~penalty:p ~parents ( s)) new_clauses in
+      let stm_res = FList.map (fun (p,s,parents) -> Stm.make ~penalty:p ~parents ( s)) new_clauses in
       StmQ.add_lst (Env.get_stm_queue ()) stm_res;
       ZProf.exit_prof _span;
       []
@@ -1456,12 +1456,12 @@ module Make(Env : Env.S) : S with module Env = Env = struct
                     else (
                       let scope_passive, scope_active = 0, 1 in
                       let hd_up, args_up = T.as_app u_p in
-                      let arg_types = List.map T.ty args_up in
+                      let arg_types = FList.map T.ty args_up in
                       let n = List.length args_up in
                       let var_up = T.as_var_exn hd_up in
                       let var_w = HVar.fresh ~ty:(Type.arrow arg_types (T.ty t)) () in
                       let var_z = HVar.fresh ~ty:(Type.arrow (List.append arg_types [(T.ty t)]) (T.ty u_p)) () in
-                      let db_args = List.mapi (fun i ty -> T.bvar ~ty (n-1-i)) arg_types in
+                      let db_args = FList.mapi (fun i ty -> T.bvar ~ty (n-1-i)) arg_types in
                       let term_w,term_z = T.var var_w, T.var var_z in
                       let w_db = T.app term_w db_args in
                       let z_db = T.app term_z (List.append db_args [w_db]) in
@@ -1495,9 +1495,9 @@ module Make(Env : Env.S) : S with module Env = Env = struct
       |> Iter.to_rev_list
     in
     if Env.should_force_stream_eval () then (
-      Env.get_finite_infs (List.map (fun (_,x,_) -> x) new_clauses)
+      Env.get_finite_infs (FList.map (fun (_,x,_) -> x) new_clauses)
     ) else (
-      let stm_res = List.map (fun (p,s,parents) -> Stm.make ~penalty:p ~parents (s)) new_clauses in
+      let stm_res = FList.map (fun (p,s,parents) -> Stm.make ~penalty:p ~parents (s)) new_clauses in
       StmQ.add_lst (Env.get_stm_queue ()) stm_res;
       ZProf.exit_prof _span;
       [])
@@ -1661,7 +1661,7 @@ module Make(Env : Env.S) : S with module Env = Env = struct
     if Env.should_force_stream_eval () then (
       Env.get_finite_infs inf_res
     ) else (
-      let cls, stm_res = force_getting_cl (List.map (fun stm -> 
+      let cls, stm_res = force_getting_cl (FList.map (fun stm -> 
         C.penalty clause, [clause], stm)  inf_res) in
       StmQ.add_lst (Env.get_stm_queue ()) stm_res; 
       cls)
@@ -1794,7 +1794,7 @@ module Make(Env : Env.S) : S with module Env = Env = struct
     if Env.should_force_stream_eval () then (
       Env.get_finite_infs inf_res
     ) else (
-      let cls, stm_res = force_getting_cl (List.map (fun stm -> 
+      let cls, stm_res = force_getting_cl (FList.map (fun stm -> 
         C.penalty clause, [clause], stm)  inf_res) in
       StmQ.add_lst (Env.get_stm_queue ()) stm_res;
       cls)
@@ -1811,7 +1811,7 @@ module Make(Env : Env.S) : S with module Env = Env = struct
       else
         StmQ.take_stm_nb (Env.get_stm_queue ())
     in
-    let opt_res = CCOpt.sequence_l (List.filter CCOpt.is_some cl)  in
+    let opt_res = CCOpt.sequence_l (FList.filter CCOpt.is_some cl)  in
     ZProf.exit_prof _span;
     match opt_res with
     | None -> []
@@ -1825,7 +1825,7 @@ module Make(Env : Env.S) : S with module Env = Env = struct
       else
         StmQ.take_stm_nb_fix_stm (Env.get_stm_queue ())
     in
-    let opt_res = CCOpt.sequence_l (List.filter CCOpt.is_some cl) in
+    let opt_res = CCOpt.sequence_l (FList.filter CCOpt.is_some cl) in
     ZProf.exit_prof _span;
     match opt_res with
     | None -> []
@@ -2087,11 +2087,11 @@ module Make(Env : Env.S) : S with module Env = Env = struct
               match T.view t with
               | T.App(hd, args) when not (T.is_var hd) || not only_green_ctx ->
                 let hd' = aux ~top:false hd in
-                let args' = List.map (aux ~top:false) args in
+                let args' = FList.map (aux ~top:false) args in
                 if T.equal hd hd' && T.same_l args args' then t
                 else aux ~top:false (T.app hd' args')
               | T.AppBuiltin(hd, args) ->
-                let args' = List.map (aux ~top:false) args in
+                let args' = FList.map (aux ~top:false) args in
                 if T.same_l args args' then t
                 else aux ~top:false (T.app_builtin ~ty:(T.ty t) hd args')
               | T.Fun _ when not only_green_ctx ->
@@ -2388,7 +2388,7 @@ module Make(Env : Env.S) : S with module Env = Env = struct
       let rec aux t =
         match T.view t with
         | T.App(hd, args) ->
-          let args' = List.map aux args in
+          let args' = FList.map aux args in
           if T.same_l args args' then t
           else T.app hd args'
         | T.AppBuiltin((Eq|Neq|Equiv|Xor) as hd, ([_; x; y]|[x;y]))
@@ -2407,7 +2407,7 @@ module Make(Env : Env.S) : S with module Env = Env = struct
             ) else t 
           end
         | T.AppBuiltin(hd, args) when not (Builtin.is_quantifier hd) ->
-          let args' = List.map aux args in
+          let args' = FList.map aux args in
           if T.same_l args args' then t
           else T.app_builtin ~ty:(T.ty t) hd args'
         | T.Fun(ty, body) ->
@@ -2420,13 +2420,13 @@ module Make(Env : Env.S) : S with module Env = Env = struct
     in
 
     if Env.flex_get k_formula_simplify_reflect && !Lazy_cnf.enabled then(
-      let lits = List.map (function 
+      let lits = FList.map (function 
         | Lit.Equation(lhs,rhs,sign) ->
           Lit.mk_lit (do_sr lhs) (do_sr rhs) sign
         | x -> x
       ) (CCArray.to_list @@ C.lits c) in
       if (not @@ C.ClauseSet.is_empty !used_units) then (
-        let parents = List.map C.proof_parent (C.ClauseSet.to_list !used_units) in
+        let parents = FList.map C.proof_parent (C.ClauseSet.to_list !used_units) in
         let proof =
           Proof.Step.simp ~rule:(Proof.Rule.mk "inner_simplify_reflect")
             ((C.proof_parent c)::parents) in
@@ -2528,7 +2528,7 @@ module Make(Env : Env.S) : S with module Env = Env = struct
     | Some (new_lits,premises) ->
       let proof =
         Proof.Step.simp ~rule:(Proof.Rule.mk "simplify_reflect+")
-          (List.map C.proof_parent (c::(C.ClauseSet.to_list premises))) in
+          (FList.map C.proof_parent (c::(C.ClauseSet.to_list premises))) in
       let trail = C.trail c and penalty = C.penalty c in
       let new_c = C.create ~trail ~penalty new_lits proof in
       Util.debugf ~section 3 "@[@[%a@]@ pos_simplify_reflect into @[%a@]@]"
@@ -3113,7 +3113,7 @@ module Make(Env : Env.S) : S with module Env = Env = struct
 
           let (sk_id, sk_ty),inv_sk = 
             Term.mk_fresh_skolem 
-              (List.map T.as_var_exn same_vars) 
+              (FList.map T.as_var_exn same_vars) 
               (Type.arrow [T.ty lhs] (T.ty x)) in
           let inv_sk = T.app inv_sk [lhs] in
           let inv_lit = [Lit.mk_eq inv_sk x] in
@@ -3132,9 +3132,9 @@ module Make(Env : Env.S) : S with module Env = Env = struct
   
   let normalize_equalities c =
     let lits = Array.to_list (C.lits c) in
-    let normalized = List.map Literal.normalize_eq lits in
+    let normalized = FList.map Literal.normalize_eq lits in
     if List.exists CCOpt.is_some normalized then (
-      let new_lits = List.mapi (fun i l_opt -> 
+      let new_lits = FList.mapi (fun i l_opt -> 
           CCOpt.get_or ~default:(Array.get (C.lits c) i) l_opt) normalized in
       let proof = Proof.Step.simp [C.proof_parent c] 
           ~rule:(Proof.Rule.mk "simplify nested equalities")  in

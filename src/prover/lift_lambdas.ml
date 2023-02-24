@@ -51,7 +51,7 @@ module Make(E : Env.S) : S with module Env = E = struct
       CCVector.map (C.of_statement ~convert_defs:true) cnf_vec
       |> CCVector.to_list 
       |> CCList.flatten
-      |> List.map (fun c -> 
+      |> FList.map (fun c -> 
           C.create ~penalty  ~trail (CCArray.to_list (C.lits c)) proof)
     | _ -> [c]
 
@@ -107,7 +107,7 @@ let fully_apply ~counter s t  =
   if not (Type.is_fun (T.ty t)) then  (s,t)
   else (
     let tys,_ = Type.open_fun (T.ty t) in
-    let fresh_vars = List.map (fun ty -> T.var (HVar.fresh_cnt ~counter ~ty ())) tys in
+    let fresh_vars = FList.map (fun ty -> T.var (HVar.fresh_cnt ~counter ~ty ())) tys in
     Lambda.whnf @@ T.app s fresh_vars, Lambda.whnf @@ T.app t fresh_vars
   )
 
@@ -217,7 +217,7 @@ let lift_lambdas_t ~parent ~counter t  =
       let proof = 
         Proof.Step.simp 
           ~tags:[Proof.Tag.T_ho] ~rule:(Proof.Rule.mk "lambda_lifting")
-          (List.map C.proof_parent (cl :: reused_defs @ new_defs)) in
+          (FList.map C.proof_parent (cl :: reused_defs @ new_defs)) in
       let lifted =
         C.create ~penalty:(C.penalty cl) ~trail:(C.trail cl) lits proof in
       
@@ -231,11 +231,11 @@ let lift_lambdas_t ~parent ~counter t  =
       None)
     else (
       Util.debugf ~section 1 "lifting(@[%a@])@. = @[%a@]" (fun k -> k C.pp cl (CCList.pp C.pp) res);
-      Some (CCList.flat_map clausify_def res))
+      Some (FList.concat_map clausify_def res))
 
   
   let lift_lambdas_cnf st =
-    Env.cr_return @@ CCList.flat_map (fun c -> 
+    Env.cr_return @@ FList.concat_map (fun c -> 
       CCOpt.get_or ~default:[c] (lift_lambdas_simp c)
     )(E.C.of_statement st)
 

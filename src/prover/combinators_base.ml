@@ -416,12 +416,12 @@ let narrow t =
       if T.equal t t' then (
         (* If no rule is applicable, then this is either not 
            a combinator or a paritally applied combinator *)
-        let args' = List.map do_narrow args in
+        let args' = FList.map do_narrow args in
         if T.same_l args args' then t
         else T.app_builtin hd args' ~ty:(T.ty t)
       ) else (do_narrow t')
     | T.App(hd, args) ->
-      let hd' = do_narrow hd and args' = List.map do_narrow args in
+      let hd' = do_narrow hd and args' = FList.map do_narrow args in
       if T.equal hd hd' && T.same_l args args' then t
       else T.app hd' args'
     | T.Fun _ ->
@@ -530,7 +530,7 @@ let cmp_by_max_weak_r_len t1 t2 =
           encode t
         ) else (
           (* head is not the variable, only args have to be managed *)
-          let l' = List.map encode_vars l in
+          let l' = FList.map encode_vars l in
           if T.same_l l l' then t else T.app hd l'
         )
       | T.AppBuiltin(hd, l) ->
@@ -538,7 +538,7 @@ let cmp_by_max_weak_r_len t1 t2 =
           assert (not (T.is_ground t));
           encode t
         ) else (
-          let l' = List.map encode_vars l in
+          let l' = FList.map encode_vars l in
           if T.same_l l l' then t else T.app_builtin ~ty:(T.ty t) hd l'
         )
       | _ -> t) in
@@ -590,7 +590,7 @@ let abf ~rules t =
     match T.view t with 
     | T.AppBuiltin _ | T.App _ ->
       let hd_mono, args = T.as_app_mono t in
-      let args' = List.map aux args in
+      let args' = FList.map aux args in
       
       assert (not (T.is_fun hd_mono));
       begin try
@@ -598,7 +598,7 @@ let abf ~rules t =
         else T.app hd_mono args' (* flattens AppBuiltin if necessary *)
       with Type.ApplyError _ ->
         CCFormat.printf "hd:@[%a@]; type:@[%a@]@." T.pp hd_mono Type.pp (T.ty hd_mono);
-        CCFormat.printf "tys of args: @[%a@]" (CCList.pp Ty.pp) (CCList.map T.ty args');
+        CCFormat.printf "tys of args: @[%a@]" (CCList.pp Ty.pp) (FList.map T.ty args');
         CCFormat.printf "error for @[%a@]@." T.pp t;
         assert false; end
     | T.Fun(ty, body) ->
@@ -629,11 +629,11 @@ let comb2lam t =
     match T.view t with
     | T.App(hd, args) ->
       let hd' = aux hd in
-      let args' = List.map aux args in
+      let args' = FList.map aux args in
       T.app hd' args'
     | T.AppBuiltin(b, _args) when Builtin.is_combinator b ->
       let hd, args = T.as_app_mono t in
-      let args' = List.map aux args in
+      let args' = FList.map aux args in
       let ty_args = (fst (Type.open_fun (T.ty hd))) in
       let (--) = List.nth in
       let (-|) = (fun l i -> CCList.take i l) in
@@ -667,7 +667,7 @@ let comb2lam t =
       assert (Type.equal (T.ty t) (T.ty res));
       res
     | T.AppBuiltin(b, args) ->
-      let args' = List.map aux args in
+      let args' = FList.map aux args in
       T.app_builtin ~ty:(T.ty t) b args'
     | T.Fun(ty, body) -> T.fun_ ty (aux body)
     | _ -> t in

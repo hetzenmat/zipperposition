@@ -94,7 +94,7 @@ let var_of_int i = T.var (HVar.make ~ty:tType i)
 let arrow = T.arrow
 
 let app s l =
-  let ty_s = arrow (List.map (fun _ -> T.tType) l) T.tType in
+  let ty_s = arrow (FList.map (fun _ -> T.tType) l) T.tType in
   T.app ~ty:T.tType (T.const ~ty:ty_s s) l
 
 let const s = T.const ~ty:T.tType s
@@ -548,7 +548,7 @@ module Conv = struct
       | PT.AppBuiltin (Builtin.Arrow, ret::args) ->
         let ret = aux depth v2db ret in
         assert (not (is_fun ret || is_forall ret));
-        let args = List.map (aux depth v2db) args in
+        let args = FList.map (aux depth v2db) args in
         arrow args ret
       | PT.AppBuiltin (Builtin.Term,[]) -> term
       | PT.AppBuiltin (Builtin.Prop,[]) -> prop
@@ -559,7 +559,7 @@ module Conv = struct
       | PT.App (f, l) ->
         begin match PT.view f with
           | PT.Const hd ->
-            let l = List.map (aux depth v2db) l in
+            let l = FList.map (aux depth v2db) l in
             app hd l
           | _ -> raise (Error t)
         end
@@ -613,10 +613,10 @@ module Conv = struct
       | DB i -> PT.var (DBEnv.find_exn env i)
       | App (s,l) ->
         (* s : type -> type -> ... -> type *)
-        let ty_s = PT.Ty.fun_ (List.map (fun _ -> PT.tType) l) PT.tType in
-        PT.app ~ty:PT.tType (PT.const ~ty:ty_s s) (List.map (aux env) l)
+        let ty_s = PT.Ty.fun_ (FList.map (fun _ -> PT.tType) l) PT.tType in
+        PT.app ~ty:PT.tType (PT.const ~ty:ty_s s) (FList.map (aux env) l)
       | Fun (args,ret) ->
-        let args = List.map (aux env) args in
+        let args = FList.map (aux env) args in
         let ret = aux env ret in
         PT.Ty.fun_ args ret
       | Forall t' ->
@@ -650,8 +650,8 @@ let rebuild_rec ?(env=[]) (t:t) : t =
           assert (if equal ty (List.nth env i) then true
                   else (Format.printf "%a:%a or %a@." pp t pp ty pp (List.nth env i); false));
           bvar i
-        | App (f, l) -> app f (List.map (aux env) l)
-        | Fun (args, ret) -> arrow (List.map (aux env) args) (aux env ret)
+        | App (f, l) -> app f (FList.map (aux env) l)
+        | Fun (args, ret) -> arrow (FList.map (aux env) args) (aux env ret)
         | Builtin b -> builtin b
         | Forall body ->
           let body' = aux (tType :: env) body in

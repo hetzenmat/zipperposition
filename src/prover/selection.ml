@@ -32,7 +32,7 @@ let can_select_lit ~ord (lits:Lits.t) (i:int) : bool =
     let var_headed_subterms which =
       let lits =
         if which = `Max
-        then Lits.maxlits_l ~ord lits |> CCList.map (fun (l,_) -> l) |> Array.of_list
+        then Lits.maxlits_l ~ord lits |> FList.map (fun (l,_) -> l) |> Array.of_list
         else lits
       in
       lits |> CCArray.fold (
@@ -502,7 +502,7 @@ let e_sel14 ~blocker ~ord lits =
 
 let e_sel15 ~blocker ~ord lits =
   let (<+>) = CCOpt.Infix.(<+>)  in
-  let lits_l = CCList.mapi (fun i l -> (i,l)) (CCArray.to_list lits) in
+  let lits_l = FList.mapi (fun i l -> (i,l)) (CCArray.to_list lits) in
   let sel_bv = CCBV.create ~size:(CCArray.length lits) false in
   let res = 
     (* find first negative pure var lit *)
@@ -515,7 +515,7 @@ let e_sel15 ~blocker ~ord lits =
   <+>
     (* else find smallest negative ground lit *)
     (lits_l
-     |> CCList.filter_map (fun (i, l) -> 
+     |> FList.filter_map (fun (i, l) -> 
           if Lit.is_negativoid l && Lit.is_ground l then (
             Some (i, Lit.ho_weight l)
           ) else None)
@@ -823,7 +823,7 @@ let l =
       "prefer_app_var", (prefer_app_var, true);
     ]
   and by_ord =
-    CCList.flat_map
+    FList.concat_map
       (fun (name,(p,c)) ->
          [ name, ((fun ~ord -> p ~strict:true ~ord), c);
            name ^ "NS", ((fun ~ord -> p ~strict:false ~ord),c);
@@ -858,8 +858,8 @@ let from_string ~ord s =
   
 
 let all () = 
-  List.map fst l
-  @ List.map (fun (s, _) -> "bb+"^s) (bool_blockable ~blocker:(fun _ _ -> false))
+  FList.map fst l
+  @ FList.map (fun (s, _) -> "bb+"^s) (bool_blockable ~blocker:(fun _ _ -> false))
 
 let ho_restriction_opt =
   let set_ n = _ho_restriction := n in
@@ -870,7 +870,7 @@ let ho_restriction_opt =
     "no-unapplied-var-occurring-applied", `NoUnappliedVarOccurringApplied;
     "no-ho-vars", `NoHigherOrderVariables;
     "no-max-vars-as-fo", `NoMaxVarInFoContext] in
-  Arg.Symbol (List.map fst l, fun s -> set_ (List.assoc s l))
+  Arg.Symbol (FList.map fst l, fun s -> set_ (List.assoc s l))
 
 let () =
   let set_select s = Params.select := s in

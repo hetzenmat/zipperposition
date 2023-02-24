@@ -3,6 +3,8 @@
 
 (** {1 Manipulate proofs} *)
 
+open Future
+
 module Loc = ParseLocation
 module T = TypedSTerm
 module F = T.Form
@@ -410,7 +412,7 @@ module Step = struct
   let distance_to_goal p = p.dist_to_goal
 
   let parent_proof_depth parents =
-    List.map (fun par -> (Parent.proof par).step.proof_depth) parents
+    FList.map (fun par -> (Parent.proof par).step.proof_depth) parents
     |> CCList.fold_left (fun acc depth -> max acc depth) 0
 
   let count_rules ~name p =
@@ -453,7 +455,7 @@ module Step = struct
     | Simplification(_,tags)
     | Inference(_,tags) -> 
       List.mem Tag.T_ho tags ||
-      List.exists has_ho_step (List.map (fun par -> (Parent.proof par).step) p.parents)
+      List.exists has_ho_step (FList.map (fun par -> (Parent.proof par).step) p.parents)
     | _ -> false
 
 
@@ -522,7 +524,7 @@ module Step = struct
     | l ->
       Format.fprintf out "@ with @[<hv>%a@]"
         (Util.pp_list Result.pp)
-        (List.map (fun p -> (Parent.proof p).result) @@ l)
+        (FList.map (fun p -> (Parent.proof p).result) @@ l)
 
   let pp out step = match kind step with
     | Intro (_,(R_assert|R_goal|R_def|R_decl)) ->
@@ -771,7 +773,7 @@ module S = struct
       (fun p ->
          let p_name = name ~namespace p in
          let parents =
-           List.map (fun p -> `Name (name ~namespace @@ Parent.proof p))
+           FList.map (fun p -> `Name (name ~namespace @@ Parent.proof p))
              (Step.parents @@ step p)
          in
          let role = "plain" in (* TODO *)
@@ -800,7 +802,7 @@ module S = struct
       (fun p ->
          let p_name = name ~namespace p in
          let parents =
-           List.map (fun p -> name ~namespace @@ Parent.proof p)
+           FList.map (fun p -> name ~namespace @@ Parent.proof p)
              (Step.parents @@ step p)
          in
          let mk_status r = UA.app "status" [UA.quoted r] in
@@ -809,7 +811,7 @@ module S = struct
          and info_from =
            if parents=[] then []
            else (
-             [UA.(app "from" [list (List.map str parents)])]
+             [UA.(app "from" [list (FList.map str parents)])]
            )
          and info_rule = match Step.rule (step p) with
            | Some r -> [UA.(app "rule" [quoted r])]

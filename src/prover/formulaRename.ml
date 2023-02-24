@@ -1,4 +1,5 @@
 open Logtk
+open Future
 
 module L = Literal
 module T = Term
@@ -130,7 +131,7 @@ module Ctx = C.Ctx
             renamer_sub, [], !defined_as
           )
         in
-        Some(renamer_sub, new_defs, CCList.map fst parents)
+        Some(renamer_sub, new_defs, FList.map fst parents)
       | None ->
         (* maybe we need to define it if it appears too many times *)
         if should_rename form  then (

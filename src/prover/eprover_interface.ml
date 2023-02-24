@@ -300,10 +300,10 @@ module Make(E : Env.S) : S with module Env = E = struct
         | Some ids ->
           assert(not (CCList.is_empty ids));
 
-          let clauses = List.map (fun id -> 
+          let clauses = FList.map (fun id -> 
               List.find (fun cl -> (C.id cl) = id) cl_set) ids in
           let rule = Proof.Rule.mk "eprover" in
-          let proof = Proof.Step.inference  ~rule (List.map C.proof_parent clauses) in
+          let proof = Proof.Step.inference  ~rule (FList.map C.proof_parent clauses) in
           let penalty = CCOpt.get_exn @@ Iter.max (Iter.map C.penalty (Iter.of_list clauses)) in
           let trail = C.trail_l clauses in
           Some (C.create ~penalty ~trail [] proof)

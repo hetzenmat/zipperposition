@@ -134,7 +134,7 @@ module Make(C : Index.CLAUSE) = struct
   end
 
   let compute_fv features lits =
-    List.map (fun feat -> feat.Feature.f lits) features
+    FList.map (fun feat -> feat.Feature.f lits) features
 
   (** {2 Feature Trie} *)
 
@@ -240,7 +240,7 @@ module Make(C : Index.CLAUSE) = struct
     (* only take a limited number of features *)
     let features = List.sort (fun (s1,_) (s2,_) -> s2 - s1) !features in
     let features = CCList.take max_features features in
-    let features = List.map (fun (_, f) -> f) features in
+    let features = FList.map (fun (_, f) -> f) features in
     let features = default_features @ features in
     Util.debugf 2 "FV features: [%a]" (fun k->k (CCFormat.list Feature.pp) features);
     features

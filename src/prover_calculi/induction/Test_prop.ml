@@ -2,6 +2,7 @@
 (* This file is free software, part of Zipperposition. See file "license" for more details. *)
 
 open Logtk
+open Future
 module TI = InnerTerm
 module T = Term
 module Fmt = CCFormat
@@ -75,7 +76,7 @@ end = struct
 
   let subst_of_acc (s:subst_acc): Subst.t =
     T.VarMap.to_list s
-    |> List.map (fun (v,t) -> (v,0),(t,1))
+    |> FList.map (fun (v,t) -> (v,0),(t,1))
     |> Subst.FO.of_list' ?init:None
 
   let compose renaming (subst:Subst.t) (s1:subst_acc Scoped.t): subst_acc =
@@ -118,7 +119,7 @@ end = struct
            (* evaluate new formula by substituting and evaluating *)
            let f' =
              f
-             |> List.map
+             |> FList.map
                (fun lits ->
                   CCArray.append c_guard
                     (Literals.apply_subst renaming subst (lits,sc_c)))
@@ -158,7 +159,7 @@ end = struct
            (* evaluate new formula by substituting and evaluating *)
            let f' =
              f
-             |> List.map
+             |> FList.map
                (fun lits ->
                   CCArray.append c_guard
                     (Literals.apply_subst renaming subst (lits,sc_c)))
@@ -180,7 +181,7 @@ end = struct
     let q = Queue.create() in
     let acc0 =
       vars_of_form f
-      |> List.map (fun v -> v, T.var v)
+      |> FList.map (fun v -> v, T.var v)
       |> T.VarMap.of_list
     in
     Queue.push (acc0,f) q;

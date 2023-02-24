@@ -165,7 +165,7 @@ module Make(E : Env.S) : S with module Env = E = struct
       AlreadyDeclared decl
     with Not_found ->
       let ty = match id with
-        | I id -> Type.app id (List.map Type.var ty_vars)
+        | I id -> Type.app id (FList.map Type.var ty_vars)
         | B b -> assert (ty_vars=[]); Type.builtin b
       in
       Util.debugf ~section 1
@@ -323,7 +323,7 @@ module Make(E : Env.S) : S with module Env = E = struct
            Util.incr_stat stat_simplify;
            let subst = Unif_subst.of_subst subst in
            let l =
-             List.map
+             FList.map
                (fun case ->
                   (* replace [v] with [case] now *)
                   let subst = Unif.FO.unify_full ~subst (v,s_c) (case,s_decl) in
@@ -363,7 +363,7 @@ module Make(E : Env.S) : S with module Env = E = struct
            where the the [u_i] are variables of the types required by [ty_s]
          - evaluate [decl.x = decl.t1 | decl.t2 .... | decl.t_m] in subst
       *)
-      let vars = List.mapi (fun i ty -> HVar.make ~ty i |> T.var) ty_args in
+      let vars = FList.mapi (fun i ty -> HVar.make ~ty i |> T.var) ty_args in
       let t = T.app (T.const ~ty:ty_s s) vars in
       Util.debugf ~section 5 "@[<2>instantiate enum type `%a`@ on `@[%a@]`@]"
         (fun k->k pp_id_or_builtin decl.decl_ty_id T.pp t);
@@ -373,7 +373,7 @@ module Make(E : Env.S) : S with module Env = E = struct
       let subst = Unif_subst.subst us
       and c_guard = Literal.of_unif_subst renaming us in
       let lits =
-        List.map
+        FList.map
           (fun case ->
              Lit.mk_eq
                (S.FO.apply renaming subst (t,1))
@@ -481,20 +481,20 @@ module Make(E : Env.S) : S with module Env = E = struct
   let _declare_inductive ~proof d =
     Util.debugf ~section 5 "@[<2>examine data `%a`@]" (fun k->k ID.pp d.Stmt.data_id);
     (* make HVars *)
-    let ty_vars = List.mapi (fun i _ -> HVar.make ~ty:Type.tType i) d.Stmt.data_args in
-    let ty_vars_t = List.map T.var ty_vars in
+    let ty_vars = FList.mapi (fun i _ -> HVar.make ~ty:Type.tType i) d.Stmt.data_args in
+    let ty_vars_t = FList.map T.var ty_vars in
     let ty_of_var =
-      Type.app d.Stmt.data_id (List.map Type.var ty_vars) in
+      Type.app d.Stmt.data_id (FList.map Type.var ty_vars) in
     let v = HVar.make ~ty:ty_of_var (List.length d.Stmt.data_args+1) in
     let v_t = T.var v in
     let cases =
-      List.map
+      FList.map
         (fun (c_id, c_ty, c_args) ->
            (* declare projector functions for this constructor *)
            let num_ty_vars, _, _ty_ret = Type.open_poly_fun c_ty in
            assert (num_ty_vars = List.length ty_vars);
            let projs_of_v =
-             List.map
+             FList.map
                (fun (_ty_arg,(proj, ty_proj)) ->
                   T.app (T.const ~ty:ty_proj proj) (ty_vars_t @ [v_t]))
                c_args

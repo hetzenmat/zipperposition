@@ -46,7 +46,7 @@ let eta_expand_otf ~subst:_ ~scope:_ pref1 pref2 t1 t2 =
     let remaining = CCList.drop n types in
     assert(List.length remaining != 0);
     let num_vars = List.length remaining in
-    let vars = List.mapi (fun i ty -> 
+    let vars = FList.mapi (fun i ty -> 
         (* let ty = Subst.Ty.apply Subst.Renaming.none (US.subst subst) (ty,scope) in *)
         T.bvar ~ty (num_vars-1-i)) remaining in
     let shifted = T.DB.shift num_vars t in
@@ -81,7 +81,7 @@ let rec eligible_arg t =
 let get_bvars args =
   let n = List.length args in
   if List.for_all T.is_bvar args then (
-    let res = List.mapi 
+    let res = FList.mapi 
         (fun i a -> (Term.as_bvar_exn a, T.bvar ~ty:(Term.ty a) (n-1-i))) 
         args in
     let no_dup = CCList.sort_uniq ~cmp res in
@@ -188,30 +188,30 @@ let rec build_term ?(depth=0) ~subst ~scope ~counter var bvar_map t =
                 with  Failure _ ->  None :: l, subst)) 
             args ([], subst) in
 
-        let pref_types = List.map Term.ty args in
+        let pref_types = FList.map Term.ty args in
         let n = List.length pref_types in
         let ret_type = Type.apply_unsafe (Term.ty hd) 
-            ((List.mapi (fun i x -> match x with 
+            ((FList.mapi (fun i x -> match x with 
                  | Some t -> t
                  | None   -> List.nth args i) new_args) :> InnerTerm.t list) in
 
         let matrix = 
-          CCList.filter_map CCFun.id (List.mapi (fun i opt_arg -> 
+          FList.filter_map CCFun.id (FList.mapi (fun i opt_arg -> 
               (match opt_arg with
                | Some arg -> Some (T.bvar ~ty:(Term.ty arg) (n-i-1))
                | None -> None)) new_args) in
         if List.length matrix != List.length args then (
           (* There are some arguments to remove *)
-          let ty = Type.arrow (List.map Term.ty matrix) ret_type in
+          let ty = Type.arrow (FList.map Term.ty matrix) ret_type in
           let new_hd = T.var @@ H.fresh_cnt ~counter ~ty () in
           let hd_subs = T.fun_l pref_types (T.app new_hd matrix) in
           let subst = US.FO.bind subst (T.as_var_exn hd, scope) (hd_subs, scope) in
-          let res_term = T.app new_hd (CCList.filter_map (fun x->x) new_args) in
+          let res_term = T.app new_hd (FList.filter_map (fun x->x) new_args) in
           res_term, subst
         )
         else (
           if args_same new_args args then (t,subst)
-          else T.app hd (CCList.filter_map CCFun.id new_args), subst
+          else T.app hd (FList.filter_map CCFun.id new_args), subst
         )
       )
       else (
@@ -219,7 +219,7 @@ let rec build_term ?(depth=0) ~subst ~scope ~counter var bvar_map t =
         let t' = if T.equal hd hd' then t else (
           (* if polymorhpism is detected, then apply type substitution to args *)
           let args = if Type.equal (T.ty hd) (T.ty hd') then args else
-                     List.map (fun t -> S.apply subst (t,scope)) args in
+                     FList.map (fun t -> S.apply subst (t,scope)) args in
           T.app hd' args
         ) in
         build_term ~depth ~subst ~scope ~counter var bvar_map t'           
@@ -336,7 +336,7 @@ and flex_same ~counter ~scope ~subst var args_s args_t =
   let ret_ty = Type.apply_unsafe (Term.ty var) 
       (args_s :> InnerTerm.t list) in
   let bvars = 
-    CCList.filter_map (fun x->x)
+    FList.filter_map (fun x->x)
       (CCArray.mapi (fun _ si ->
            let i,s = si in
            if i < CCArray.length bvar_t then (
@@ -344,9 +344,9 @@ and flex_same ~counter ~scope ~subst var args_s args_t =
              if i=bi && T.equal s bv then Some s else None)
            else None) bvar_s
        |> CCArray.to_list) in
-  let v_ty = Type.arrow (List.map T.ty bvars) ret_ty in
+  let v_ty = Type.arrow (FList.map T.ty bvars) ret_ty in
   let matrix = Term.app (Term.var (H.fresh_cnt ~counter ~ty:v_ty ())) bvars in
-  let res_term = Term.fun_l (List.map Term.ty args_s) matrix in
+  let res_term = Term.fun_l (FList.map Term.ty args_s) matrix in
   let subst = US.FO.bind subst (v, scope) (res_term, scope) in  
   subst
 
@@ -376,15 +376,15 @@ and flex_diff  ~counter ~scope ~subst var_s var_t args_s args_t =
           ) bvar_s
         |> CCArray.filter_map CCFun.id
         |> CCArray.to_list in
-      let arg_types = List.map (fun (b1, _) -> Term.ty b1) new_bvars in
+      let arg_types = FList.map (fun (b1, _) -> Term.ty b1) new_bvars in
       let ret_ty = 
         Type.apply_unsafe (Term.ty var_s) (args_s :> InnerTerm.t list) in
       let new_var_ty = Type.arrow arg_types ret_ty in
       let new_var = Term.var @@ H.fresh_cnt ~counter ~ty:new_var_ty () in
-      let matrix_s = Term.app new_var (List.map fst new_bvars) in
-      let matrix_t = Term.app new_var (List.map snd new_bvars) in
-      let subs_s = Term.fun_l (List.map Term.ty args_s) matrix_s in
-      let subs_t = Term.fun_l (List.map Term.ty args_t) matrix_t in
+      let matrix_s = Term.app new_var (FList.map fst new_bvars) in
+      let matrix_t = Term.app new_var (FList.map snd new_bvars) in
+      let subs_s = Term.fun_l (FList.map Term.ty args_s) matrix_s in
+      let subs_t = Term.fun_l (FList.map Term.ty args_t) matrix_t in
       let v_s, v_t = Term.as_var_exn var_s, Term.as_var_exn var_t in
       let subst = US.FO.bind subst (v_s, scope) (subs_s, scope) in
       let subst = US.FO.bind subst (v_t, scope) (subs_t, scope) in
@@ -410,7 +410,7 @@ and flex_rigid ~pref_l:_ ~subst ~counter ~scope flex rigid =
   try
     let matrix, subst = 
       build_term ~subst ~scope ~counter hd bvars rigid in
-    let new_subs_val = T.fun_l (List.map Term.ty args) matrix in
+    let new_subs_val = T.fun_l (FList.map Term.ty args) matrix in
     US.FO.bind subst (T.as_var_exn hd, scope) (new_subs_val, scope)
   with Failure _ -> raise NotUnifiable
 

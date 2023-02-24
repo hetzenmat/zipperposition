@@ -91,7 +91,7 @@ module Make(Ctx : Ctx.S) : S with module Ctx = Ctx = struct
     | [] -> Trail.empty
     | [c] -> c.sclause.trail
     | [c1; c2] -> Trail.merge c1.sclause.trail c2.sclause.trail
-    | l -> Trail.merge_l (List.map trail l)
+    | l -> Trail.merge_l (FList.map trail l)
 
   let lits c = c.sclause.lits
 
@@ -152,18 +152,18 @@ module Make(Ctx : Ctx.S) : S with module Ctx = Ctx = struct
     create_a ~penalty ~trail (Array.of_list lits) proof
 
   let of_forms ?(penalty=1) ~trail forms proof =
-    let lits = List.map Ctx.Lit.of_form forms |> Array.of_list in
+    let lits = FList.map Ctx.Lit.of_form forms |> Array.of_list in
     create_a ~penalty ~trail lits proof
 
   let of_forms_axiom ?(penalty=1) ~file ~name forms =
-    let lits = List.map Ctx.Lit.of_form forms in
+    let lits = FList.map Ctx.Lit.of_form forms in
     let proof = Proof.Step.assert' ~file ~name () in
     create ~penalty ~trail:Trail.empty lits proof
 
   let of_statement ?(convert_defs=false) st =
     let of_lits lits =
       (* convert literals *)
-      let lits = List.map Ctx.Lit.of_form lits in
+      let lits = FList.map Ctx.Lit.of_form lits in
       let proof = Stmt.proof_step st in
       let c = create ~trail:Trail.empty ~penalty:1 lits proof in
       c
@@ -175,11 +175,11 @@ module Make(Ctx : Ctx.S) : S with module Ctx = Ctx = struct
     | Stmt.Rewrite _ -> 
       if not convert_defs then [] (*dealt with by rewriting *)
       (* dealt with  *)
-      else List.map of_lits (Stmt.get_formulas_from_defs st)
+      else FList.map of_lits (Stmt.get_formulas_from_defs st)
     | Stmt.Assert lits -> [of_lits lits]
     | Stmt.Goal lits -> [of_lits lits]
     | Stmt.Lemma l
-    | Stmt.NegatedGoal (_,l) -> List.map of_lits l
+    | Stmt.NegatedGoal (_,l) -> FList.map of_lits l
 
   let update_trail f c =
     let sclause = SClause.update_trail f c.sclause in
@@ -280,14 +280,14 @@ module Make(Ctx : Ctx.S) : S with module Ctx = Ctx = struct
     let module PB = Position.Build in
     let starting_positions = 
       Lazy.force c.bool_selected
-      |> List.map (fun (_, pos) -> Position.Build.of_pos pos) 
+      |> FList.map (fun (_, pos) -> Position.Build.of_pos pos) 
     in
     let res = 
       (* directly at position of selected booleans *)
       Lazy.force c.bool_selected 
       @
       (* below selected selected booleans *)
-      CCList.flat_map (fun pb ->
+      FList.concat_map (fun pb ->
         let pos = Position.Build.to_pos pb in 
         let t = Literals.Pos.at (lits c) pos in
         (* selects --subterms-- of given t that are eligible *)
@@ -296,7 +296,7 @@ module Make(Ctx : Ctx.S) : S with module Ctx = Ctx = struct
       (starting_positions)
     in
     let res =  
-      List.filter (fun (_,p) -> 
+      FList.filter (fun (_,p) -> 
         let module P = Position in
         match p with
         | P.Arg(idx, P.Left P.Stop)
@@ -464,7 +464,7 @@ module Make(Ctx : Ctx.S) : S with module Ctx = Ctx = struct
         not (List.mem Proof.Tag.T_cannot_orphan (Proof.Step.tags step)) &&
         List.exists (fun pr ->
           Proof.Result.is_dead_cl (Proof.S.result pr) ())
-        (List.map Proof.Parent.proof (Proof.Step.parents step))) 
+        (FList.map Proof.Parent.proof (Proof.Step.parents step))) 
     in
     not (is_empty c) && aux (proof c)
   (** {2 Filter literals} *)

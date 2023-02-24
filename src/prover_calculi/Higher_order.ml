@@ -132,7 +132,7 @@ module Make(E : Env.S) : S with module Env = E = struct
          begin match subst with
            | Some (subst,_) ->
              let skolems =
-               List.map
+               FList.map
                  (fun t -> Subst.FO.apply Subst.Renaming.none subst (t,0))
                  skolems
              in
@@ -189,7 +189,7 @@ module Make(E : Env.S) : S with module Env = E = struct
     else (
       let new_lits =
         CCArray.to_list (C.lits c)
-        |> CCList.filter_map (fun lit -> 
+        |> FList.filter_map(fun lit -> 
           if is_neg_ff lit then (
             let c_vars = extract_hd_vars lit in
             if VS.subset c_vars vars_to_remove then None
@@ -224,7 +224,7 @@ module Make(E : Env.S) : S with module Env = E = struct
           (* create new skolems, parametrized by free variables *)
           let vars = Literal.vars lit in
           let skolems = ref [] in
-          let l = List.map (fun ty -> 
+          let l = FList.map (fun ty -> 
               let sk, res =  T.mk_fresh_skolem vars ty in
               skolems := sk :: !skolems;
               res) ty_args in
@@ -384,7 +384,7 @@ module Make(E : Env.S) : S with module Env = E = struct
       let rec aux penalty = function
         | [] -> [mk_clause ~lits:lit_arr ~penalty]
         | (idx, repls) :: rest ->
-          CCList.flat_map (fun (repl, p) ->
+          FList.concat_map (fun (repl, p) ->
             lit_arr.(idx) <- repl;
             aux (penalty+p) rest
           ) repls
@@ -406,7 +406,7 @@ module Make(E : Env.S) : S with module Env = E = struct
             let arg_types = Type.expected_args @@ T.ty lhs in
             let free_vars = Literal.vars l |> T.VarSet.of_list |> T.VarSet.to_list in
             let skolem_decls = ref [] in
-            let skolems = List.map (fun ty -> 
+            let skolems = FList.map (fun ty -> 
                 let sk, res =  T.mk_fresh_skolem free_vars ty in
                 skolem_decls := sk :: !skolem_decls;
                 res) arg_types in
@@ -627,9 +627,9 @@ module Make(E : Env.S) : S with module Env = E = struct
       let new_lits = [neg_lit; pos_lit] in
 
       let proof =
-            Proof.Step.inference (List.map C.proof_parent parents)
+            Proof.Step.inference (FList.map C.proof_parent parents)
               ~rule:(Proof.Rule.mk "ext_inst") in
-      let penalty = List.fold_left max 1 (List.map C.penalty parents) in
+      let penalty = List.fold_left max 1 (FList.map C.penalty parents) in
 
       C.create ~trail:(C.trail_l parents) ~penalty new_lits proof
 
@@ -637,10 +637,10 @@ module Make(E : Env.S) : S with module Env = E = struct
     match find_ho_disagremeents ~unify:false s t  with
     | Some (disagreements, subst) -> 
       assert (US.is_empty subst);
-      let ho_dis = List.filter (fun (s, _t) -> Type.is_fun (T.ty s)) disagreements in
+      let ho_dis = FList.filter (fun (s, _t) -> Type.is_fun (T.ty s)) disagreements in
       (* assert (not (CCList.is_empty ho_dis)); *)
 
-      CCList.map (fun (lhs,rhs) -> ext_inst ~parents (lhs,sc_f) (rhs,sc_t)) ho_dis
+      FList.map (fun (lhs,rhs) -> ext_inst ~parents (lhs,sc_f) (rhs,sc_t)) ho_dis
     | None -> []
 
   let ext_inst_or_family_eqfact cl =
@@ -650,7 +650,7 @@ module Make(E : Env.S) : S with module Env = E = struct
       | Some (disagrements, subst) ->
         assert(not (US.has_constr subst));
         let subst = US.subst subst in
-        let dis_lits = List.map (fun (a,b) -> Lit.mk_neq a b) disagrements in
+        let dis_lits = FList.map (fun (a,b) -> Lit.mk_neq a b) disagrements in
         let new_lits = 
           dis_lits @ ((Lit.mk_neq t v) :: CCArray.except_idx (C.lits cl) idx)
           |> CCArray.of_list
@@ -683,7 +683,7 @@ module Make(E : Env.S) : S with module Env = E = struct
       ext_inst @ ext_family in
 
     let aux_eq_rest (s,t) i lits = 
-      CCList.flatten @@ List.mapi (fun j lit -> 
+      CCList.flatten @@ FList.mapi (fun j lit -> 
         if i < j then (
           match lit with 
           | Lit.Equation(u,v,_) when Lit.is_positivoid lit ->
@@ -695,7 +695,7 @@ module Make(E : Env.S) : S with module Env = E = struct
 
     let lits = CCArray.to_list (C.lits cl) in
     let maximal = C.eligible_param (cl,0) Subst.empty in
-    CCList.flatten @@ List.mapi (fun i lit ->
+    CCList.flatten @@ FList.mapi (fun i lit ->
       match lit with
       | Lit.Equation (s,t,_) 
         when Lit.is_positivoid lit &&
@@ -743,7 +743,7 @@ module Make(E : Env.S) : S with module Env = E = struct
           Subst.FO.apply renaming subst scoped_t in
         
         let new_neq_lits = 
-          List.map (fun (arg_f, arg_i) ->
+          FList.map (fun (arg_f, arg_i) ->
             Lit.mk_neq (app_subst renaming (arg_f, sc_f)) (app_subst renaming (arg_i, sc_i))) 
           disagreements  in
 
@@ -841,7 +841,7 @@ module Make(E : Env.S) : S with module Env = E = struct
       let res = 
         Literals.fold_eqn (C.lits c) ~eligible ~ord ~both:false ~sign:false
         |> Iter.to_list
-        |> CCList.filter_map (fun (lhs,rhs,sign,pos) ->
+        |> FList.filter_map(fun (lhs,rhs,sign,pos) ->
             assert(sign = false);
             let idx = Lits.Pos.idx pos in
             if Env.flex_get k_ext_dec_lits != `OnlyMax ||
@@ -850,7 +850,7 @@ module Make(E : Env.S) : S with module Env = E = struct
               match find_ho_disagremeents (lhs,sc) (rhs, sc) with
               | Some (disagremeents, subst) ->
                 let new_neq_lits =
-                  List.map (fun (s,t) -> Lit.mk_neq s t) disagremeents in
+                  FList.map (fun (s,t) -> Lit.mk_neq s t) disagremeents in
                 let i, _ = Literals.Pos.cut pos in
                 let new_lits =
                   (Array.of_list @@ new_neq_lits @ CCArray.except_idx (C.lits c) i, sc)
@@ -874,7 +874,7 @@ module Make(E : Env.S) : S with module Env = E = struct
       let res = 
         Literals.fold_eqn (C.lits c) ~eligible ~ord ~both:false ~sign:false
         |> Iter.to_list
-        |> CCList.flat_map (fun (lhs,rhs,sign,pos) ->
+        |> FList.concat_map (fun (lhs,rhs,sign,pos) ->
             assert(sign = false);
             let idx = Lits.Pos.idx pos in
             if Env.flex_get k_ext_dec_lits != `OnlyMax ||
@@ -970,15 +970,15 @@ module Make(E : Env.S) : S with module Env = E = struct
             in
             let offset = C.Seq.vars c |> T.Seq.max_var |> succ in
             let vars =
-              List.mapi (fun i t -> HVar.make ~ty:(T.ty t) (i+offset)) some_tup
+              FList.mapi (fun i t -> HVar.make ~ty:(T.ty t) (i+offset)) some_tup
             in
-            let vars_t = List.map T.var vars in
+            let vars_t = FList.map T.var vars in
             let body =
               neg_args
-              |> List.map
+              |> FList.map
                 (fun tup ->
                    assert (List.length tup = List.length vars);
-                   List.map2 T.Form.eq vars_t tup |> T.Form.and_l)
+                   FList.map2 T.Form.eq vars_t tup |> T.Form.and_l)
               |> T.Form.or_l
             in
             Util.debugf ~section 1
@@ -1163,7 +1163,7 @@ module Make(E : Env.S) : S with module Env = E = struct
             Term.Map.filter (fun t _ -> Type.equal (Term.ty t) hd_ty) !choice_ops
             |> Term.Map.to_list
             |> (fun l -> if CCList.is_empty l then [choice_of_ty hd_ty, None] else l) in
-          CCList.flat_map (fun (hd,def_clause) -> generate_instances_of_hd ~def_clause hd arg) 
+          FList.concat_map (fun (hd,def_clause) -> generate_instances_of_hd ~def_clause hd arg) 
             choice_ops
         ) else (
           match Term.Map.find_opt hd !choice_ops with
@@ -1301,13 +1301,13 @@ module Make(E : Env.S) : S with module Env = E = struct
     let res = 
       if Term.VarSet.is_empty pos_neg_vars then []
       else (
-        CCList.flat_map (fun (t,sign) -> 
+        FList.concat_map (fun (t,sign) -> 
             let hd, args = T.as_app t in
             let var_hd = T.as_var_exn hd in
             if Term.VarSet.mem (Term.as_var_exn hd) pos_neg_vars then (
               let tyargs, _ = Type.open_fun (Term.ty hd) in
               let n = List.length tyargs in
-              CCList.filter_map (fun (i,arg) ->
+              FList.filter_map(fun (i,arg) ->
                   if T.var_occurs ~var:var_hd arg then None 
                   else (
                     let body = (if sign then T.Form.neq else T.Form.eq) 
@@ -1321,7 +1321,7 @@ module Make(E : Env.S) : S with module Env = E = struct
                     let tags = [Proof.Tag.T_ho] in
                     let proof = Some (proof_constructor ~rule ~tags [C.proof_parent_subst Subst.Renaming.none (c,0) subst]) in
                     Some (C.apply_subst ~proof (c,0) subst))
-                ) (CCList.mapi (fun i arg -> (i, arg)) args)
+                ) (FList.mapi (fun i arg -> (i, arg)) args)
             ) else [] 
           ) (Term.Map.to_list occurrences)) in
     res
@@ -1355,14 +1355,14 @@ module Make(E : Env.S) : S with module Env = E = struct
           let var = T.as_var_exn hd in
           Some (Subst.FO.bind' Subst.empty (var,0) (subst_t, 0))
         in
-        (CCList.filter_map CCFun.id @@ 
+        (FList.filter_map CCFun.id @@ 
           CCList.flat_map_i (fun i arg_i ->
-            CCList.mapi (fun j arg_j -> 
+            FList.mapi (fun j arg_j -> 
               if j > i && T.equal arg_i arg_j then return i j else None
             ) args
           ) args) @ cmd_list
         ) else cmd_list) ([])
-    |> List.map (fun subst -> 
+    |> FList.map (fun subst -> 
       let rule = Proof.Rule.mk "elim_andrews_eq" in
       let tags = [Proof.Tag.T_ho] in
       let proof = Some (proof_constructor ~rule ~tags [C.proof_parent c]) in
@@ -1396,12 +1396,12 @@ module Make(E : Env.S) : S with module Env = E = struct
     let offset = C.Seq.vars c |> T.Seq.max_var |> succ in
     begin
       HO_unif.unif_pairs ?fuel:None (pairs,0) ~offset
-      |> List.map
+      |> FList.map
         (fun (new_pairs, us, penalty, renaming) ->
            let subst = Unif_subst.subst us in
            let c_guard = Literal.of_unif_subst renaming us in
            let new_pairs =
-             List.map
+             FList.map
                (fun (env,t,u) ->
                   assert (env == []);
                   Literal.mk_constraint t u)
@@ -1567,7 +1567,7 @@ module Make(E : Env.S) : S with module Env = E = struct
     HO_unif.enum_prop 
       ~enum_cache:(Env.flex_get k_prim_enum_terms) ~add_var
       ~signature:(Ctx.signature ()) ~mode ~offset (T.as_var_exn var,sc)
-    |> CCList.map (fun (subst,p) -> 
+    |> FList.map (fun (subst,p) -> 
       let renaming = Subst.Renaming.create () in
       let lits = Literals.apply_subst renaming subst (C.lits cl, sc) in
       let lits = Literals.map (fun t -> Lambda.snf t) lits in
@@ -1652,7 +1652,7 @@ module Make(E : Env.S) : S with module Env = E = struct
 
           let (sk_id, sk_ty),inv_sk = 
             Term.mk_fresh_skolem 
-              (List.map T.as_var_exn same_vars) 
+              (FList.map T.as_var_exn same_vars) 
               (Type.arrow [T.ty lhs] (T.ty x)) in
           let inv_sk = T.app inv_sk [lhs] in
           let inv_lit = [Lit.mk_eq inv_sk x] in
@@ -1678,12 +1678,12 @@ module Make(E : Env.S) : S with module Env = E = struct
       assert (n_ty_args = 0);
       assert (ty_args <> []);
       let vars =
-        List.mapi
+        FList.mapi
           (fun i ty -> T.var @@ HVar.make ~ty (i+var_offset))
           ty_args
       in
       CCList.(start -- List.length vars)
-      |> List.map
+      |> FList.map
         (fun prefix_len ->
           let vars_prefix = CCList.take prefix_len vars in
           let new_lit = Literal.mk_eq (T.app t vars_prefix) (T.app u vars_prefix) in
@@ -1762,7 +1762,7 @@ module Make(E : Env.S) : S with module Env = E = struct
       | Lit.Equation(lhs, rhs, sign) when sign && Type.is_fun (T.ty lhs) ->
         let tyargs = fst (Type.open_fun (T.ty lhs)) in
         simplified := true;
-        let vars = List.map (fun ty -> 
+        let vars = FList.map (fun ty -> 
           incr var_offset;
           T.var @@ HVar.make ~ty (!var_offset)) tyargs in
         let lhs',rhs' = T.app lhs vars, T.app rhs vars in
@@ -1827,7 +1827,7 @@ module Make(E : Env.S) : S with module Env = E = struct
                let minlen = min (List.length var_status) (List.length args) in
                let args = CCList.take minlen args in
                let var_status = CCList.take minlen var_status in
-               VTbl.replace status var (CCList.map (fun ((fas, das), arg) -> update_fas fas arg, update_das das arg) (List.combine var_status args))
+               VTbl.replace status var (FList.map (fun ((fas, das), arg) -> update_fas fas arg, update_das das arg) (List.combine var_status args))
              | None ->
                (* First time to encounter this var *)
                let rec create_var_status ?(i=0) args : (fixed_arg_status * dupl_arg_status) list =
@@ -1852,11 +1852,11 @@ module Make(E : Env.S) : S with module Env = E = struct
       );
     let subst =
       VTbl.to_list status
-      |> CCList.filter_map (
+      |> FList.filter_map(
         fun (var, var_status) ->
           assert (not (Type.is_tType (HVar.ty var)));
           let ty_args, ty_return = Type.open_fun (HVar.ty var) in
-          let keep = var_status |> CCList.map
+          let keep = var_status |> FList.map
                        (fun (fas, das) ->
                           (* Keep argument if this is true: *)
                           fas == Varies && das == Unique
@@ -1870,15 +1870,15 @@ module Make(E : Env.S) : S with module Env = E = struct
             (* Create substitution: *)
             let ty_args' = ty_args
                            |> CCList.combine keep
-                           |> CCList.filter fst
-                           |> CCList.map snd
+                           |> FList.filter fst
+                           |> FList.map snd
             in
             let var' = HVar.cast var ~ty:(Type.arrow ty_args' ty_return) in
             let bvars =
               CCList.combine keep ty_args
-              |> List.mapi (fun i (k, ty) -> k, T.bvar ~ty (List.length ty_args - i - 1))
-              |> CCList.filter fst
-              |> CCList.map snd
+              |> FList.mapi (fun i (k, ty) -> k, T.bvar ~ty (List.length ty_args - i - 1))
+              |> FList.filter fst
+              |> FList.map snd
             in
             let replacement = T.fun_l ty_args (T.app (T.var var') bvars) in
             Some ((var,0), (replacement,1))
@@ -1909,17 +1909,17 @@ module Make(E : Env.S) : S with module Env = E = struct
     let get_covers ?(current_sets=[]) head args = 
       let ty_args, _ = Type.open_fun (T.ty head) in
       let missing = CCList.replicate (List.length ty_args - List.length args) None in 
-      let args_opt = List.mapi (fun i a_i ->
+      let args_opt = FList.mapi (fun i a_i ->
           assert(Term.DB.is_closed a_i);
           assert(CCList.is_empty current_sets ||
                  List.length current_sets = (List.length args + List.length missing));
           if CCList.is_empty current_sets ||
              not (Term.Set.is_empty (List.nth current_sets i)) then 
-            (Some (List.mapi (fun j a_j -> 
+            (Some (FList.mapi (fun j a_j -> 
                  if i = j then None else Some a_j) args))
           else None (* ignoring onself *))
           args @ missing in
-      let res = List.mapi (fun i arg_opt ->
+      let res = FList.mapi (fun i arg_opt ->
           if i < List.length args then (
             let t = List.nth args i in 
             begin match arg_opt with 
@@ -1948,16 +1948,16 @@ module Make(E : Env.S) : S with module Env = E = struct
              | Some (current_sets, created_sk) ->
                let t, new_sk = T.DB.skolemize_loosely_bound t in
                let new_skolems = T.IntMap.bindings new_sk 
-                                 |> List.map snd |> Term.Set.of_list in
+                                 |> FList.map snd |> Term.Set.of_list in
                let covers = get_covers ~current_sets head (T.args t) in
                assert(List.length current_sets = List.length covers);
                let paired = CCList.combine current_sets covers in
-               let res = List.map (fun (o,n) -> Term.Set.inter o n) paired in
+               let res = FList.map (fun (o,n) -> Term.Set.inter o n) paired in
                VTbl.replace status var (res, Term.Set.union created_sk new_skolems);
              | None ->
                let t', created_sk = T.DB.skolemize_loosely_bound t in
                let created_sk = T.IntMap.bindings created_sk
-                                |> List.map snd |> Term.Set.of_list in
+                                |> FList.map snd |> Term.Set.of_list in
                VTbl.add status var (get_covers head (T.args t'), created_sk);
            end
          | _ -> ();
@@ -1966,12 +1966,12 @@ module Make(E : Env.S) : S with module Env = E = struct
 
     let subst =
       VTbl.to_list status
-      |> CCList.filter_map (fun (var, (args, skolems)) ->
+      |> FList.filter_map(fun (var, (args, skolems)) ->
           let removed = ref IntSet.empty in
           let n = List.length args in 
-          let keep = List.mapi (fun i arg_set -> 
+          let keep = FList.mapi (fun i arg_set -> 
               let arg_l = Term.Set.to_list arg_set in
-              let arg_l = List.filter (fun t -> 
+              let arg_l = FList.filter (fun t -> 
                   List.for_all (fun idx -> 
                       not @@ IntSet.mem idx !removed) (T.DB.unbound t) &&
                   T.Seq.subterms t
@@ -1985,13 +1985,13 @@ module Make(E : Env.S) : S with module Env = E = struct
             let ty_args, ty_return = Type.open_fun (HVar.ty var) in
             let ty_args' = 
               CCList.combine keep ty_args
-              |> CCList.filter fst |> CCList.map snd
+              |> FList.filter fst |> FList.map snd
             in
             let var' = HVar.cast var ~ty:(Type.arrow ty_args' ty_return) in
             let bvars =
               CCList.combine keep ty_args
-              |> List.mapi (fun i (k, ty) -> k, T.bvar ~ty (List.length ty_args - i - 1))
-              |> CCList.filter fst|> CCList.map snd
+              |> FList.mapi (fun i (k, ty) -> k, T.bvar ~ty (List.length ty_args - i - 1))
+              |> FList.filter fst|> FList.map snd
             in
             let replacement = T.fun_l ty_args (T.app (T.var var') bvars) in
             Some ((var,0), (replacement,1))))
@@ -2037,7 +2037,7 @@ module Make(E : Env.S) : S with module Env = E = struct
         [Type.Tbl.get_or_add groundings ~f:introduce_new_const ~k:ty]
       | `All ->
         let ids = Signature.find_by_type (C.Ctx.signature ()) ty in
-        if not (ID.Set.is_empty ids) then List.map (Term.const ~ty) (ID.Set.to_list ids)
+        if not (ID.Set.is_empty ids) then FList.map (Term.const ~ty) (ID.Set.to_list ids)
         else [Type.Tbl.get_or_add groundings ~f:introduce_new_const ~k:ty] 
     in
     CCOpt.map (fun v ->
@@ -2052,7 +2052,7 @@ module Make(E : Env.S) : S with module Env = E = struct
         (* CCFormat.printf "grond: @[%a@] => @[%a@]@." C.pp c C.pp res;
         CCFormat.printf "proof: @[%a@]@." Proof.S.pp_tstp (C.proof res); *)
         res in
-      List.map inst (get_groundings (T.var v))
+      FList.map inst (get_groundings (T.var v))
     ) app_var
 
 
@@ -2167,13 +2167,13 @@ module Make(E : Env.S) : S with module Env = E = struct
               (fun k->k T.pp t T.pp (VTbl.find cache_untouched_ v));
             let v' = replacement_var t in
             assert (Type.equal (HVar.ty v) (T.ty v'));
-            T.app v' (List.map purify_term args)
+            T.app v' (FList.map purify_term args)
           ) else (
             (* dont purify *)
-            T.app head (List.map purify_term args)
+            T.app head (FList.map purify_term args)
           )
         | None -> (* dont purify *)
-          T.app head (List.map purify_term args)
+          T.app head (FList.map purify_term args)
       in
       assert (Type.equal (T.ty res) (T.ty t));
       res
@@ -2370,7 +2370,7 @@ let set_prim_mode_ =
     "none", `None;
   ] in
   let set_ s = prim_mode_ := List.assoc s l in
-  Arg.Symbol (List.map fst l, set_)
+  Arg.Symbol (FList.map fst l, set_)
 
 (* detection of HO statements *)
 let st_contains_ho (st:(_,_,_) Statement.t): bool =
@@ -2531,12 +2531,12 @@ let extension =
 let purify_opt =
   let set_ n = _purify_applied_vars := n in
   let l = [ "ext", `Ext; "int", `Int; "none", `None] in
-  Arg.Symbol (List.map fst l, fun s -> set_ (List.assoc s l))
+  Arg.Symbol (FList.map fst l, fun s -> set_ (List.assoc s l))
 
 let eta_opt =
   let set_ n = _eta := n in
   let l = [ "reduce", `Reduce; "expand", `Expand; "none", `None] in
-  Arg.Symbol (List.map fst l, fun s -> set_ (List.assoc s l))
+  Arg.Symbol (FList.map fst l, fun s -> set_ (List.assoc s l))
 
 let () =
   Options.add_opts

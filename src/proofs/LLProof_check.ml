@@ -4,6 +4,7 @@
 (** {1 Check LLProof} *)
 
 open Logtk
+open Future
 
 module T = TypedSTerm
 module F = T.Form
@@ -99,7 +100,7 @@ let prove ~dot_prefix (a:form list) (b:form) =
   let module TT = LLTerm in
   (* convert into {!LLTerm.t} *)
   let ctx = TT.Conv.create() in
-  let a = List.map (TT.Conv.of_term ctx) a in
+  let a = FList.map (TT.Conv.of_term ctx) a in
   let b = TT.Conv.of_term ctx b in
   (* prove [a ∧ -b ⇒ ⊥] *)
   let res, final_state = LLProver.prove a b in
@@ -139,7 +140,7 @@ let check_step_ ?dot_prefix (p:proof): check_step_res =
       (* now remove free variables by using fresh constants *)
       let subst =
         vars
-        |> List.mapi (fun i v -> v, T.const ~ty:(Var.ty v) (ID.makef "sk_%d" i))
+        |> FList.mapi (fun i v -> v, T.const ~ty:(Var.ty v) (ID.makef "sk_%d" i))
         |> Var.Subst.of_list
       in
       CS_check (prove ~dot_prefix [T.Subst.eval subst p'_inst] (T.Subst.eval subst body_concl))
@@ -148,7 +149,7 @@ let check_step_ ?dot_prefix (p:proof): check_step_res =
       if LLProver.can_check tags then (
         (* within the fragment of {!Tab.prove} *)
         let all_premises =
-          List.map concl_of_parent parents
+          FList.map concl_of_parent parents
         and concl =
           instantiate concl intros
         in

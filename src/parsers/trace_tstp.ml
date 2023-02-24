@@ -261,7 +261,7 @@ let of_decls decls =
             assert false
             (* FIXME
                let step = lazy {id=name; esa; rule; parents=Lazy.force parents} in
-               let c = List.map SLiteral.of_form c in
+               let c = FList.map SLiteral.of_form c in
                let p = InferClause (c, step) in
                add_step name p
             *)

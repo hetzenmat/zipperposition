@@ -38,8 +38,8 @@ module Make (S : sig val st: Flex_state.t end) = struct
             let binding,_ = Subst.FO.deref sub (T.head_term flex,scope) in
             let _,body = T.open_fun binding in
             T.is_bvar body) projections in
-      let simp_projs = CCList.map (fun s -> Some (s,depth)) simp_projs in
-      let func_projs = CCList.map (fun s -> Some (s,depth+1)) func_projs in
+      let simp_projs = FList.map (fun s -> Some (s,depth)) simp_projs in
+      let func_projs = FList.map (fun s -> Some (s,depth+1)) func_projs in
       OSeq.append 
         (OSeq.of_list simp_projs)
         (if CCList.is_empty func_projs then OSeq.empty
@@ -81,7 +81,7 @@ module Make (S : sig val st: Flex_state.t end) = struct
       else [] in
     let solid = 
       if get_op PUP.k_solid_decider then [fun s t sub -> 
-          List.map U.subst @@ SU.unify_scoped ~subst:(U.of_subst sub) ~counter s t] 
+          FList.map U.subst @@ SU.unify_scoped ~subst:(U.of_subst sub) ~counter s t] 
       else [] in
     let fixpoint = 
       if get_op PUP.k_fixpoint_decider then [fun s t sub -> 

@@ -133,7 +133,7 @@ let max_seq_correct =
   let prop m =
     let l1 = M.max_seq partial_ord m |> Iter.map fst |> Iter.to_list in
     let l2 = M.to_list m |> List.map fst
-      |> List.filter (fun x -> M.is_max partial_ord x m) in
+      |> FList.filter (fun x -> M.is_max partial_ord x m) in
     if l1=l2 then true
     else Q.Test.fail_reportf "@[max_seq %a,@ max %a@]"
         CCFormat.Dump.(list int) l1

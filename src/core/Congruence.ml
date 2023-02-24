@@ -3,6 +3,8 @@
 
 (** {1 Simple and Lightweight Congruence and order} *)
 
+open Future
+
 module type S = Congruence_intf.S
 
 (** The graph used for the congruence *)
@@ -75,8 +77,8 @@ module Make(T : TERM) = struct
       check this, we compute the representative of subnodes
       and we check whether updated subterms are equal *)
   let are_congruent_ cc t1 t2 =
-    let l1' = List.map (find_ cc) (T.subterms t1) in
-    let l2' = List.map (find_ cc) (T.subterms t2) in
+    let l1' = FList.map (find_ cc) (T.subterms t1) in
+    let l2' = FList.map (find_ cc) (T.subterms t2) in
     try
       let t1 = T.update_subterms t1 l1' in
       let t2 = T.update_subterms t2 l2' in

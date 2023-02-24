@@ -35,7 +35,7 @@ let is_empty (s:t): bool =
 let map_subst ~f t = {t with subst=f t.subst}
 let of_subst s = make s []
 
-let tags (s:t) : _ list = CCList.flat_map Unif_constr.tags (constr_l s)
+let tags (s:t) : _ list = FList.concat_map Unif_constr.tags (constr_l s)
 
 let bind t v u = {t with subst=Subst.bind t.subst v u}
 let update t v u = {t with subst=Subst.update t.subst v u}
@@ -89,8 +89,8 @@ module FO = struct
 
     let subst = collect_vars t0s |> Iter.fold (add_renaming scope0) subst in
     let subst = collect_vars t1s |> Iter.fold (add_renaming scope1) subst in
-    let t0', t1' = List.map (fun t0 -> apply subst (t0, scope0)) t0s,
-                   List.map (fun t1 -> apply subst (t1, scope1)) t1s  in
+    let t0', t1' = FList.map (fun t0 -> apply subst (t0, scope0)) t0s,
+                   FList.map (fun t1 -> apply subst (t1, scope1)) t1s  in
     t0', t1', new_scope, subst
 end
 

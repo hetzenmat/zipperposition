@@ -150,7 +150,7 @@ module Make(E : Env.S) : S with module Env = E = struct
       ) !_trigger_bools;
 
       Type.Map.get_or ~default:[] (T.ty t) !_cls_w_pred_vars
-      |> CCList.map (fun (clause,var) -> instantiate_w_bool ~clause ~var ~trigger:t)
+      |> FList.map (fun (clause,var) -> instantiate_w_bool ~clause ~var ~trigger:t)
     ) else []
 
   let insert_new_trigger t =
@@ -174,7 +174,7 @@ module Make(E : Env.S) : S with module Env = E = struct
         let vars, body = T.open_fun t in
         assert(Type.is_prop (T.ty body));
         let n = List.length vars in
-        let dbs = List.mapi (fun i ty -> T.bvar ~ty (n-i-1)) vars in
+        let dbs = FList.mapi (fun i ty -> T.bvar ~ty (n-i-1)) vars in
         let var_ty = Type.(==>) (vars @ [Type.prop]) Type.prop in
         let var = T.var (HVar.fresh ~ty:var_ty ()) in
         do_insert (T.fun_l vars (T.app var (dbs@[body])))
@@ -198,7 +198,7 @@ module Make(E : Env.S) : S with module Env = E = struct
     assert(Type.returns_prop (T.ty var));
     let ty = T.ty var in
     Type.Map.get_or ~default:[] ty !_trigger_bools
-    |> CCList.map (fun trigger -> instantiate_w_bool ~clause ~var ~trigger)
+    |> FList.map (fun trigger -> instantiate_w_bool ~clause ~var ~trigger)
     |> CCList.to_iter
     |> Env.add_passive;
 
@@ -232,11 +232,11 @@ module Make(E : Env.S) : S with module Env = E = struct
             match T.view t with
             | T.App(hd, args) ->
               let hd' = aux ~depth hd in
-              let args' = List.map (aux ~depth) args in
+              let args' = FList.map (aux ~depth) args in
               if T.equal hd hd' && T.same_l args args' then t
               else T.app hd' args'
             | T.AppBuiltin(hd, args) ->
-              let args' = List.map (aux ~depth) args in
+              let args' = FList.map (aux ~depth) args in
               if T.same_l args args' then t
               else T.app_builtin ~ty:(T.ty t) hd args'
             | T.Fun _ ->
@@ -257,7 +257,7 @@ module Make(E : Env.S) : S with module Env = E = struct
             (T.is_const (T.head_term rhs_body)) then (
             List.sort_uniq T.compare (T.args lhs_body @ T.args rhs_body)
           ) else [] in
-        CCList.filter_map (fun arg -> 
+        FList.filter_map(fun arg -> 
           if T.DB.is_closed arg && not (Type.is_tType (T.ty arg)) then (
             match abstract ~subterm:arg lhs, abstract ~subterm:arg rhs with
             | Some(lhs'), Some(rhs') ->
@@ -277,7 +277,7 @@ module Make(E : Env.S) : S with module Env = E = struct
       match C.lits cl with
       | [| Literal.Equation(lhs, rhs, _) as lit |] ->
         let res = 
-          CCList.flat_map inst_clauses_w_trigger (make_triggers lhs rhs (Literal.is_positivoid lit))
+          FList.concat_map inst_clauses_w_trigger (make_triggers lhs rhs (Literal.is_positivoid lit))
         in
         res
       | _ -> []
@@ -354,7 +354,7 @@ module Make(E : Env.S) : S with module Env = E = struct
     let proof = Proof.Step.inference [C.proof_parent c]
                 ~rule:(Proof.Rule.mk "bool_hoist") ~tags:[Proof.Tag.T_ho] in
 
-    List.map (fun (t, _) ->
+    FList.map (fun (t, _) ->
       let t,c = handle_poly_bool_hoist t c in
       mk_res ~proof ~old:t ~repl:T.false_ (yes t) c)
     (get_bool_hoist_eligible c)
@@ -405,7 +405,7 @@ module Make(E : Env.S) : S with module Env = E = struct
     |> Iter.to_list
     (* since we are doing simultaneous version -- we take only unique terms *)
     |> CCList.sort_uniq ~cmp:(fun (t1,_) (t2,_) -> T.compare t1 t2)
-    |> List.map (fun (t, _) ->
+    |> FList.map (fun (t, _) ->
         match T.view t with 
         | T.AppBuiltin(Builtin.(Eq|Equiv), ([a;b]|[_;a;b])) ->
           let new_lit = Literal.mk_eq a b in
@@ -803,7 +803,7 @@ module Make(E : Env.S) : S with module Env = E = struct
           [Subst.FO.bind' Subst.empty (v,sc) (T.true_, sc);
            Subst.FO.bind' Subst.empty (v,sc) (T.false_, sc)]
         | v :: vs ->
-          CCList.flat_map (fun subst -> 
+          FList.concat_map (fun subst -> 
             [Subst.FO.bind' subst (v,sc) (T.true_, sc);
              Subst.FO.bind' subst (v,sc) (T.false_, sc)]
           ) (aux vs)
@@ -828,7 +828,7 @@ module Make(E : Env.S) : S with module Env = E = struct
         let vars = T.VarSet.to_list (T.vars t) in
         assert (List.for_all (fun t -> Type.is_prop (HVar.ty t)) vars);
         all_bool_substs vars
-        |> List.map (C.apply_subst ~proof:(Some p) (c,0)))
+        |> FList.map (C.apply_subst ~proof:(Some p) (c,0)))
     
   let replace_bool_app_vars (c:C.t) =
     let p sub renaming =
@@ -867,7 +867,7 @@ module Make(E : Env.S) : S with module Env = E = struct
             is_eligible args
           | _ -> None))
       |> Iter.flat_map_l (fun (args) -> 
-        List.map (fun target -> 
+        FList.map (fun target -> 
           get_unif_alg_l () (args, 0) (target, 0)
           |> OSeq.filter_map (
               CCOpt.map (fun us -> 
@@ -887,7 +887,7 @@ module Make(E : Env.S) : S with module Env = E = struct
       Env.get_finite_infs stms 
     ) else (
       Env.StmQ.add_lst (Env.get_stm_queue ()) (
-        List.map (fun seq -> 
+        FList.map (fun seq -> 
           Env.Stm.make ~penalty:(C.penalty c) ~parents:[c] (seq)) stms
       );
       []
@@ -1039,11 +1039,11 @@ module Make(E : Env.S) : S with module Env = E = struct
     let threshold = 2 in
 
     C.bool_selected c
-    |> List.map (fun (_, lit_pos) -> 
+    |> FList.map (fun (_, lit_pos) -> 
       Literals.Pos.idx lit_pos)
     |> CCList.group_by ~hash:CCInt.hash ~eq:CCInt.equal 
-    |> List.map (fun idx_list -> (List.hd idx_list, List.length idx_list))
-    |> List.filter (fun (_, cnt) -> cnt >= threshold)
+    |> FList.map (fun idx_list -> (List.hd idx_list, List.length idx_list))
+    |> FList.filter (fun (_, cnt) -> cnt >= threshold)
     |> (function 
        | _ :: xs when not (CCList.is_empty xs) ->
          (* there need to be at least two literals with deep booleans.
@@ -1059,7 +1059,7 @@ module Make(E : Env.S) : S with module Env = E = struct
             ) ([], []) xs
           in
           let rule = Proof.Rule.mk "rename_nested_bools" in
-          let parents = List.map C.proof_parent (c :: new_parents) in
+          let parents = FList.map C.proof_parent (c :: new_parents) in
           let proof = Proof.Step.simp  ~rule parents in
           let renamed =
             C.create_a ~penalty:(C.penalty c) ~trail:(C.trail c) new_lits proof in
@@ -1099,7 +1099,7 @@ module Make(E : Env.S) : S with module Env = E = struct
 
         if compl_in_l l || List.exists (equal absorbing_el) l then absorbing_el
         else (
-          let l' = List.filter (fun s -> not (equal s netural_el)) l' in
+          let l' = FList.filter (fun s -> not (equal s netural_el)) l' in
           if List.length l = List.length l' then t
           else (
             if CCList.is_empty l' then netural_el
@@ -1120,7 +1120,7 @@ module Make(E : Env.S) : S with module Env = E = struct
       if T.equal body body' then t
       else T.fun_ ty body'
     | App(hd, args) ->
-      let hd' = aux hd and args' = List.map aux args in
+      let hd' = aux hd and args' = FList.map aux args in
       if T.equal hd hd' && T.same_l args args' then t
       else T.app hd' args'
     | AppBuiltin (Builtin.And, [x]) 
@@ -1147,7 +1147,7 @@ module Make(E : Env.S) : S with module Env = E = struct
     | AppBuiltin(Builtin.And, l)
       when  ty_is_prop t &&
             List.length l > 1 ->
-      let l' = List.map aux l in
+      let l' = FList.map aux l in
       let t = 
         if T.same_l l l' then t 
         else T.app_builtin ~ty:(Type.prop) Builtin.And l' in
@@ -1155,7 +1155,7 @@ module Make(E : Env.S) : S with module Env = E = struct
     | AppBuiltin(Builtin.Or, l)
       when ty_is_prop t &&
            List.length l > 1 ->
-      let l' = List.map aux l in
+      let l' = FList.map aux l in
       let t = 
         if T.same_l l l' then t 
         else T.app_builtin ~ty:(Type.prop) Builtin.Or l' in
@@ -1247,7 +1247,7 @@ module Make(E : Env.S) : S with module Env = E = struct
         else T.app_builtin ~ty:(T.ty t) b [tyarg; g']
       ) else body
     | AppBuiltin(hd, args) ->
-      let args' = List.map aux args in
+      let args' = FList.map aux args in
       if T.same_l args args' then t
       else T.app_builtin ~ty:(T.ty t) hd args' in  
   
@@ -1265,7 +1265,7 @@ module Make(E : Env.S) : S with module Env = E = struct
         else T.fun_ ty body'
       | App(hd,args) ->
         let hd' = aux hd in
-        let args' = List.map aux args in
+        let args' = FList.map aux args in
         if T.equal hd hd' && T.same_l args args' then t
         else T.app hd' args'
       | AppBuiltin((ExistsConst|ForallConst) as quant, args) ->
@@ -1300,7 +1300,7 @@ module Make(E : Env.S) : S with module Env = E = struct
           | _ -> invalid_arg "Too many arguments"
         )
       | AppBuiltin(hd,args) ->
-        let args' = List.map aux args in
+        let args' = FList.map aux args in
         if T.same_l args args' then t
         else T.app_builtin ~ty:(T.ty t) hd args'
         
@@ -1340,7 +1340,7 @@ module Make(E : Env.S) : S with module Env = E = struct
         else T.fun_ ty body'
       | App(hd,args) ->
         let hd' = aux hd in
-        let args' = List.map aux args in
+        let args' = FList.map aux args in
         if T.equal hd hd' && T.same_l args args' then t
         else T.app hd' args'
       | AppBuiltin((ExistsConst|ForallConst) as hd, [alpha]) ->
@@ -1362,7 +1362,7 @@ module Make(E : Env.S) : S with module Env = E = struct
       | AppBuiltin((ExistsConst|ForallConst), ([])) ->
         invalid_arg "type argument must be present"
       | AppBuiltin(hd,args) ->
-        let args' = List.map aux args in
+        let args' = FList.map aux args in
         (* fully applied quantifier *)
         if Builtin.is_quantifier hd && List.length args' == 2 then (
           let q_pref, q_body = T.open_fun @@ List.nth args' 1 in
@@ -1426,7 +1426,7 @@ module Make(E : Env.S) : S with module Env = E = struct
         if T.equal body body' then t
         else T.fun_l tyargs body'
       | App(hd, l) ->
-        let hd' = aux hd and l' = List.map aux l in
+        let hd' = aux hd and l' = FList.map aux l in
         if T.equal hd hd' && T.same_l l l' then t
         else T.app hd' l'
       | AppBuiltin (Builtin.Not, [f]) ->
@@ -1434,7 +1434,7 @@ module Make(E : Env.S) : S with module Env = E = struct
         | AppBuiltin(Not, [g]) -> aux g
         | AppBuiltin( ((And|Or) as b), l) when List.length l >= 2 ->
           let flipped = if b = Builtin.And then F.or_l else F.and_l in
-          flipped (List.map (fun t -> aux (F.not_ t))  l)
+          flipped (FList.map (fun t -> aux (F.not_ t))  l)
         | AppBuiltin( ((ForallConst|ExistsConst) as b), ([g]|[_;g]) ) ->
           let flipped = 
             if b = Builtin.ForallConst then Builtin.ExistsConst
@@ -1459,7 +1459,7 @@ module Make(E : Env.S) : S with module Env = E = struct
       | AppBuiltin(Xor, [f;g]) ->
         aux (F.and_ (F.or_ f g) (F.or_ (F.not_ f)  (F.not_ g)))
       | AppBuiltin(b, l) ->
-        let l' = List.map aux l in
+        let l' = FList.map aux l in
         if T.same_l l l' then t
         else T.app_builtin ~ty:(T.ty t) b l' in
     aux t
@@ -1637,7 +1637,7 @@ module Make(E : Env.S) : S with module Env = E = struct
       let clauses = CCVector.map (C.of_statement ~convert_defs:true) cnf_vec
                     |> CCVector.to_list 
                     |> CCList.flatten
-                    |> List.map (fun c -> 
+                    |> FList.map (fun c -> 
                         C.create ~penalty  ~trail (CCArray.to_list (C.lits c)) proof) in
       Util.debugf ~section 5 "cl:@[%a@]@." (fun k-> k C.pp c);
       Util.debugf ~section 5 " @[%a@]@." (fun k-> k (CCList.pp C.pp) clauses);
@@ -2050,7 +2050,7 @@ let eager_cases_near stms =
           T.Form.and_ [if_true; if_false]
         end
       | AppBuiltin(hd, args) -> 
-        T.app_builtin ~ty:p_ty hd (List.map (aux ~vars) args)
+        T.app_builtin ~ty:p_ty hd (FList.map (aux ~vars) args)
       | App(_, _) ->
         begin match find_fool_subterm p with
         | Some(p_t, p_f, subterm) ->

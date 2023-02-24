@@ -4,6 +4,7 @@
 (** {1 Find applied variables in a problem } *)
 
 open Logtk
+open Future
 open Logtk_parsers
 
 module T = TypedSTerm
@@ -38,8 +39,8 @@ let classify_stm f =
         | Ite(cond, cond_true, cond_false) ->
           refine (aux_l ~top [cond; cond_true;cond_false]) InFOOL
         | Let(var_def_pairs, body) ->
-          let t_vars = List.map (fun p -> T.var (fst p)) var_def_pairs in
-          let defs = List.map snd var_def_pairs in
+          let t_vars = FList.map (fun p -> T.var (fst p)) var_def_pairs in
+          let defs = FList.map snd var_def_pairs in
           aux_l ~top (body :: t_vars @ defs)
         | Bind((Binder.Exists|Binder.Forall), var, body) ->
           aux_l ~top [T.var var; body]

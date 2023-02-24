@@ -68,13 +68,13 @@ let project_hs_one ~counter pref_types i type_ui =
   let pref_types_ui, _ = Type.open_fun type_ui in
   let n_args_free = List.length pref_types in
   let pref_args = 
-    List.mapi (fun i ty -> T.bvar ~ty (n_args_free-i-1)) pref_types in
+    FList.mapi (fun i ty -> T.bvar ~ty (n_args_free-i-1)) pref_types in
   let new_vars = 
-    List.map (fun ty ->
+    FList.map (fun ty ->
         let new_ty =  (Type.arrow pref_types ty) in
         T.var (H.fresh_cnt ~counter ~ty:new_ty ()))
       pref_types_ui  in
-  let new_vars_applied = List.map (fun nv -> T.app nv pref_args) new_vars in
+  let new_vars_applied = FList.map (fun nv -> T.app nv pref_args) new_vars in
   let matrix_hd = T.bvar ~ty:type_ui (n_args_free-i-1) in
   let matrix = T.app matrix_hd new_vars_applied in
   T.fun_l pref_types matrix
@@ -93,14 +93,14 @@ let proj_lr ~counter ~scope ~subst s t flag max_app_projs =
   let hd_t,_ = T.as_app (snd (T.open_fun t)) in
   let pref_tys, hd_ret_ty = Type.open_fun (HVar.ty hd_s) in
   pref_tys
-  |> List.mapi (fun i ty -> i, ty)
+  |> FList.mapi (fun i ty -> i, ty)
   |> (fun l ->
       (* if we performed more than N projections that applied the
          bound variable we back off *)
       if get_op flag ProjApp < max_app_projs then l
-      else List.filter (fun (_, ty) -> List.length (Type.expected_args ty) = 0) l)
+      else FList.filter (fun (_, ty) -> List.length (Type.expected_args ty) = 0) l)
   (* If heads are different constants, do not project to those subterms *)
-  |> CCList.filter_map (fun ((i, _) as p) -> 
+  |> FList.filter_map (fun ((i, _) as p) -> 
       if i < List.length args_s then (
         let s_i = snd (T.open_fun argss_arr.(i)) in
         let hd_si = T.head_term s_i in
@@ -109,7 +109,7 @@ let proj_lr ~counter ~scope ~subst s t flag max_app_projs =
         else Some p
       ) else Some p
     )
-  |> CCList.filter_map(fun (i, ty) ->
+  |> FList.filter_map(fun (i, ty) ->
       let _, arg_ret_ty = Type.open_fun ty in
       match PatternUnif.unif_simple ~subst ~scope 
               (T.of_ty arg_ret_ty) (T.of_ty hd_ret_ty) with
@@ -125,7 +125,7 @@ let proj_lr ~counter ~scope ~subst s t flag max_app_projs =
       | None -> None)
 
 let proj_hs ~counter ~scope ~flex s =
-  CCList.map fst @@ proj_lr ~counter ~scope ~subst:Subst.empty flex s Int32.zero max_int
+  FList.map fst @@ proj_lr ~counter ~scope ~subst:Subst.empty flex s Int32.zero max_int
 
 let k_subset ~k l =
   let rec aux i acc l = 
@@ -157,7 +157,7 @@ let elim_subsets_rule  ?(max_elims=None) ~elim_vars ~counter ~scope t u depth =
   let pref_len = List.length pref_tys in
 
   let same_args, diff_args = 
-    List.mapi (fun i ty -> 
+    FList.mapi (fun i ty -> 
         if i < Array.length args_t && i < Array.length args_u &&
            T.equal args_t.(i) args_u.(i) 
         then `Left (T.bvar ~ty (pref_len-i-1))
@@ -177,7 +177,7 @@ let elim_subsets_rule  ?(max_elims=None) ~elim_vars ~counter ~scope t u depth =
           assert(List.length diff_args_subset = k);
           let all_args = diff_args_subset @ same_args in
           assert(List.length all_args <= pref_len);
-          let arg_tys = List.map T.ty all_args in
+          let arg_tys = FList.map T.ty all_args in
           let ty = Type.arrow arg_tys ret_ty in
           let matrix = T.app (T.var (HVar.make ~ty var_id)) all_args in
           let subs_term = T.fun_l pref_tys matrix in
@@ -234,7 +234,7 @@ module Make (St : sig val st : Flex_state.t end) = struct
     let eliminate_at_idx v k =  
       let prefix_types, return_type = Type.open_fun (HVar.ty v) in
       let m = List.length prefix_types in
-      let bvars = List.mapi (fun i ty -> T.bvar ~ty (m-1-i)) prefix_types in
+      let bvars = FList.mapi (fun i ty -> T.bvar ~ty (m-1-i)) prefix_types in
       let prefix_types' = CCList.remove_at_idx k prefix_types in
       let new_ty = Type.arrow prefix_types' return_type in
       let bvars' = CCList.remove_at_idx k bvars in
@@ -248,10 +248,10 @@ module Make (St : sig val st : Flex_state.t end) = struct
       let hd, args = T.as_app t in
       if T.is_var hd && List.length args > 0 then (
         CCList.range 0 ((List.length args)-1) 
-        |> List.map (eliminate_at_idx (T.as_var_exn hd)))
+        |> FList.map (eliminate_at_idx (T.as_var_exn hd)))
       else [] in
     eliminate_one t
-    |> List.map (fun x -> Some (x, inc_op flag Elim))
+    |> FList.map (fun x -> Some (x, inc_op flag Elim))
 
   (* removes all arguments of an applied variable
      v |-> λ u1 ... um. x
@@ -289,7 +289,7 @@ module Make (St : sig val st : Flex_state.t end) = struct
       else [] in
     let solid = 
       if get_option PUP.k_solid_decider then 
-        [(fun s t sub -> (List.map U.subst @@ SU.unify_scoped ~subst:(U.of_subst sub) ~counter s t))] 
+        [(fun s t sub -> (FList.map U.subst @@ SU.unify_scoped ~subst:(U.of_subst sub) ~counter s t))] 
       else [] in
     let fixpoint = 
       if get_option PUP.k_fixpoint_decider then 

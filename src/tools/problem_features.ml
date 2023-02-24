@@ -4,6 +4,7 @@
 (** {1 Reduction to CNF of TPTP file} *)
 
 open Logtk
+open Future
 open Logtk_parsers
 
 type feature =
@@ -246,13 +247,13 @@ let collect_clause_features clauses =
       (Statement.Seq.lits cl) in
     let n = List.length lits in
     if (n > 0) then (
-      let is_horn = List.length (List.filter SLiteral.is_pos lits) <= 1 in
+      let is_horn = List.length (FList.filter SLiteral.is_pos lits) <= 1 in
       incr_counter num_clauses;
       if not is_horn then incr_counter num_non_horn;
       if n == 1 then incr_counter num_unit_clauses;
       update_vec clause_size n;
-      update_vec pos_lits (List.length (List.filter SLiteral.is_pos lits));
-      update_vec neg_lits (List.length (List.filter SLiteral.is_neg lits));
+      update_vec pos_lits (List.length (FList.filter SLiteral.is_pos lits));
+      update_vec neg_lits (List.length (FList.filter SLiteral.is_neg lits));
       List.iter (function 
       | SLiteral.Atom(t,sign) ->
         if sign then update_vec pos_t_depth (Term.depth t) else

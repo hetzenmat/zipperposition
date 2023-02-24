@@ -4,6 +4,7 @@
 (** {1 AC redundancy} *)
 
 open Logtk
+open Future
 
 module T = Term
 module Lit = Literal
@@ -50,7 +51,7 @@ module Make(Env : Env.S) : S with module Env = Env = struct
     );
     (* create type variables, for polymorphic AC symbols *)
     let ty_vars = CCList.init ty_args_n (fun i -> HVar.make ~ty:Type.tType i) in
-    let ty_vars_t = List.map Type.var ty_vars in
+    let ty_vars_t = FList.map Type.var ty_vars in
     (* type applied to the new variables *)
     let ty' = Type.apply ty ty_vars_t in
     let n', ty_args, ty_ret = Type.open_poly_fun ty' in
@@ -148,7 +149,7 @@ module Make(Env : Env.S) : S with module Env = Env = struct
       let n = Array.length (C.lits c) in
       let lits = Array.to_list (C.lits c) in
       let lits =
-        List.filter
+        FList.filter
           (fun lit -> match lit with
              | Literal.Equation (l, r, false) when (not (Type.is_fun (T.ty l))) ->
                not (has_ac_ids_ l r && A.equal l r)
@@ -161,10 +162,10 @@ module Make(Env : Env.S) : S with module Env = Env = struct
         (* did some simplification *)
         let symbols = symbols_of_terms (C.Seq.terms c) in
         let symbols = ID.Set.to_list symbols in
-        let tags = List.map (fun id -> Builtin.Tag.T_ac id) symbols in
+        let tags = FList.map (fun id -> Builtin.Tag.T_ac id) symbols in
         let premises =
           C.proof_parent c ::
-          List.map (fun id -> (ID.Tbl.find tbl id).proof) symbols
+          FList.map (fun id -> (ID.Tbl.find tbl id).proof) symbols
         in
         let proof =
           Proof.Step.simp premises

@@ -79,7 +79,7 @@ module Make (P : PARAMETERS) = struct
       let remaining = CCList.drop n types in
       assert(List.length remaining != 0);
       let num_vars = List.length remaining in
-      let vars = List.mapi (fun i ty -> 
+      let vars = FList.mapi (fun i ty -> 
           (* let ty = S.Ty.apply S.Renaming.none subst (ty,scope) in *)
           T.bvar ~ty (num_vars-1-i)) remaining in
       let shifted = T.DB.shift num_vars t in
@@ -246,7 +246,7 @@ module Make (P : PARAMETERS) = struct
                 | Some substs ->
                   (* We assume that the substitution was augmented so that it is mgu for
                       lhs and rhs *)
-                  CCList.map (fun sub () -> 
+                  FList.map (fun sub () -> 
                     Util.debugf ~section 1 
                       "@[%a@] =?= @[%a@] (subst @[%a@]) has unif @[%a@]" 
                         (fun k -> k T.pp lhs T.pp rhs Subst.pp subst Subst.pp sub);
@@ -342,7 +342,7 @@ module Make (P : PARAMETERS) = struct
 
   let unify_scoped_l t0s t1s =
     let lhs,rhs,unifscope,subst = P.identify_scope_l t0s t1s in
-    let problem = List.map (fun (a,b) -> (a,b,P.init_flag)) (List.combine lhs rhs) in 
+    let problem = FList.map (fun (a,b) -> (a,b,P.init_flag)) (List.combine lhs rhs) in 
 
     let bind_cnt = ref 0 in (* number of created binders *)
     let hits_cnt = ref 0 in (* number of unifiers found *)

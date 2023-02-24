@@ -2,6 +2,7 @@
 (* This file is free software, part of Zipperposition. See file "license" for more details. *)
 
 open Logtk
+open Future
 open Libzipperposition
 
 module Lits = Literals
@@ -185,7 +186,7 @@ module Make(Env : Env_intf.S) = struct
       let other_lits = CCArray.except_idx (C.lits c) idx in
       let new_lits =
         List.combine l1 l2
-        |> CCList.filter_map
+        |> FList.filter_map
           (fun (t1,t2) ->
              if T.equal t1 t2 then None else Some (Literal.mk_eq t1 t2))
       in
@@ -193,7 +194,7 @@ module Make(Env : Env_intf.S) = struct
       let proof = Proof.Step.inference ~tags:[Proof.Tag.T_data] ~rule [C.proof_parent c] in
       (* make one clause per [new_lits] *)
       let clauses =
-        List.map
+        FList.map
           (fun lit ->
              C.create ~trail:(C.trail c) ~penalty:(C.penalty c)
                (lit :: other_lits) proof)
@@ -272,7 +273,7 @@ module Make(Env : Env_intf.S) = struct
       assert (List.for_all Type.is_ground ty_params);
       let rhs_l =
         ity.Ind_ty.ty_constructors
-        |> List.map
+        |> FList.map
           (fun { Ind_ty.cstor_name; cstor_ty; _ } ->
              let n_args, _, _ = Type.open_poly_fun cstor_ty in
              assert (n_args = List.length ty_params);
@@ -282,7 +283,7 @@ module Make(Env : Env_intf.S) = struct
              assert (Type.equal ret (T.ty t));
              (* build new constants to pass to the cstor *)
              let args =
-               List.map
+               FList.map
                  (fun ty ->
                     let c = mk_sub_skolem t ty in
                     Env.Ctx.declare c ty;
@@ -294,7 +295,7 @@ module Make(Env : Env_intf.S) = struct
                ty_params
                args)
       in
-      let lits = List.map (Literal.mk_eq t) rhs_l in
+      let lits = FList.map (Literal.mk_eq t) rhs_l in
       (* XXX: could derive this from the [data] that defines [ity]… *)
       let proof = Proof.Step.trivial in
       let penalty = 5 in (* do not use too lightly! *)

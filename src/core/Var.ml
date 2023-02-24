@@ -3,6 +3,8 @@
 
 (** {1 Variable} *)
 
+open Future
+
 type +'a t = {
   id: ID.t;
   ty: 'a;
@@ -62,8 +64,8 @@ module Set = struct
     with Exit -> false
   let of_iter s = s |> Iter.map (fun v->v.id, v) |> ID.Map.of_iter
   let add_seq m s = s |> Iter.map (fun v->v.id, v) |> ID.Map.add_iter m
-  let add_list m s = s |> List.map (fun v->v.id, v) |> ID.Map.add_list m
-  let of_list l = l |> List.map (fun v->v.id,v) |> ID.Map.of_list
+  let add_list m s = s |> FList.map (fun v->v.id, v) |> ID.Map.add_list m
+  let of_list l = l |> FList.map (fun v->v.id,v) |> ID.Map.of_list
   let to_iter t = ID.Map.to_iter t |> Iter.map snd
   let to_list t = ID.Map.fold (fun _ v acc ->v::acc) t []
   let pp out t = Util.pp_iter ~sep:", " pp out (to_iter t)
@@ -80,7 +82,7 @@ module Subst = struct
   let remove t v = ID.Map.remove v.id t
   let find_exn t v = snd (ID.Map.find v.id t)
   let find t v = try Some (find_exn t v) with Not_found -> None
-  let of_list l = l |> List.map (fun (v,x)->v.id,(v,x)) |> ID.Map.of_list
+  let of_list l = l |> FList.map (fun (v,x)->v.id,(v,x)) |> ID.Map.of_list
   let of_iter s = s |> Iter.map (fun (v,x)->v.id, (v,x)) |> ID.Map.of_iter
   let to_iter t = ID.Map.to_iter t |> Iter.map snd
   let to_list t = ID.Map.fold (fun _ tup acc -> tup::acc) t []

@@ -49,7 +49,7 @@ end) = struct
   let _trie = ref Empty
 
   let rec split_tag_args t =
-    let remove_tys = List.filter (fun t -> not (T.is_type t)) in
+    let remove_tys =FList.filter (fun t -> not (T.is_type t)) in
 
     match T.view t with
     | Var _ -> (Var, [])
