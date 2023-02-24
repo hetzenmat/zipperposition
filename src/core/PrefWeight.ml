@@ -3,6 +3,8 @@
 
 (** {1 Non-Perfect Discrimination Tree} *)
 
+open Future
+
 module T = Term
 
 module type S = sig 

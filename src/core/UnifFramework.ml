@@ -1,3 +1,5 @@
+open Future
+
 module S = Subst
 module US = Unif_subst
 module LL = OSeq

@@ -8,6 +8,8 @@
     global parameters, and return a parameter type for other options.
 *)
 
+open Future
+
 let _stats = ref false
 
 type input_format =

@@ -4,6 +4,7 @@
 (** {1 Rewriting} *)
 
 open Logtk
+open Future
 open Libzipperposition
 
 module T = Term

@@ -2,6 +2,8 @@
 
 (** {1 Term Orderings} *)
 
+open Future
+
 module Prec = Precedence
 module MT = Multiset.Make(Term)
 module W = Precedence.Weight

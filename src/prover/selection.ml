@@ -5,6 +5,7 @@
     in priority "big" negative literals, ie literals that are not split symbols. *)
 
 open Logtk
+open Future
 
 module T = Term
 module S = Subst.FO

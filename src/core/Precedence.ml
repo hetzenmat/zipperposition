@@ -3,6 +3,8 @@
 
 (** {1 Precedence (total ordering) on symbols} *)
 
+open Future
+
 module T = Term
 
 type symbol_status =

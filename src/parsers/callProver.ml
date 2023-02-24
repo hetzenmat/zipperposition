@@ -4,6 +4,7 @@
 (** {1 Call external provers with TSTP} *)
 
 open Logtk
+open Future
 
 module A = Ast_tptp
 module TT = Trace_tstp

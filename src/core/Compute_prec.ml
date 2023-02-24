@@ -3,6 +3,7 @@
 
 (** {1 Compute Precedence} *)
 
+open Future
 module T = Term
 
 let prof_mk_prec = ZProf.make "mk_precedence"

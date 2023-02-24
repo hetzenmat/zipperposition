@@ -3,6 +3,8 @@
 
 (** {1 Terms} *)
 
+open Future
+
 module PB = Position.Build
 module PW = Position.With
 module T = InnerTerm

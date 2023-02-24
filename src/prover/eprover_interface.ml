@@ -4,6 +4,7 @@
 (** {1 boolean subterms} *)
 
 open Logtk
+open Future
 
 let _tmp_dir = ref "/tmp"
 let _encode_lams = ref `Keep

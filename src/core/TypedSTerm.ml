@@ -6,6 +6,8 @@
     These terms are scoped, and possibly typed. Type inference should be
     performed on them. *)
 
+open Future
+
 module Loc = ParseLocation
 
 type location = ParseLocation.t

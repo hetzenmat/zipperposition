@@ -4,6 +4,7 @@
 (** {1 Low Level Proofs} *)
 
 open Logtk
+open Future
 
 module T = TypedSTerm
 module F = T.Form

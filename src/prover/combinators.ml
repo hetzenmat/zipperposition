@@ -1,4 +1,5 @@
 open Logtk
+open Future
 open Combinators_base
 
 module T = Term

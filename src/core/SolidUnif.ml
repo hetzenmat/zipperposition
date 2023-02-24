@@ -1,3 +1,5 @@
+open Future
+
 module T = Term
 module S = Subst
 module PU = PatternUnif

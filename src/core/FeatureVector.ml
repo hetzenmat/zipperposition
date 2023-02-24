@@ -6,6 +6,8 @@
 (** Feature Vector indexing (see Schulz 2004) for efficient forward
     and backward subsumption *)
 
+open Future
+
 module T = Term
 
 type lits = Index_intf.lits

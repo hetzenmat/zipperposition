@@ -6,6 +6,8 @@
     https://en.wikipedia.org/wiki/Hindley-Milner
 *)
 
+open Future
+
 module PT = STerm
 module T = TypedSTerm
 module Loc = ParseLocation

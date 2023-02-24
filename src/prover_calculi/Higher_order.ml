@@ -4,6 +4,7 @@
 (** {1 HO} *)
 
 open Logtk
+open Future
 open Libzipperposition
 
 module BV = CCBV

@@ -9,6 +9,8 @@
     - delayed constraints
 *)
 
+open Future
+
 module H = HVar
 
 type term = Subst.term

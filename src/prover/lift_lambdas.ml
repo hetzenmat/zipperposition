@@ -1,4 +1,6 @@
 open Logtk
+open Future
+
 module T = Term
 
 let section = Util.Section.make ~parent:Const.section "live_lifting"

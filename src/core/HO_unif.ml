@@ -3,6 +3,8 @@
 
 (** {1 Higher-Order Unification} *)
 
+open Future
+
 module RW = Rewrite
 module T = Term
 module US = Unif_subst

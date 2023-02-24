@@ -4,6 +4,7 @@
 (** {1 Parameters for the prover, etc.} *)
 
 open Logtk
+open Future
 
 (* TODO: params to limit depth of preprocessing *)
 (* TODO: params to enable/disable some preprocessing *)

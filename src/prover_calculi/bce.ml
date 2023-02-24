@@ -4,9 +4,8 @@
 (** {1 Blocked Clause Elimination} *)
 
 open Logtk
+open Future
 open Libzipperposition
-
-
 
 let k_enabled = Flex_state.create_key ()
 let k_check_at = Flex_state.create_key ()

@@ -3,6 +3,8 @@
 
 (** {1 Statement} *)
 
+open Future
+
 module OptionSet = Set.Make(
   struct
     let compare x y = Stdlib.compare x y

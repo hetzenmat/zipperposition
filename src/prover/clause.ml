@@ -4,6 +4,7 @@
 (** {1 Clauses} *)
 
 open Logtk
+open Future
 
 module BV = CCBV
 module T = Term

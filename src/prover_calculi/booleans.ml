@@ -4,6 +4,7 @@
 (** {1 boolean subterms} *)
 
 open Logtk
+open Future
 open Libzipperposition
 
 module T = Term

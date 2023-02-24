@@ -3,6 +3,8 @@
 
 (** {1 Lambda-Calculus} *)
 
+open Future
+
 let prof_whnf = ZProf.make "term.whnf"
 let prof_snf = ZProf.make "term.snf"
 let prof_eta_expand = ZProf.make "term.eta_expand"

@@ -3,6 +3,8 @@
 
 (** {1 Jensen-Pietrzykowski Unification} *)
 
+open Future
+
 module T = Term
 module US = Unif_subst
 module H = HVar

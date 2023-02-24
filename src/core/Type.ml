@@ -3,6 +3,8 @@
 
 (** {1 Types} *)
 
+open Future
+
 module T = InnerTerm
 
 type t = T.t

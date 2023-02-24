@@ -4,6 +4,7 @@
 (** {1 Inference and simplification rules for Algebraic types} *)
 
 open Logtk
+open Future
 open Libzipperposition
 
 module T = Term

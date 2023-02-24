@@ -3,6 +3,8 @@
 
 (** {1 Reduction to CNF and simplifications} *)
 
+open Future
+
 module T = TypedSTerm
 module F = T.Form
 module Stmt = Statement

@@ -3,6 +3,8 @@
 
 (** {1 Inner Terms} *)
 
+open Future
+
 module I = Int32
 
 let zero = I.zero

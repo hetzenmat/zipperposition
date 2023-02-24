@@ -1,4 +1,5 @@
 open Logtk
+open Future
 open Libzipperposition
 
 module L = Literal

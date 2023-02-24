@@ -4,6 +4,8 @@
 (** {1 A priority queue of streams} *)
 
 open Logtk
+open Future
+
 let section = Util.Section.make ~parent:Const.section "stmq"
 
 module type S = StreamQueue_intf.S

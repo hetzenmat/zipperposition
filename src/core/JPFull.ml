@@ -1,3 +1,5 @@
+open Future
+
 module U = Unif_subst
 module T = Term
 module H = HVar

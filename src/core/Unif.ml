@@ -3,6 +3,8 @@
 
 (** {1 Unification and Matching} *)
 
+open Future
+
 module T = InnerTerm
 module S = Subst
 module US = Unif_subst

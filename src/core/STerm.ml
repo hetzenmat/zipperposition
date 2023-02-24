@@ -3,6 +3,8 @@
 
 (** {1 S-like Terms}. *)
 
+open Future
+
 type location = ParseLocation.t
 
 type var =

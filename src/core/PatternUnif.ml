@@ -2,6 +2,7 @@
 
 (** {1 Pattern unification algorithm implementation} *)
 
+open Future
 
 module T = Term
 module US = Unif_subst

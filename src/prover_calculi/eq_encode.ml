@@ -4,6 +4,7 @@
 (** {1 Applicative Encoding} *)
 
 open Logtk
+open Future
 open Libzipperposition
 
 let section = Util.Section.make ~parent:Const.section "eq_encode"

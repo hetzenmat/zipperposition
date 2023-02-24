@@ -1,4 +1,5 @@
 open Logtk
+open Future
 
 module T = Term
 module Ty = Type
