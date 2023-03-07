@@ -3446,7 +3446,9 @@ let register ~sup =
     | `NewJPPragmatic -> 
       E.flex_add k_unif_alg JPP.unify_scoped;
       E.flex_add k_unif_module (module JPP : UnifFramework.US);
-       end
+    | `Preunification ->
+      E.flex_add k_unif_alg Constraints.unify_scoped;
+  end
 
 (* TODO: move DOT index printing into the extension *)  
 
@@ -3502,13 +3504,12 @@ let () =
       "--use-weight-for-solid-subsumption", Arg.Bool (fun v -> _use_weight_for_solid_subsumption := v), 
       " enable/disable superposition to and from pure variable equations";
       "--ho-unif-level",
-      Arg.Symbol (["full-framework";"full"; "pragmatic-framework";], (fun str ->
-          _unif_alg := if (String.equal "full" str) then `OldJP
-            else if (String.equal "full-framework" str) then (`NewJPFull)
-            else if (String.equal "pragmatic-framework" str) then (
-            unif_params_to_def (); 
-            `NewJPPragmatic)
-            else invalid_arg "unknown argument")), "set the level of HO unification";
+      Arg.Symbol (["full-framework"; "full"; "pragmatic-framework"; "preunification"],
+                  (function | "full"                -> _unif_alg := `OldJP
+                            | "full-framework"      -> _unif_alg := `NewJPFull
+                            | "pragmatic-framework" -> unif_params_to_def (); _unif_alg := `NewJPPragmatic
+                            | "preunification"      -> _unif_alg := `Preunification
+                            | _                     -> invalid_arg "unknown argument")), "set the level of HO unification";
       "--ho-imitation-first",Arg.Bool (fun v -> _imit_first:=v), " Use imitation rule before projection rule";
       "--ho-unif-logop-mode",Arg.Symbol (["conservative"; "pragmatic"; "off"], 
         (function | "conservative" -> _unif_logop_mode := `Conservative
@@ -3683,4 +3684,5 @@ let () =
   Params.add_to_mode "ho-optimistic" (fun () ->
     _store_unification_constraints := true;
     _rewrite_quantifiers := true;
+    _unif_alg := `Preunification;
   );
