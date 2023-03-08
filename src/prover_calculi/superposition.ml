@@ -3435,6 +3435,7 @@ let register ~sup =
 
   let module JPF = JPFull.Make(struct let st = E.flex_state () end) in
   let module JPP = PUnif.Make(struct let st = E.flex_state () end) in
+  let module Preunif = Constraints.Make(struct let st = E.flex_state () end) in
   E.flex_add k_unif_module (module JPF : UnifFramework.US);
   begin match !_unif_alg with 
     | `OldJP -> 
@@ -3447,7 +3448,8 @@ let register ~sup =
       E.flex_add k_unif_alg JPP.unify_scoped;
       E.flex_add k_unif_module (module JPP : UnifFramework.US);
     | `Preunification ->
-      E.flex_add k_unif_alg Constraints.unify_scoped;
+      E.flex_add k_unif_alg Preunif.unify_scoped;
+      E.flex_add PragUnifParams.k_unif_alg_is_terminating false;
   end
 
 (* TODO: move DOT index printing into the extension *)  

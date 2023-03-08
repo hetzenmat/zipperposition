@@ -11,6 +11,11 @@ module US = Unif_subst
 
 exception Fail
 
+let head_classifier s =
+  match Term.view @@ Term.head_term s with 
+  | Term.Var x -> `Flex x
+  | _ -> `Rigid
+
 let norm_logical_disagreements ?(mode=`Conservative) b args args' : _ list * _ list =
   let sort =
     CCList.sort (fun t1 t2 ->

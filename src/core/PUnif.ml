@@ -297,16 +297,11 @@ module Make (St : sig val st : Flex_state.t end) = struct
       else [] in
     fixpoint @ pattern @ solid
 
-  let head_classifier s =
-    match T.view @@ T.head_term s with 
-    | T.Var x -> `Flex x
-    | _ -> `Rigid
-
   let oracle ~counter ~scope ~subst (s,_) (t,_) (flag:I.t) =
     let depth = get_depth flag in
     let res = 
       if depth < get_option PUP.k_max_depth then (
-        match head_classifier s, head_classifier t with
+        match Unif.head_classifier s, Unif.head_classifier t with
         | `Flex x, `Flex y when HVar.equal Type.equal x y ->
           let num_elims = get_op flag Elim in
           let remaining_elims = get_option PUP.k_max_elims - num_elims in

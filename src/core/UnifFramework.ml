@@ -264,7 +264,8 @@ module Make (P : PARAMETERS) = struct
                     P.pb_oracle (body_lhs, unifscope) (body_rhs, unifscope) flag subst unifscope in
 
                   let res = 
-                    OSeq.map (fun sub_flag_opt ->
+                    all_oracles
+                    |> OSeq.map (fun sub_flag_opt ->
                         match sub_flag_opt with 
                         | None -> OSeq.return None
                         | Some (sub', flag') ->
@@ -273,7 +274,7 @@ module Make (P : PARAMETERS) = struct
                             incr bind_cnt;
                             delay !bind_cnt (fun () -> aux subst' ((lhs,rhs,flag') :: rest) ())
                           with Subst.InconsistentBinding _ ->
-                            OSeq.return None) all_oracles
+                            OSeq.return None) 
                     |> OSeq.merge
                     |> OSeq.interleave args_unif
                   in

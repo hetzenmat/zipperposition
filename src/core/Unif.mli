@@ -16,6 +16,8 @@ exception Fail
 val _allow_pattern_unif : bool ref
 val _unif_bool : bool ref
 
+val head_classifier : Term.t -> [> `Flex of Term.var | `Rigid ]
+
 val norm_logical_disagreements : 
   ?mode:[< `Conservative | `Off | `Pragmatic > `Conservative ] ->
   Builtin.t -> Term.t list -> Term.t list -> Term.t list * Term.t list

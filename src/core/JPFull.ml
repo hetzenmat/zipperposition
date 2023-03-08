@@ -90,18 +90,13 @@ module Make (S : sig val st: Flex_state.t end) = struct
     fixpoint @ pattern @ solid
   (* pattern @ fixpoint @ solid *)
 
-  let head_classifier s =
-    match T.view @@ T.head_term s with 
-    | T.Var x -> `Flex x
-    | _ -> `Rigid
-
   let oracle ~counter ~scope (s,_) (t,_) depth =
     let hd_t, hd_s = T.head_term s, T.head_term t in
     if T.is_var hd_t && T.is_var hd_s && T.equal hd_s hd_t &&
        IntSet.mem (HVar.id @@ T.as_var_exn hd_t) !elim_vars then (
       OSeq.empty)
     else (
-      match head_classifier s, head_classifier t with 
+      match Unif.head_classifier s, Unif.head_classifier t with 
       | `Flex x, `Flex y when HVar.equal Type.equal x y ->
         (* eliminate + iter *)
         OSeq.append
