@@ -317,9 +317,6 @@ module Make (P : PARAMETERS) = struct
         with Unif.Fail -> OSeq.empty
     ) else OSeq.empty
 
-
-  let problem_id = ref 0
-
   let unify_scoped t0s t1s =
     let lhs,rhs,unifscope,subst = P.identify_scope t0s t1s in
 

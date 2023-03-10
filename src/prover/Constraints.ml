@@ -23,10 +23,6 @@ let mk_empty = []
   *)
 let solvable _t = true (** TODO [MH] *)
 
-(* let unify_scoped ((_t0, _scope0) : T.t Scoped.t) ((_t1, _scope1) : T.t Scoped.t) : subst option OSeq.t =
-  OSeq.empty (* TODO [MH] *)
-*)
-
 module Make (St : sig val st : Flex_state.t end) = struct
   module PUP = PragUnifParams 
   module SU = SolidUnif.Make(St)
@@ -57,21 +53,18 @@ module Make (St : sig val st : Flex_state.t end) = struct
     fixpoint @ pattern @ solid
 
   let oracle ~counter ~scope (s,_) (t,_) depth =
-    (counter,scope,s,t,depth) |> (fun _ -> ());
     
     match Unif.head_classifier s, Unif.head_classifier t with 
       | `Flex _, `Flex _  ->
         assert false (* TODO [MH] handle flex-flex *)
       | `Flex _, `Rigid
-      | `Rigid, `Flex _ -> assert false
-      (* TODO [MH] handle flex-rigid *)
-        (*
+      | `Rigid, `Flex _ ->
         let flex, rigid = if Term.is_var (T.head_term s) then s,t else t,s in
         
         OSeq.append
-          (imit_rule ~counter ~scope s t depth)
-          (hs_proj_flex_rigid ~counter ~scope ~flex rigid depth) 
-          *)
+          (JPFull.imit_rule ~counter ~scope s t depth)
+          (JPFull.hs_proj_flex_rigid ~counter ~scope ~flex rigid depth) 
+          
       | _ -> assert false
 
 let unify_scoped =  
@@ -80,9 +73,9 @@ let unify_scoped =
   let module PreUnifParams = struct
     exception NotInFragment = PatternUnif.NotInFragment
     exception NotUnifiable = PatternUnif.NotUnifiable
-    type flag_type = int32
+    type flag_type = int
     let flex_state = St.st
-    let init_flag = (Int32.zero:flag_type)
+    let init_flag = (0:flag_type)
     let identify_scope = renamer ~counter
     let identify_scope_l = renamer_l ~counter
     let frag_algs = deciders ~counter

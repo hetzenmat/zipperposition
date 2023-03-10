@@ -10,6 +10,25 @@ module PUP = PragUnifParams
 let elim_vars = ref IntSet.empty
 let ident_vars = ref IntSet.empty
 
+let imit_rule ~counter ~scope t u depth =
+  JP_unif.imitate ~scope ~counter t u []
+  |> OSeq.map (fun x -> Some (U.subst x, depth+1))
+
+let hs_proj_flex_rigid ~counter ~scope ~flex u depth =
+  let projections = 
+    PUnif.proj_hs ~counter ~scope ~flex u in
+  let simp_projs, func_projs =
+    CCList.partition (fun sub -> 
+        let binding,_ = Subst.FO.deref sub (T.head_term flex,scope) in
+        let _,body = T.open_fun binding in
+        T.is_bvar body) projections in
+  let simp_projs = FList.map (fun s -> Some (s,depth)) simp_projs in
+  let func_projs = FList.map (fun s -> Some (s,depth+1)) func_projs in
+  OSeq.append 
+    (OSeq.of_list simp_projs)
+    (if CCList.is_empty func_projs then OSeq.empty
+      else (OSeq.of_list func_projs))
+
 module Make (S : sig val st: Flex_state.t end) = struct
   module SU = SolidUnif.Make(S)
 
@@ -21,29 +40,6 @@ module Make (S : sig val st: Flex_state.t end) = struct
   let iter_rule ?(flex_same=false) ~counter ~scope t u depth  =
     JP_unif.iterate ~flex_same ~scope ~counter t u []
     |> OSeq.map (CCOpt.map (fun s -> U.subst s, depth+1))
-
-  let imit_rule ~counter ~scope t u depth =
-    JP_unif.imitate ~scope ~counter t u []
-    |> OSeq.map (fun x -> Some (U.subst x, depth+1))
-
-  let hs_proj_flex_rigid ~counter ~scope ~flex u depth =
-    let flex_var = T.as_var_exn (T.head_term flex) in
-    let flex_hd_id = HVar.id flex_var  in
-    if IntSet.mem flex_hd_id !ident_vars then OSeq.empty
-    else
-      let projections = 
-        PUnif.proj_hs ~counter ~scope ~flex u in
-      let simp_projs, func_projs =
-        CCList.partition (fun sub -> 
-            let binding,_ = Subst.FO.deref sub (T.head_term flex,scope) in
-            let _,body = T.open_fun binding in
-            T.is_bvar body) projections in
-      let simp_projs = FList.map (fun s -> Some (s,depth)) simp_projs in
-      let func_projs = FList.map (fun s -> Some (s,depth+1)) func_projs in
-      OSeq.append 
-        (OSeq.of_list simp_projs)
-        (if CCList.is_empty func_projs then OSeq.empty
-         else (OSeq.of_list func_projs))
 
   let proj_rule ~counter ~scope s t depth =
     let maybe_project u =
@@ -114,11 +110,14 @@ module Make (S : sig val st: Flex_state.t end) = struct
       | `Flex _, `Rigid
       | `Rigid, `Flex _ ->
         let flex, rigid = if Term.is_var (T.head_term s) then s,t else t,s in
+        let imit = imit_rule ~counter ~scope s t depth in
         (* let delay_fr imit = 
           if depth > 4 then OSeq.append (OSeq.take (depth*2) (OSeq.repeat None)) imit else imit in *)
-        OSeq.append
-          (imit_rule ~counter ~scope s t depth)
-          (hs_proj_flex_rigid ~counter ~scope ~flex rigid depth) 
+        let flex_var_hd_id = flex |> T.head_term |> T.as_var_exn |> HVar.id in 
+        if IntSet.mem flex_var_hd_id !ident_vars then
+          imit
+        else
+          OSeq.append imit (hs_proj_flex_rigid ~counter ~scope ~flex rigid depth)
       | _ -> 
         assert false)
 
