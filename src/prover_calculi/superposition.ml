@@ -3449,6 +3449,7 @@ let register ~sup =
       E.flex_add k_unif_module (module JPP : UnifFramework.US);
     | `Preunification ->
       E.flex_add k_unif_alg Preunif.unify_scoped;
+      E.flex_add k_unif_module (module Preunif : UnifFramework.US);
       E.flex_add PragUnifParams.k_unif_alg_is_terminating false;
   end
 

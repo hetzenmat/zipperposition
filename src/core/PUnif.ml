@@ -359,6 +359,7 @@ module Make (St : sig val st : Flex_state.t end) = struct
       exception NotUnifiable = PatternUnif.NotUnifiable
       type flag_type = int32
       let flex_state = St.st
+      let preunification = false
       let init_flag = (Int32.zero:flag_type)
       let identify_scope = renamer ~counter
       let identify_scope_l = renamer_l ~counter
@@ -371,8 +372,7 @@ module Make (St : sig val st : Flex_state.t end) = struct
     (fun x y ->
        elim_vars := IntSet.empty;
        ident_vars := IntSet.empty;
-       let res = PragUnif.unify_scoped x y in
-       OSeq.map (CCOpt.map Unif_subst.of_subst) (res))
+       PragUnif.unify_scoped x y)
 
   let unify_scoped_l =  
     let counter = ref 0 in
@@ -382,6 +382,7 @@ module Make (St : sig val st : Flex_state.t end) = struct
       exception NotUnifiable = PatternUnif.NotUnifiable
       type flag_type = int32
       let flex_state = St.st
+      let preunification = false
       let init_flag = (Int32.zero:flag_type)
       let identify_scope = renamer ~counter
       let identify_scope_l = renamer_l ~counter
@@ -394,6 +395,5 @@ module Make (St : sig val st : Flex_state.t end) = struct
     (fun x y ->
        elim_vars := IntSet.empty;
        ident_vars := IntSet.empty;
-       let res = PragUnif.unify_scoped_l x y in
-       OSeq.map (CCOpt.map Unif_subst.of_subst) (res))
+       PragUnif.unify_scoped_l x y)
 end

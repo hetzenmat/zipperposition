@@ -128,7 +128,8 @@ module Make (S : sig val st: Flex_state.t end) = struct
       exception NotInFragment = PatternUnif.NotInFragment
       exception NotUnifiable = PatternUnif.NotUnifiable
       type flag_type = int
-      let flex_state = S.st 
+      let flex_state = S.st
+      let preunification = false
       let init_flag = (0:flag_type)
       let identify_scope = renamer ~counter
       let identify_scope_l = renamer_l ~counter
@@ -141,7 +142,7 @@ module Make (S : sig val st: Flex_state.t end) = struct
     (fun x y ->
        elim_vars := IntSet.empty;
        ident_vars := IntSet.empty;
-       OSeq.map (CCOpt.map Unif_subst.of_subst) (JPFull.unify_scoped x y))
+       JPFull.unify_scoped x y)
   
   let unify_scoped_l =  
     let counter = ref 0 in
@@ -151,6 +152,7 @@ module Make (S : sig val st: Flex_state.t end) = struct
       exception NotUnifiable = PatternUnif.NotUnifiable
       type flag_type = int
       let flex_state = S.st 
+      let preunification = false
       let init_flag = (0:flag_type)
       let identify_scope = renamer ~counter
       let identify_scope_l = renamer_l ~counter
@@ -162,5 +164,5 @@ module Make (S : sig val st: Flex_state.t end) = struct
     (fun x y ->
        elim_vars := IntSet.empty;
        ident_vars := IntSet.empty;
-       OSeq.map (CCOpt.map Unif_subst.of_subst) (JPFull.unify_scoped_l x y))
+       JPFull.unify_scoped_l x y)
 end

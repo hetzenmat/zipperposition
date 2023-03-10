@@ -16,16 +16,17 @@ module type PARAMETERS = sig
   type flag_type
   val init_flag : flag_type
   val flex_state : Flex_state.t
+  val preunification : bool
   val identify_scope : T.t Scoped.t -> T.t Scoped.t -> T.t * T.t * Scoped.scope * S.t
   val identify_scope_l : T.t list Scoped.t -> T.t list Scoped.t -> T.t list * T.t list * Scoped.scope * S.t
   val frag_algs : unit -> (T.t Scoped.t -> T.t Scoped.t -> S.t -> S.t list) list
   val pb_oracle : (T.t Scoped.t -> T.t Scoped.t -> flag_type -> S.t -> Scoped.scope -> (S.t * flag_type) option LL.t)
 end
 
-module type S = sig 
+(*module type S = sig 
   val unify_scoped : T.t Scoped.t -> T.t Scoped.t -> S.FO.t option OSeq.t
   val unify_scoped_l : T.t list Scoped.t -> T.t list Scoped.t -> S.FO.t option OSeq.t
-end
+end*)
 
 module type US = sig 
   val unify_scoped : T.t Scoped.t -> T.t Scoped.t -> US.t option OSeq.t
@@ -100,6 +101,23 @@ module Make (P : PARAMETERS) = struct
     | _ -> false
 
   let do_unif ~bind_cnt ~hits_cnt problem subst unifscope =
+
+    let classify_one s subst =
+      let rec follow_bindings t =
+        let hd = T.head_term @@ snd @@ (T.open_fun t) in
+        let derefed,_ = Subst.FO.deref subst (hd, unifscope) in
+        if T.equal hd derefed then hd
+        else follow_bindings derefed in
+  
+      let hd = follow_bindings s in
+  
+      if T.is_const hd then `Const
+      else if T.is_var hd then `Var
+      (* when it is bound variable, we do not know what will 
+          happen when it is reduced *)
+      else `Unknown
+    in
+
     let max_infs = 
       if Flex_state.get_exn PUP.k_max_inferences P.flex_state < 0 then max_int
       else Flex_state.get_exn PUP.k_max_inferences P.flex_state
@@ -139,27 +157,11 @@ module Make (P : PARAMETERS) = struct
                    Term.ho_weight l' - Term.ho_weight r'
             ) in
 
-        let classify_one s =
-          let rec follow_bindings t =
-            let hd = T.head_term @@ snd @@ (T.open_fun t) in
-            let derefed,_ = Subst.FO.deref subst (hd, unifscope) in
-            if T.equal hd derefed then hd
-            else follow_bindings derefed in
-
-          let hd = follow_bindings s in
-
-          if T.is_const hd then `Const
-          else if T.is_var hd then `Var
-          (* when it is bound variable, we do not know what will 
-             happen when it is reduced *)
-          else `Unknown in
-
-
         (* classifies the pairs as (rigid-rigid, flex-rigid, and flex-flex *)
         let rec classify = function 
           | ((lhs,rhs,_flag) as cstr) :: xs ->
             let rr,fr,unsure,ff = classify xs in
-            begin match classify_one lhs, classify_one rhs with 
+            begin match classify_one lhs subst, classify_one rhs subst with 
               | `Const, `Const -> cstr::rr,fr,unsure,ff
               | _, `Const  | `Const, _ -> rr, cstr::fr, unsure, ff
               | _, `Unknown | `Unknown, _ -> rr, fr, cstr::unsure, ff
@@ -175,16 +177,31 @@ module Make (P : PARAMETERS) = struct
         let new_prob = decompose args_l args_r rest flag in
         (fun () -> aux subst new_prob ()) in
 
+      let all_flex_flex = fun () ->
+        let is_flex_flex = fun (lhs, rhs, _) ->
+          match classify_one lhs subst with
+          | `Var -> (match classify_one rhs subst with
+                     | `Var -> true
+                     | _ -> false)
+          | _ -> false
+        in
+        List.for_all is_flex_flex problem
+      in
+
       match problem with
-      | _ when !hits_cnt > max_infs -> OSeq.empty 
+      | _ when !hits_cnt > max_infs -> OSeq.empty
+      | _ when P.preunification && all_flex_flex () ->
+        let cstrs = FList.map (fun (lhs, rhs, _) -> Unif_constr.make ~tags:[] ((lhs : T.t :> InnerTerm.t), unifscope) ((rhs : T.t :> InnerTerm.t), unifscope)) problem in
+        OSeq.return @@ Some (Unif_subst.make subst cstrs)
       | [] -> 
         incr hits_cnt;
-        OSeq.return (Some subst)
-      | (lhs, rhs, flag) :: rest ->
+        OSeq.return @@ Some (Unif_subst.of_subst subst)
+      | (lhs, rhs, flag) as current_constraint :: rest ->
         match PatternUnif.unif_simple ~subst ~scope:unifscope 
                 (T.of_ty (T.ty lhs)) (T.of_ty (T.ty rhs)) with 
         | None -> OSeq.empty
         | Some subst ->
+          if (Unif_subst.has_constr subst) then assert false else (); (* TODO [MH] Debug *)
           let subst = Unif_subst.subst subst in
           let lhs = normalize subst (lhs, unifscope) 
           and rhs = normalize subst (rhs, unifscope) in
@@ -193,6 +210,9 @@ module Make (P : PARAMETERS) = struct
           let body_lhs, body_rhs, _ = 
             eta_expand_otf ~subst ~scope:unifscope pref_lhs pref_rhs body_lhs body_rhs in
           let (hd_lhs, args_lhs), (hd_rhs, args_rhs) = T.as_app body_lhs, T.as_app body_rhs in
+
+          if T.is_var hd_lhs && not (Term.equal (fst @@ S.FO.deref subst (hd_lhs,unifscope)) hd_lhs) then (Printf.printf "not in dereffed form"; exit 13) else (); (* TODO [MH] *)
+          if T.is_var hd_rhs && not (Term.equal (fst @@ S.FO.deref subst (hd_rhs,unifscope)) hd_rhs) then (Printf.printf "not in dereffed form"; exit 13) else (); (* TODO [MH] *)
 
           if Term.is_type lhs then (
             assert(Term.is_type rhs);
@@ -224,6 +244,8 @@ module Make (P : PARAMETERS) = struct
                 with Unif.Fail -> OSeq.empty
               ) else OSeq.empty
             | _ when different_rigid_heads hd_lhs hd_rhs -> OSeq.empty
+            | T.Var _, T.Var _ ->
+              aux subst (rest @ [current_constraint])
             | _ -> 
               try
                 let mgu =
@@ -254,12 +276,7 @@ module Make (P : PARAMETERS) = struct
                   |> OSeq.of_list
                   |> OSeq.merge
                 | None ->
-                  let args_unif =
-                    if T.is_var hd_lhs && T.is_var hd_rhs && T.equal hd_lhs hd_rhs then(
-                      incr bind_cnt;
-                      delay !bind_cnt (fun () -> decompose_and_cont args_lhs args_rhs rest flag subst ()))
-                    else OSeq.empty in
-
+                  
                   let all_oracles = 
                     P.pb_oracle (body_lhs, unifscope) (body_rhs, unifscope) flag subst unifscope in
 
@@ -276,8 +293,14 @@ module Make (P : PARAMETERS) = struct
                           with Subst.InconsistentBinding _ ->
                             OSeq.return None) 
                     |> OSeq.merge
-                    |> OSeq.interleave args_unif
                   in
+                  let res = if P.preunification then
+                    res else begin
+                      if T.is_var hd_lhs && T.is_var hd_rhs && T.equal hd_lhs hd_rhs then begin
+                        incr bind_cnt;
+                        OSeq.interleave (delay !bind_cnt (fun () -> decompose_and_cont args_lhs args_rhs rest flag subst ())) res 
+                      end else res
+                    end in
                   if !bind_cnt = 0 && root then (OSeq.cons None res) else res
                   
               with Unif.Fail -> OSeq.empty) in
@@ -324,18 +347,19 @@ module Make (P : PARAMETERS) = struct
     let hits_cnt = ref 0 in (* number of unifiers found *)
     try
       OSeq.append 
-        (try_lfho_unif t0s t1s)
+        ((try_lfho_unif t0s t1s) |> OSeq.map (CCOpt.map Unif_subst.of_subst))
         (do_unif ~bind_cnt ~hits_cnt [(lhs,rhs,P.init_flag)] subst unifscope)
-      |> OSeq.map (fun opt -> CCOpt.map (fun subst ->
+      |> OSeq.map (CCOpt.map (fun subst ->
+        let subst' = Unif_subst.subst subst in
         let norm t = T.normalize_bools @@ Lambda.eta_expand @@ Lambda.snf t in
-        let l = norm @@ S.FO.apply Subst.Renaming.none subst t0s in 
-        let r = norm @@ S.FO.apply Subst.Renaming.none subst t1s in
+        let l = norm @@ S.FO.apply Subst.Renaming.none subst' t0s in 
+        let r = norm @@ S.FO.apply Subst.Renaming.none subst' t1s in
         if not ((T.equal l r) && (Type.equal (Term.ty l) (Term.ty r))) then (
-          CCFormat.printf "subst:@[%a@]@." Subst.pp subst;
+          CCFormat.printf "subst:@[%a@]@." Subst.pp subst';
           CCFormat.printf "orig:@[%a@]@.=?=@.@[%a@]@." (Scoped.pp T.pp) t0s (Scoped.pp T.pp) t1s;
           CCFormat.printf "new:@[%a:%a@]@.=?=@.@[%a:%a@]@." T.pp l Type.pp (T.ty l) T.pp r Type.pp (T.ty r);
           assert(false)
-        ); subst) opt)
+        ); subst))
     with Unif.Fail -> OSeq.empty
 
   let unify_scoped_l t0s t1s =
