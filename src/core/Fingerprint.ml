@@ -220,14 +220,16 @@ module Make(X : Set.OrderedType) = struct
 
   module Leaf = Index.MakeLeaf(X)
 
+  type trie =
+  | Empty
+  | Node of trie FeatureMap.t
+  | Leaf of Leaf.t
+
   type t = {
     trie : trie;
     fp : fingerprint_fun;
   }
-  and trie =
-    | Empty
-    | Node of trie FeatureMap.t
-    | Leaf of Leaf.t
+  
     (** The index *)
 
   let default_fp = fp7m

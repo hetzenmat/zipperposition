@@ -95,7 +95,7 @@ let test_whnf1 = "whnf1", `Quick, fun () ->
   Alcotest.(check t_test) "whnf1" t1 t';
   ()
 
-let test_whnf2 = "whnf2", `Quick, fun () ->
+let _test_whnf2 = "whnf2", `Quick, fun () ->
   let redex =
     let ty2 = Type.([ty] ==> ty) in
     T.app

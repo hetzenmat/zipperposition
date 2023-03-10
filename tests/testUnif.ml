@@ -5,6 +5,7 @@
 open Logtk
 open Logtk_arbitrary
 open Logtk_parsers
+open Future
 
 module Fmt = CCFormat
 module T = Term

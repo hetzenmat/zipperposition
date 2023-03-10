@@ -4,6 +4,7 @@
 (** {1 Arbitrary generation of Identifiers} *)
 
 open Logtk
+open Future
 
 type 'a arbitrary = 'a QCheck.arbitrary
 type 'a gen = 'a QCheck.Gen.t

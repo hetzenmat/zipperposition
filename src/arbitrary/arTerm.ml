@@ -4,6 +4,7 @@
 (** {1 Arbitrary Typed Terms and Formulas} *)
 
 open Logtk
+open Future
 
 module QA = QCheck
 module T = Term

@@ -1,5 +1,7 @@
 
 open Logtk
+open Future
+
 module Q = QCheck
 
 module M = Multiset.Make(struct
