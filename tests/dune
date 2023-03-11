@@ -1,7 +1,7 @@
 
 (executable
   (name run_tests)
-  (libraries logtk logtk.parsers logtk.arbitrary logtk.arith
+  (libraries logtk logtk.parsers logtk.arbitrary logtk.arith libzipperposition
              iter qcheck-core qcheck-alcotest alcotest)
   (flags :standard -warn-error -3 -w -3-50 -color always -open Logtk_arith))
 

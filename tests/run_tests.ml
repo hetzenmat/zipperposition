@@ -22,6 +22,7 @@ let units : unit Alcotest.test_case list =
    TestOrdering.suite;
    TestTerm.suite;
    TestUnif.suite;
+   TestPreunif.suite_preunif;
    ] |> List.flatten
 
 let units = "units", units
