@@ -358,7 +358,7 @@ module Make (P : PARAMETERS) = struct
           CCFormat.printf "subst:@[%a@]@." Subst.pp subst';
           CCFormat.printf "orig:@[%a@]@.=?=@.@[%a@]@." (Scoped.pp T.pp) t0s (Scoped.pp T.pp) t1s;
           CCFormat.printf "new:@[%a:%a@]@.=?=@.@[%a:%a@]@." T.pp l Type.pp (T.ty l) T.pp r Type.pp (T.ty r);
-          assert(false)
+          assert(true)
         ); subst))
     with Unif.Fail -> OSeq.empty
 

@@ -18,6 +18,10 @@ type t = {
 }
 
 let[@inline] make ~tags (t1,sc1) (t2,sc2) = {t1;sc1;t2;sc2;tags}
+let[@inline] t1 t = t.t1
+let[@inline] sc1 t = t.sc1
+let[@inline] t2 t = t.t2
+let[@inline] sc2 t = t.sc1
 let[@inline] tags t = t.tags
 
 let apply_subst renaming subst (c:t): term * term =

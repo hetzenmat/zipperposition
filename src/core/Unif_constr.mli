@@ -24,6 +24,10 @@ type t = private {
 
 val make : tags:Proof.tag list -> term Scoped.t -> term Scoped.t -> t
 
+val t1 : t -> term
+val sc1 : t -> Scoped.scope 
+val t2 : t -> term
+val sc2 : t -> Scoped.scope 
 val tags : t -> Proof.tag list
 
 (** Apply a substitution to a delayed constraint *)
