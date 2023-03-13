@@ -55,4 +55,8 @@ let to_string = CCFormat.to_string pp
 
 module FO = struct
   let make ~tags (t1,sc1) (t2,sc2) = make ~tags ((t1:Term.t:>T.t),sc1) ((t2:Term.t:>T.t),sc2)
+
+  let apply_subst renaming subst (c:t) =
+    let l,r = apply_subst renaming subst c in
+    Term.of_term_unsafe l, Term.of_term_unsafe r
 end

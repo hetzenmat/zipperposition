@@ -364,7 +364,7 @@ module Make (P : PARAMETERS) = struct
 
   let unify_scoped_l t0s t1s =
     let lhs,rhs,unifscope,subst = P.identify_scope_l t0s t1s in
-    let problem = FList.map (fun (a,b) -> (a,b,P.init_flag)) (List.combine lhs rhs) in 
+    let problem = FList.map (fun (a,b) -> (a,b,P.init_flag)) (CCList.combine lhs rhs) in 
 
     let bind_cnt = ref 0 in (* number of created binders *)
     let hits_cnt = ref 0 in (* number of unifiers found *)

@@ -81,22 +81,24 @@ module Make (St : sig val st : Flex_state.t end) = struct
           
       | _ -> assert false
 
+      let mkPreunifParams ~(counter: int ref): (module UnifFramework.PARAMETERS) = (
+        module struct
+          exception NotInFragment = PatternUnif.NotInFragment
+          exception NotUnifiable = PatternUnif.NotUnifiable
+          type flag_type = int
+          let flex_state = St.st
+          let preunification = true
+          let init_flag = (0:flag_type)
+          let identify_scope = renamer ~counter
+          let identify_scope_l = renamer_l ~counter
+          let frag_algs = deciders ~counter
+          let pb_oracle s t (f:flag_type) _ scope = 
+            oracle ~counter ~scope s t f
+        end)
+
 let unify_scoped =  
   let counter = ref 0 in
-
-  let module PreUnifParams = struct
-    exception NotInFragment = PatternUnif.NotInFragment
-    exception NotUnifiable = PatternUnif.NotUnifiable
-    type flag_type = int
-    let flex_state = St.st
-    let preunification = true
-    let init_flag = (0:flag_type)
-    let identify_scope = renamer ~counter
-    let identify_scope_l = renamer_l ~counter
-    let frag_algs = deciders ~counter
-    let pb_oracle s t (f:flag_type) _ scope = 
-      oracle ~counter ~scope s t f
-  end in
+  let module PreUnifParams = (val mkPreunifParams ~counter) in
 
   let module PreUnif = UnifFramework.Make(PreUnifParams) in
   PreUnif.unify_scoped
@@ -104,23 +106,10 @@ let unify_scoped =
 let unify_scoped_l =  
   let counter = ref 0 in
 
-  let module PreUnifParams = struct
-    exception NotInFragment = PatternUnif.NotInFragment
-    exception NotUnifiable = PatternUnif.NotUnifiable
-    type flag_type = int
-    let flex_state = St.st
-    let preunification = true
-    let init_flag = (0:flag_type)
-    let identify_scope = renamer ~counter
-    let identify_scope_l = renamer_l ~counter
-    let frag_algs = deciders ~counter
-    let pb_oracle s t (f:flag_type) _ scope = 
-      oracle ~counter ~scope s t f
-  end in
+  let module PreUnifParams = (val mkPreunifParams ~counter) in
 
   let module PreUnif = UnifFramework.Make(PreUnifParams) in
   PreUnif.unify_scoped_l
-
 end
 
 let only_constraints ((t1,sc1) : T.t Scoped.t) ((t2,sc2) : T.t Scoped.t) : subst option OSeq.t =

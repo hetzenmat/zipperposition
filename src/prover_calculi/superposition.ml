@@ -1236,7 +1236,18 @@ module Make(Env : Env.S) : S with module Env = Env = struct
         if C.only_flex_flex clause then
           Some clause
         else (
+          let (module UnifModule) = Env.flex_get k_unif_module in
+          let l1,l2 = CCList.split (C.constraints clause) in
           (* TODO [MH]: construct unification problem from constraints *)
+          let substs = UnifModule.unify_scoped_l (l1,0) (l2,0) in
+          let clause_stream = OSeq.map (CCOpt.flat_map (fun us -> begin
+            let renaming = Subst.Renaming.create() in
+            let subst = US.subst us in
+            let constraints = US.constr_l us in
+            let constraints = FList.map (Unif_constr.FO.apply_subst renaming subst) constraints in
+            let substituted = assert false in  (*TODO [MH] substitute clause *)
+            assert false
+          end)) substs in
           let stm = Stm.make ~penalty ~parents OSeq.empty in
           None
       ) in

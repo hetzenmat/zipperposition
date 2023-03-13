@@ -49,6 +49,7 @@ val apply_subst_l :
 
 module FO : sig
   val make : tags:Proof.tag list -> Term.t Scoped.t -> Term.t Scoped.t -> t
+  val apply_subst : Subst.Renaming.t -> Subst.t -> t -> Term.t * Term.t
 end
 
 include Interfaces.HASH with type t := t
