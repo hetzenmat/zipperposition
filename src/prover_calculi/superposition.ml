@@ -167,7 +167,7 @@ module Make(Env : Env.S) : S with module Env = Env = struct
               match stm() with
               | OSeq.Nil -> aux acc xs
               | OSeq.Cons((Some cl), stm') ->
-                aux (cl::clauses, (mk_stm stm') :: streams) xs
+                aux ((cl,penalty,parents)::clauses, (mk_stm stm') :: streams) xs
               | OSeq.Cons(None, stm') ->
                 drip_stream (i-1) stm'
             )
@@ -1228,10 +1228,21 @@ module Make(Env : Env.S) : S with module Env = Env = struct
 
     if Env.should_force_stream_eval () then (
       Env.get_finite_infs (FList.map (fun (_,_,x) -> x) inf_res)
-    ) else(
+    (* TODO [MH] is this needed for preunification approach? *)
+    ) else (
       let clauses, streams = force_getting_cl inf_res in
-      StmQ.add_lst (Env.get_stm_queue ()) streams; 
-      clauses
+      StmQ.add_lst (Env.get_stm_queue ()) streams;
+      let check_solved (clause,penalty,parents) =
+        if C.only_flex_flex clause then
+          Some clause
+        else (
+          (* TODO [MH]: construct unification problem from constraints *)
+          let stm = Stm.make ~penalty ~parents OSeq.empty in
+          None
+      ) in
+      
+      let solved_clauses = FList.filter_map check_solved clauses in
+      solved_clauses
     )
 
   let infer_passive_complete_ho clause =

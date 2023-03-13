@@ -155,6 +155,8 @@ module type S = sig
   val maxlits : t Scoped.t -> Subst.t -> CCBV.t
   (** List of maximal literals *)
 
+  val only_flex_flex : t -> bool
+
   val is_maxlit : t Scoped.t -> Subst.t -> idx:int -> bool
   (** Is the i-th literal maximal in subst(clause)? Equivalent to
       Bitvector.get (maxlits ~ord c subst) i *)

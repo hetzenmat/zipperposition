@@ -46,6 +46,7 @@ module Make(Ctx : Ctx.S) : S with module Ctx = Ctx = struct
     selected : BV.t Lazy.t; (** bitvector for selected lits*)
     bool_selected : (Term.t * Position.t) list Lazy.t;
     max_lits : int list Lazy.t; (** bitvector for maximal lits *)
+    only_flex_flex : bool Lazy.t; (** has the clause only flex-flex constraints? *)
     mutable proof : proof_step; (** Proof of the clause *)
     mutable eligible_res: BV.t option; (* eligible for resolution? *)
     mutable eligible_bool : SClause.TPSet.t option;
@@ -115,6 +116,7 @@ module Make(Ctx : Ctx.S) : S with module Ctx = Ctx = struct
     (* create the structure *)
     let ord = Ctx.ord () in
     let max_lits = lazy ( BV.to_list @@ Lits.maxlits sclause.lits ~ord ) in
+    let only_flex_flex = lazy ( List.for_all Constraints.is_flex_flex sclause.constraints ) in
     let c = {
       sclause;
       penalty;
@@ -122,6 +124,7 @@ module Make(Ctx : Ctx.S) : S with module Ctx = Ctx = struct
       bool_selected;
       proof;
       max_lits;
+      only_flex_flex;
       eligible_res=None;
       eligible_bool=None;
     } in
@@ -232,6 +235,8 @@ module Make(Ctx : Ctx.S) : S with module Ctx = Ctx = struct
       Lits.is_max ~ord lits' idx
     ) else (BV.get (BV.of_list @@ Lazy.force c.max_lits) idx)
 
+  let only_flex_flex c =
+    Lazy.force c.only_flex_flex
 
   (** Bitvector that indicates which of the literals of [subst(clause)]
       are eligible for resolution. *)

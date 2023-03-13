@@ -8,16 +8,26 @@ module U = Unif_subst
 
 type subst = US.t
 
-type t = (T.t * T.t) list
+type elem = T.t * T.t
+
+type t = elem list
 
 let mk_empty = []
 
 let merge l r = l @ r 
 let add e l = e :: l
 
+let is_flex_flex (e: elem): bool =
+  let head t = t |> Term.open_fun |> snd |> Term.head_term in
+  let (lhs, rhs) = e in
+  let hd_lhs = head lhs in
+  let hd_rhs = head rhs in
+  T.is_var hd_lhs && T.is_var hd_rhs
+
 let apply_subst ~(renaming : Subst.Renaming.t) ~(subst: Subst.t) ~(scope: Scoped.scope) (constraints: t): t =
   let do_sub = Subst.FO.apply renaming subst in
   FList.map (fun (l,r) -> do_sub (l,scope), do_sub (r,scope)) constraints
+
 (** Are the constraints solvable?
       
     This should be a sound approximation (not complete).
@@ -25,7 +35,7 @@ let apply_subst ~(renaming : Subst.Renaming.t) ~(subst: Subst.t) ~(scope: Scoped
 
     That is: iterate all pairs and if the heads are variables and not referenced in 
   *)
-let solvable _t = true (** TODO [MH] *)
+let solvable (constraints: t): bool = constraints |> Fun.const (); assert false (** TODO [MH] *)
 
 let renamer ~counter t0s t1s = 
   let lhs,rhs, unifscope, us = U.FO.rename_to_new_scope ~counter t0s t1s in
