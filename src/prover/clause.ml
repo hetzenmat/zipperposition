@@ -84,6 +84,8 @@ module Make(Ctx : Ctx.S) : S with module Ctx = Ctx = struct
   let has_trail c = not (Trail.is_empty c.sclause.trail)
   let trail_subsumes c1 c2 = Trail.subsumes c1.sclause.trail c2.sclause.trail
   let is_active c ~v = Trail.is_active c.sclause.trail ~v
+
+  let constraints c = c.sclause.constraints
   let penalty c = c.penalty
   let inc_penalty c inc = c.penalty <- c.penalty + inc
 
@@ -136,7 +138,7 @@ module Make(Ctx : Ctx.S) : S with module Ctx = Ctx = struct
     | Literal.False -> true
     | _ -> false
 
-  let create_a ~penalty ~trail lits proof =
+  let create_a ~penalty ~trail ?(constraints = Constraints.mk_empty) lits proof =
     (* remove spurious "false" literals automatically *)
     let lits =
       if CCArray.exists lit_is_false_ lits
@@ -145,11 +147,11 @@ module Make(Ctx : Ctx.S) : S with module Ctx = Ctx = struct
     in
     let selected = lazy (Ctx.select lits) in
     let bool_selected = lazy (Ctx.bool_select lits) in
-    create_inner ~penalty ~selected ~bool_selected (SClause.make ~trail lits) proof
+    create_inner ~penalty ~selected ~bool_selected (SClause.make ~trail ~constraints lits) proof
 
-  let create ~penalty ~trail lits proof =
+  let create ~penalty ~trail ?(constraints = Constraints.mk_empty) lits proof =
     (* let lits = List.fast_sort (fun l1 l2 -> -CCInt.compare (Lit.hash l1) (Lit.hash l2)) lits in *)
-    create_a ~penalty ~trail (Array.of_list lits) proof
+    create_a ~penalty ~trail ~constraints (Array.of_list lits) proof
 
   let of_forms ?(penalty=1) ~trail forms proof =
     let lits = FList.map Ctx.Lit.of_form forms |> Array.of_list in

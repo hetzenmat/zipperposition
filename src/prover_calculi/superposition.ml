@@ -842,7 +842,25 @@ module Make(Env : Env.S) : S with module Env = Env = struct
         + (if info.sup_kind == LambdaSup then 1 else 0)
 
       in
-      let new_clause = C.create ~trail:new_trail ~penalty new_lits proof in
+      let new_constraints () =
+        if Env.flex_get k_store_unification_constraints then begin
+          let constr_l = Unif_subst.constr_l us in
+          assert (Subst.is_empty subst);
+          assert (List.length constr_l = 1);
+          let constr = List.hd constr_l in
+          let t1, t2 = Unif_constr.get_scoped_t1 constr, Unif_constr.get_scoped_t2 constr in
+          let constr = Subst.FO.apply renaming subst t1, Subst.FO.apply renaming subst t2 in
+          let constr_active = C.constraints info.active in
+          let constr_active = Constraints.apply_subst ~renaming ~subst ~scope:info.scope_active constr_active in
+          let constr_passive = C.constraints info.passive in
+          let constr_passive = Constraints.apply_subst ~renaming ~subst ~scope:info.scope_passive constr_passive in
+          Constraints.merge constr_active constr_passive |> Constraints.add constr
+        end else
+          Constraints.mk_empty
+        in
+
+      let new_clause = C.create ~trail:new_trail ~penalty ~constraints:(new_constraints ()) new_lits proof
+      in
       (* Format.printf "LS: %a\n" C.pp new_clause;  *)
       Util.debugf ~section 1 "@[... ok, conclusion@ @[%a@]@]" (fun k->k C.pp new_clause);
       if (not (List.for_all (Lit.for_all Term.DB.is_closed) new_lits)) then (
@@ -1817,6 +1835,7 @@ module Make(Env : Env.S) : S with module Env = Env = struct
     | None -> []
     | Some l ->  l
 
+  (** Never used ! *)
   let extract_from_stream_queue_fix_stm ~full () =
     let _span = ZProf.enter_prof prof_queues in
     let cl =

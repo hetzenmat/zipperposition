@@ -76,6 +76,8 @@ module type S = sig
   val is_active : t -> v:Trail.valuation -> bool
   (** True if the clause's trail is active in this valuation *)
 
+  val constraints : t -> Constraints.t
+
   val is_inj_axiom : t -> (ID.t * int) option
   (** Returns Some (sym,i) if clause is injectivity axiom for ith argument
       of symbol sym. *)
@@ -85,6 +87,7 @@ module type S = sig
   val create :
     penalty:int ->
     trail:Trail.t ->
+    ?constraints:Constraints.t ->
     Literal.t list ->
     proof_step ->
     t
@@ -97,6 +100,7 @@ module type S = sig
   val create_a :
     penalty:int ->
     trail:Trail.t ->
+    ?constraints:Constraints.t ->
     Literal.t array ->
     proof_step ->
     t
