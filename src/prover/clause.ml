@@ -450,13 +450,14 @@ module Make(Ctx : Ctx.S) : S with module Ctx = Ctx = struct
 
   let apply_subst ?(renaming) ?(proof=None) ?(penalty_inc=None) (c,sc) subst =
     let lits = lits c in
+    let constraints = constraints c in
     let renaming = CCOpt.get_or ~default:(S.Renaming.create ()) renaming in
     let new_lits = Literals.apply_subst renaming  subst (lits, sc) in
+    let new_constraints = Constraints.apply_subst ~renaming ~subst (constraints, sc) in
     let proof_step = CCOpt.get_or ~default:(proof_step c) proof in
     (* increase can be negative if we perform a simplification *)
     let penalty = max ((CCOpt.get_or ~default:0 penalty_inc) + (penalty c)) 1 in
-    create ~trail:(trail c) ~penalty (CCArray.to_list new_lits) proof_step
-
+    create ~trail:(trail c) ~constraints:new_constraints ~penalty (CCArray.to_list new_lits) proof_step
 
   let ground_clause c =
     let new_lits = CCArray.to_list @@ Lits.ground_lits (lits c) in

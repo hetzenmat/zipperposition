@@ -24,7 +24,7 @@ let is_flex_flex (e: elem): bool =
   let hd_rhs = head rhs in
   T.is_var hd_lhs && T.is_var hd_rhs
 
-let apply_subst ~(renaming : Subst.Renaming.t) ~(subst: Subst.t) ~(scope: Scoped.scope) (constraints: t): t =
+let apply_subst ~(renaming : Subst.Renaming.t) ~(subst: Subst.t) ((constraints, scope): t Scoped.t): t =
   let do_sub = Subst.FO.apply renaming subst in
   FList.map (fun (l,r) -> do_sub (l,scope), do_sub (r,scope)) constraints
 
