@@ -598,9 +598,7 @@ module Make(Env : Env.S) : S with module Env = Env = struct
     if Env.flex_get k_store_unification_constraints then begin
       assert (Subst.is_empty subst);
       assert (List.length constr_l = 1);
-      let constr = List.hd constr_l in
-      let t1, t2 = Unif_constr.get_scoped_t1 constr, Unif_constr.get_scoped_t2 constr in
-      let constr = Subst.FO.apply renaming subst t1, Subst.FO.apply renaming subst t2 in
+      let constr = Constraints.get_constraint renaming subst (List.hd constr_l) in
       let parent_constraints = FList.concat_map (fun (clause,scope) ->
         let constraints = C.constraints clause in
         Constraints.apply_subst ~renaming ~subst (constraints, scope)

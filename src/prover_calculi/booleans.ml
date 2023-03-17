@@ -715,13 +715,23 @@ module Make(E : Env.S) : S with module Env = E = struct
       let seq =
         get_unif_alg () (app_var, 0) (target, 0)
         |> OSeq.filter_map (
-            CCOpt.map (fun us -> 
-              assert(not (Unif_subst.has_constr us));
-              let sub = Unif_subst.subst us in
+            CCOpt.map (fun us ->
               let renaming = Subst.Renaming.create () in
+              let constr_l = Constraints.get_constraints renaming us in
+
+              (match Env.flex_get Superposition.k_store_unification_constraints with
+              | true -> assert (CCList.length constr_l == 1)
+              | false -> assert(CCList.is_empty constr_l));
+              
+              let sub = Unif_subst.subst us in
+              
+              let sub_lits = Literals.apply_subst renaming sub (C.lits c, 0) in
+              let constraints = Constraints.apply_subst ~renaming ~subst:sub (C.constraints c,0) in
+              let constraints = Constraints.merge constraints (Constraints.apply_subst ~renaming ~subst:sub (constr_l,0)) in
               let res = 
-                C.apply_subst ~penalty_inc:(Some 1) ~renaming 
-                              ~proof:(Some (p sub renaming)) (c,0) sub 
+                C.create_a ~penalty:(1 + C.penalty c) ~trail:(C.trail c) ~constraints sub_lits (p sub renaming)
+                (*C.apply_subst ~penalty_inc:(Some 1) ~renaming 
+                              ~proof:(Some (p sub renaming)) (c,0) sub *)
               in
               (* not eligible under substitution *)
               if not @@ CCBV.get (C.eligible_res_no_subst res) idx then None
@@ -729,6 +739,7 @@ module Make(E : Env.S) : S with module Env = E = struct
                 Some (res)
             )))
         in
+      (* TODO [MH]: add preunification wrapper to seq *)
       if Env.should_force_stream_eval () then (
         Env.get_finite_infs [seq]
       ) else (

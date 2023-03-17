@@ -28,6 +28,14 @@ let apply_subst ~(renaming : Subst.Renaming.t) ~(subst: Subst.t) ((constraints, 
   let do_sub = Subst.FO.apply renaming subst in
   FList.map (fun (l,r) -> do_sub (l,scope), do_sub (r,scope)) constraints
 
+let get_constraint renaming subst constr =
+  let s = Subst.FO.apply renaming subst in
+  (s (Unif_constr.get_scoped_t1 constr), s (Unif_constr.get_scoped_t2 constr))
+
+let get_constraints renaming us =
+  FList.map (get_constraint renaming (Unif_subst.subst us)) (Unif_subst.constr_l us)
+  
+
 (** Are the constraints solvable?
       
     This should be a sound approximation (not complete).
