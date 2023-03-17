@@ -594,6 +594,26 @@ module Make(Env : Env.S) : S with module Env = Env = struct
     let t' = S.FO.apply renaming subst (List.hd t', sc_a) in
     T.app in_passive [t']
 
+  let compute_constraints renaming subst constr_l parent_clauses =
+    if Env.flex_get k_store_unification_constraints then begin
+      assert (Subst.is_empty subst);
+      assert (List.length constr_l = 1);
+      let constr = List.hd constr_l in
+      let t1, t2 = Unif_constr.get_scoped_t1 constr, Unif_constr.get_scoped_t2 constr in
+      let constr = Subst.FO.apply renaming subst t1, Subst.FO.apply renaming subst t2 in
+      let parent_constraints = FList.concat_map (fun (clause,scope) ->
+        let constraints = C.constraints clause in
+        Constraints.apply_subst ~renaming ~subst (constraints, scope)
+        ) parent_clauses in
+      Constraints.add constr parent_constraints 
+    end else
+      Constraints.mk_empty
+
+  let c_guard renaming us =
+    match Env.flex_get k_store_unification_constraints with
+    | true -> []
+    | false -> Literal.of_unif_subst renaming us
+
   (* Helper that does one or zero superposition inference, with all
      the given parameters. Clauses have a scope. *)
   let do_classic_superposition info =
@@ -778,13 +798,13 @@ module Make(Env : Env.S) : S with module Env = Env = struct
       let new_passive_lit =
         Lit.Pos.replace passive_lit'
           ~at:passive_lit_pos ~by:t' in
-      let c_guard = Literal.of_unif_subst renaming us in
+    
       (* apply substitution to other literals *)
       (* Util.debugf 1 "Before unleak: %a, after unleak: %a"
          (fun k -> k Subst.pp subst Subst.pp subst'); *)
       let new_lits =
         new_passive_lit ::
-        c_guard @
+        (c_guard renaming us) @
         Lit.apply_subst_list renaming subst' (lits_a, sc_a) @
         Lit.apply_subst_list renaming subst' (lits_p, sc_p)
       in
@@ -842,24 +862,8 @@ module Make(Env : Env.S) : S with module Env = Env = struct
         + (if info.sup_kind == LambdaSup then 1 else 0)
 
       in
-      let new_constraints () =
-        if Env.flex_get k_store_unification_constraints then begin
-          let constr_l = Unif_subst.constr_l us in
-          assert (Subst.is_empty subst);
-          assert (List.length constr_l = 1);
-          let constr = List.hd constr_l in
-          let t1, t2 = Unif_constr.get_scoped_t1 constr, Unif_constr.get_scoped_t2 constr in
-          let constr = Subst.FO.apply renaming subst t1, Subst.FO.apply renaming subst t2 in
-          let constr_active = C.constraints info.active in
-          let constr_active = Constraints.apply_subst ~renaming ~subst (constr_active, info.scope_active) in
-          let constr_passive = C.constraints info.passive in
-          let constr_passive = Constraints.apply_subst ~renaming ~subst (constr_passive, info.scope_passive) in
-          Constraints.merge constr_active constr_passive |> Constraints.add constr
-        end else
-          Constraints.mk_empty
-        in
-
-      let new_clause = C.create ~trail:new_trail ~penalty ~constraints:(new_constraints ()) new_lits proof
+      let constraints = compute_constraints renaming subst (Unif_subst.constr_l us) [(info.active, info.scope_active); (info.passive, info.scope_passive)] in
+      let new_clause = C.create ~trail:new_trail ~penalty ~constraints new_lits proof
       in
       (* Format.printf "LS: %a\n" C.pp new_clause;  *)
       Util.debugf ~section 1 "@[... ok, conclusion@ @[%a@]@]" (fun k->k C.pp new_clause);
@@ -1214,45 +1218,47 @@ module Make(Env : Env.S) : S with module Env = Env = struct
     ZProf.exit_prof _span;
     new_clauses
   
+  
+
     (*let infer_complete_ho_generic (inf_res: 'a list) (f: ('a -> C.t option OSeq.t)) (g: ('a -> int * C.t list * C.t option OSeq.t)) =*)
-    let infer_complete_ho_generic inf_res f g =
-      if Env.should_force_stream_eval () then (
-        Env.get_finite_infs (FList.map f inf_res)
-      (* TODO [MH] is this needed for preunification approach? *)
-      ) else (
-        let clauses, streams = force_getting_cl (FList.map g inf_res) in
-        StmQ.add_lst (Env.get_stm_queue ()) streams;
-        let check_solved (clause,penalty,parents) =
-          if C.only_flex_flex clause then
-            Some clause
-          else (
-            let (module UnifModule) = Env.flex_get k_unif_module in
-            let l1,l2 = CCList.split (C.constraints clause) in
-            
-            let substs = UnifModule.unify_scoped_l (l1,0) (l2,0) in
-            let clause_stream = OSeq.map (CCOpt.flat_map (fun us -> begin
-              let renaming = Subst.Renaming.create() in
-              let subst = US.subst us in
-              let constraints = US.constr_l us in
-              let sub_constraints = FList.map (Unif_constr.FO.apply_subst renaming subst) constraints in
-              let lits = C.lits clause in
-              let sub_lits = Literals.apply_subst renaming subst (lits, 0) in
-              let proof =
-                Proof.Step.inference [C.proof_parent clause]
-                  ~rule:(Proof.Rule.mk "ho_preunif")
-                  ~tags:[Proof.Tag.T_ho]
-              in
-              let new_clause = C.create_a sub_lits ~constraints:sub_constraints proof ~penalty:(C.penalty clause) ~trail:(C.trail clause) in
-              Some new_clause
-            end)) substs in
-            let stm = Stm.make ~penalty ~parents clause_stream in
-            StmQ.add (Env.get_stm_queue ()) stm;
-            None
-        ) in
-        
-        let solved_clauses = FList.filter_map check_solved clauses in
-        solved_clauses
-      )
+  let infer_complete_ho_generic inf_res f g =
+    if Env.should_force_stream_eval () then (
+      Env.get_finite_infs (FList.map f inf_res)
+    (* TODO [MH] is this needed for preunification approach? *)
+    ) else (
+      let clauses, streams = force_getting_cl (FList.map g inf_res) in
+      StmQ.add_lst (Env.get_stm_queue ()) streams;
+      let check_solved (clause,penalty,parents) =
+        if C.only_flex_flex clause then
+          Some clause
+        else (
+          let (module UnifModule) = Env.flex_get k_unif_module in
+          let l1,l2 = CCList.split (C.constraints clause) in
+          
+          let substs = UnifModule.unify_scoped_l (l1,0) (l2,0) in
+          let clause_stream = OSeq.map (CCOpt.flat_map (fun us -> begin
+            let renaming = Subst.Renaming.create() in
+            let subst = US.subst us in
+            let constraints = US.constr_l us in
+            let sub_constraints = FList.map (Unif_constr.FO.apply_subst renaming subst) constraints in
+            let lits = C.lits clause in
+            let sub_lits = Literals.apply_subst renaming subst (lits, 0) in
+            let proof =
+              Proof.Step.inference [C.proof_parent clause]
+                ~rule:(Proof.Rule.mk "ho_preunif")
+                ~tags:[Proof.Tag.T_ho]
+            in
+            let new_clause = C.create_a sub_lits ~constraints:sub_constraints proof ~penalty:(C.penalty clause) ~trail:(C.trail clause) in
+            Some new_clause
+          end)) substs in
+          let stm = Stm.make ~penalty ~parents clause_stream in
+          StmQ.add (Env.get_stm_queue ()) stm;
+          None
+      ) in
+      
+      let solved_clauses = FList.filter_map check_solved clauses in
+      solved_clauses
+    )
 
   let infer_complete_ho aux clause =
     let inf_res = aux
@@ -1654,7 +1660,7 @@ module Make(Env : Env.S) : S with module Env = Env = struct
               let rule = Proof.Rule.mk "eq_res" in
               let new_lits = CCArray.except_idx (C.lits clause) pos in
               let new_lits = Lit.apply_subst_list renaming subst (new_lits,0) in
-              let c_guard = Literal.of_unif_subst renaming us in
+              let guard = c_guard renaming us in
               let subst_is_ho = 
                   Subst.codomain subst
                   |> Iter.exists (fun (t,_) -> 
@@ -1665,7 +1671,8 @@ module Make(Env : Env.S) : S with module Env = Env = struct
               let penalty = if C.penalty clause = 1 then 1 else C.penalty clause + 1 in
               let proof = Proof.Step.inference ~rule ~tags
                   [C.proof_parent_subst renaming (clause,0) subst] in
-              let new_clause = C.create ~trail ~penalty (c_guard@new_lits) proof in
+              let constraints = compute_constraints renaming subst (Unif_subst.constr_l us) [(clause, 0)] in      
+              let new_clause = C.create ~trail ~constraints ~penalty (guard @ new_lits) proof in
               (* CCFormat.printf "success: @[%a@]@." C.pp new_clause; *)
               Util.debugf ~section 2 "@[<hv2>equality resolution on@ @[%a@]@ yields @[%a@],\n subst @[%a@]@]"
                 (fun k->k C.pp clause C.pp new_clause US.pp us);
@@ -1717,7 +1724,10 @@ module Make(Env : Env.S) : S with module Env = Env = struct
   (* do the inference between given positions, if ordering conditions are respected *)
   let do_eq_factoring info =
     let open EqFactInfo in
-    let s = info.s and t = info.t and v = info.v and idx = info.active_idx in
+    let s = info.s in
+    let t = info.t in
+    let v = info.v in
+    let idx = info.active_idx in
     let us = info.subst in
     (* check whether subst(lit) is maximal, and not (subst(s) < subst(t)) *)
     let renaming = S.Renaming.create () in
@@ -1749,15 +1759,16 @@ module Make(Env : Env.S) : S with module Env = Env = struct
          and replace it by a t!=v one, and apply subst *)
       and new_lits = CCArray.except_idx (C.lits info.clause) idx in
       let new_lits = Lit.apply_subst_list renaming subst (new_lits,info.scope) in
-      let c_guard = Literal.of_unif_subst renaming us in
+      let guard = c_guard renaming us in
       let lit' = Lit.mk_neq
           (S.FO.apply renaming subst (t, info.scope))
           (S.FO.apply renaming subst (v, info.scope))
       in
-      let new_lits = lit' :: c_guard @ new_lits in
+      let new_lits = lit' :: guard @ new_lits in
       let penalty = if C.penalty info.clause = 1 then 1 else C.penalty info.clause + 1 in
+      let constraints = compute_constraints renaming subst (Unif_subst.constr_l us) [(info.clause, info.scope)] in      
       let new_clause =
-        C.create ~trail:(C.trail info.clause) ~penalty new_lits proof
+        C.create ~trail:(C.trail info.clause) ~constraints ~penalty new_lits proof
       in
       Util.debugf ~section 3 "@[<hv2>equality factoring on@ @[%a@]@ yields @[%a@]@]"
         (fun k->k C.pp info.clause C.pp new_clause);
@@ -3214,15 +3225,18 @@ module Make(Env : Env.S) : S with module Env = Env = struct
       >>= positive_simplify_reflect
       >>= negative_simplify_reflect
       >>= formula_simplify_reflect
-    and active_simplify c =
+    in
+    let active_simplify c =
       condensation c
       >>= contextual_literal_cutting
-    and backward_simplify c =
+    in
+    let backward_simplify c =
       let set = C.ClauseSet.empty in
       backward_demodulate set c
-    and redundant = subsumed_by_active_set
-    and backward_redundant = subsumed_in_active_set
-    and is_trivial = is_tautology in
+    in
+    let redundant = subsumed_by_active_set in
+    let backward_redundant = subsumed_in_active_set in
+    let is_trivial = is_tautology in
 
     Env.add_basic_simplify normalize_equalities;
     Env.add_basic_simplify flex_resolve;
@@ -3246,7 +3260,7 @@ module Make(Env : Env.S) : S with module Env = Env = struct
       Env.add_unary_inf "recognize injectivity" recognize_injectivity;
     );
 
-    if Env.flex_get k_ho_basic_rules && not (Env.flex_get k_store_unification_constraints) then begin
+    if Env.flex_get k_ho_basic_rules then begin
       Env.add_binary_inf "superposition_passive" infer_passive_complete_ho;
       Env.add_binary_inf "superposition_active" infer_active_complete_ho;
       Env.add_unary_inf "equality_factoring" infer_equality_factoring_complete_ho;
@@ -3264,11 +3278,6 @@ module Make(Env : Env.S) : S with module Env = Env = struct
         Env.add_binary_inf "lambdasup_active(from)" infer_lambdasup_from;
         Env.add_binary_inf "lambdasup_passive(into)" infer_lambdasup_into;
       end;
-    end
-    else if Env.flex_get k_store_unification_constraints then begin
-      (* Use other variants of HO rules that work with unification constraints *)
-
-      Env.add_binary_inf "superposition_passive_constr" _NOT_IMPLEMENTED
     end
     else begin
       Env.add_binary_inf "superposition_passive" infer_passive;
