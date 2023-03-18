@@ -34,7 +34,6 @@ let get_constraint renaming subst constr =
 
 let get_constraints renaming us =
   FList.map (get_constraint renaming (Unif_subst.subst us)) (Unif_subst.constr_l us)
-  
 
 (** Are the constraints solvable?
       

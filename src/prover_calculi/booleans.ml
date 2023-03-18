@@ -739,7 +739,13 @@ module Make(E : Env.S) : S with module Env = E = struct
                 Some (res)
             )))
         in
-      (* TODO [MH]: add preunification wrapper to seq *)
+
+      let seq = (match Env.flex_get Superposition.k_store_unification_constraints with
+              | true ->
+                let (module UnifModule) = Superposition.get_unif_module (module Env) in
+                Env.wrap_with_preunif UnifModule.unify_scoped_l seq
+              | false -> seq) in
+
       if Env.should_force_stream_eval () then (
         Env.get_finite_infs [seq]
       ) else (

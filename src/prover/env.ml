@@ -340,6 +340,34 @@ module Make(X : sig
       OSeq.to_rev_list @@ OSeq.filter_map CCFun.id s
     ) streams
 
+  let wrap_with_preunif unif_l seq =
+    let f = function
+    | None -> OSeq.return None
+    | Some clause ->
+      if C.only_flex_flex clause then
+        OSeq.return (Some clause)
+      else (
+        let l1,l2 = CCList.split (C.constraints clause) in
+        
+        let substs = unif_l (l1,0) (l2,0) in
+        let clause_stream = OSeq.map (CCOpt.flat_map (fun us -> begin
+          let renaming = Subst.Renaming.create() in
+          let subst = Unif_subst.subst us in
+          let constraints = Unif_subst.constr_l us in
+          let sub_constraints = FList.map (Unif_constr.FO.apply_subst renaming subst) constraints in
+          let lits = C.lits clause in
+          let sub_lits = Literals.apply_subst renaming subst (lits, 0) in
+          let proof =
+            Proof.Step.inference [C.proof_parent clause]
+              ~rule:(Proof.Rule.mk "ho_preunif")
+              ~tags:[Proof.Tag.T_ho]
+          in
+          let new_clause = C.create_a sub_lits ~constraints:sub_constraints proof ~penalty:(C.penalty clause) ~trail:(C.trail clause) in
+          Some new_clause
+        end)) substs in
+        clause_stream) in
+    OSeq.concat_map f seq
+    
 
   (** do binary inferences that involve the given clause *)
   let do_binary_inferences c =

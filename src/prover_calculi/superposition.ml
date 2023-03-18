@@ -1215,8 +1215,6 @@ module Make(Env : Env.S) : S with module Env = Env = struct
     in
     ZProf.exit_prof _span;
     new_clauses
-  
-  
 
     (*let infer_complete_ho_generic (inf_res: 'a list) (f: ('a -> C.t option OSeq.t)) (g: ('a -> int * C.t list * C.t option OSeq.t)) =*)
   let infer_complete_ho_generic inf_res f g =
@@ -1224,38 +1222,20 @@ module Make(Env : Env.S) : S with module Env = Env = struct
       Env.get_finite_infs (FList.map f inf_res)
     (* TODO [MH] is this needed for preunification approach? *)
     ) else (
-      let clauses, streams = force_getting_cl (FList.map g inf_res) in
-      StmQ.add_lst (Env.get_stm_queue ()) streams;
-      let check_solved (clause,penalty,parents) =
-        if C.only_flex_flex clause then
-          Some clause
-        else (
+      let streams = FList.map g inf_res in
+
+      let streams = begin match Env.flex_get k_store_unification_constraints with
+        | false -> streams
+        | true ->
           let (module UnifModule) = Env.flex_get k_unif_module in
-          let l1,l2 = CCList.split (C.constraints clause) in
-          
-          let substs = UnifModule.unify_scoped_l (l1,0) (l2,0) in
-          let clause_stream = OSeq.map (CCOpt.flat_map (fun us -> begin
-            let renaming = Subst.Renaming.create() in
-            let subst = US.subst us in
-            let constraints = US.constr_l us in
-            let sub_constraints = FList.map (Unif_constr.FO.apply_subst renaming subst) constraints in
-            let lits = C.lits clause in
-            let sub_lits = Literals.apply_subst renaming subst (lits, 0) in
-            let proof =
-              Proof.Step.inference [C.proof_parent clause]
-                ~rule:(Proof.Rule.mk "ho_preunif")
-                ~tags:[Proof.Tag.T_ho]
-            in
-            let new_clause = C.create_a sub_lits ~constraints:sub_constraints proof ~penalty:(C.penalty clause) ~trail:(C.trail clause) in
-            Some new_clause
-          end)) substs in
-          let stm = Stm.make ~penalty ~parents clause_stream in
-          StmQ.add (Env.get_stm_queue ()) stm;
-          None
-      ) in
+          streams |> FList.map ( fun (penalty, parents, seq) -> (penalty, parents, Env.wrap_with_preunif UnifModule.unify_scoped_l seq))
+
+      end in
+
+      let clauses, streams = force_getting_cl streams in
+      StmQ.add_lst (Env.get_stm_queue ()) streams;
       
-      let solved_clauses = FList.filter_map check_solved clauses in
-      solved_clauses
+      FList.map (fun (cl,_,_) -> cl) clauses
     )
 
   let infer_complete_ho aux clause =

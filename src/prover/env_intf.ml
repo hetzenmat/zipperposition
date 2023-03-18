@@ -243,6 +243,8 @@ module type S = sig
   (** get finitely many conclusions from inference stream.
       NB: requires the use of terminating unification algorithms *)
 
+  val wrap_with_preunif : (Term.t list * int -> Term.t list * int -> Unif_subst.t option OSeq.t) -> C.t option OSeq.t -> C.t option OSeq.t
+
   val stats : unit -> stats
   (** Compute stats *)
 

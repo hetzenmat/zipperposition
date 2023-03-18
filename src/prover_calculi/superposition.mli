@@ -23,7 +23,6 @@ val k_rewrite_quantifiers : bool Flex_state.key
 val k_store_unification_constraints : bool Flex_state.key
 val get_unif_module : (module Env.S) -> (module UnifFramework.US)
 
-
 val register : sup:(module S) -> unit
 (** Register the superposition module to its Environment's
     mixtbl. Done automatically by the {!extension}. *)
