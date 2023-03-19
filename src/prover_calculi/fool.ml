@@ -150,7 +150,7 @@ module Make(E : Env.S) : S with module Env = E = struct
           [Proof.Parent.from @@ C.proof c]
       in
       C.create lits proof
-        ~penalty:(C.penalty c) ~trail:(C.trail c)
+        ~penalty:(C.penalty c) ~trail:(C.trail c) ~constraints:(C.constraints c)
     in
     C.lits c
     |> CCArray.find_map_i

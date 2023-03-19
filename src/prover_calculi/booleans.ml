@@ -78,6 +78,8 @@ module Make(E : Env.S) : S with module Env = E = struct
   let _trigger_bools   = ref (Type.Map.empty) (* type --> boolean trigger *)
   let _cls_w_pred_vars = ref (Type.Map.empty) (* type --> (clause,var) *)
   
+  let on_preunif ~off ~on = Superposition.on_preunif (module Env) ~off ~on
+
   let get_unif_alg () =
     if Env.flex_get k_disable_ho_bool_unif
     then (fun _ _ -> OSeq.empty)
@@ -288,7 +290,7 @@ module Make(E : Env.S) : S with module Env = E = struct
       update_triggers c)
   
   let mk_res ~proof ~old ~repl new_lit c =
-    C.create ~trail:(C.trail c) ~penalty:(C.penalty c)
+    C.create ~trail:(C.trail c) ~penalty:(C.penalty c) ~constraints:(C.constraints c)
       (new_lit :: Array.to_list( C.lits c |> Literals.map (T.replace ~old ~by:repl)))
     proof
 
@@ -435,7 +437,7 @@ module Make(E : Env.S) : S with module Env = E = struct
 
     let sc_zx, sc_cl = 0, 1 in
 
-    let mk_res sign renaming sub at =
+    let mk_res sign renaming sub constr_l at =
       let c' = C.apply_subst ~renaming (c, sc_cl) sub in
       let still_at_eligible = 
         get_bool_eligible c'
@@ -457,6 +459,7 @@ module Make(E : Env.S) : S with module Env = E = struct
                              (C.proof_depth c) + 
                              (if Proof.Step.has_ho_step (C.proof_step c) then 3 else 1))
                    ~trail:(C.trail c)
+                   ~constraints:(Constraints.merge (C.constraints c') constr_l) (* [MH]: is this correct?*)
             (new_lit :: CCArray.to_list (C.lits c')) proof in
         Some res
       ) else None
@@ -470,9 +473,13 @@ module Make(E : Env.S) : S with module Env = E = struct
             get_unif_alg () (zx, sc_zx) (u, sc_cl)
             |> OSeq.flat_map (fun us_opt -> 
               CCOpt.map_or ~default:OSeq.empty (fun us ->
-                assert(not @@ US.has_constr us);
-                let sub = US.subst us in
                 let renaming = Subst.Renaming.create () in
+                let constr_l = Constraints.get_constraints renaming us in
+
+                on_preunif ~off:(fun () -> assert(CCList.is_empty constr_l)) ~on:(fun () -> assert (CCList.length constr_l == 1));
+
+                let sub = US.subst us in
+                
                 let z_false_sub = 
                   Lambda.snf @@ Subst.FO.apply renaming sub (z_false, sc_zx) in
                 let z_true_sub = 
@@ -485,10 +492,10 @@ module Make(E : Env.S) : S with module Env = E = struct
                 else (
                   let bool_res =
                     if T.equal z_false_sub zx_sub then []
-                    else [(mk_res true renaming sub p)] in
+                    else [(mk_res true renaming sub constr_l p)] in
                   let loob_res = 
                     if T.equal z_true_sub zx_sub then []
-                    else [(mk_res false renaming sub p)] in
+                    else [(mk_res false renaming sub constr_l p)] in
                   OSeq.of_list (bool_res @ loob_res)
                 )
               ) us_opt
@@ -553,8 +560,7 @@ module Make(E : Env.S) : S with module Env = E = struct
     in
 
     let sc_partner, sc_cl = 0, 1 in
-    let mk_res sub at partner= 
-      let renaming = Subst.Renaming.create () in
+    let mk_res renaming sub constr_l at partner= 
       let lits = Literals.apply_subst renaming sub ((C.lits c), sc_cl) in
       Literals.Pos.replace lits ~at ~by:partner.repl;
       let new_lits =
@@ -565,7 +571,11 @@ module Make(E : Env.S) : S with module Env = E = struct
       let step = Proof.Step.inference ~rule [C.proof_parent_subst renaming (c,sc_cl) sub] in
       C.create ~penalty:(C.penalty c + 
                          (C.proof_depth c) + 
-                         (if Proof.Step.has_ho_step (C.proof_step c) then 2 else 0)) ~trail:(C.trail c) new_lits step
+                         (if Proof.Step.has_ho_step (C.proof_step c) then 2 else 0))
+                ~trail:(C.trail c)
+                ~constraints:(Constraints.merge (Constraints.apply_subst ~renaming ~subst:sub (C.constraints c, sc_cl)) constr_l )
+                new_lits
+                step
     in
 
     let eligible = C.Eligible.res c in
@@ -588,13 +598,17 @@ module Make(E : Env.S) : S with module Env = E = struct
               get_unif_alg () (p.unif_partner, sc_partner) (var, sc_cl)
               |> OSeq.filter_map (
                 CCOpt.map (fun us -> 
-                  assert(not (Unif_subst.has_constr us));
+                  let renaming = Subst.Renaming.create () in
+                  let constr_l = Constraints.get_constraints renaming us in
+  
+                  on_preunif ~off:(fun () -> assert(CCList.is_empty constr_l)) ~on:(fun () -> assert (CCList.length constr_l == 1));
+
                   let sub = Unif_subst.subst us in
                   let eligible' = C.eligible_res (c, sc_cl) sub in
                   (* not eligible under substitution *)
                   if not (CCBV.get eligible' idx) then None
                   else (
-                    Some (mk_res sub pos p)        
+                    Some (mk_res renaming sub constr_l pos p)        
                 )))
             in
             
@@ -719,9 +733,7 @@ module Make(E : Env.S) : S with module Env = E = struct
               let renaming = Subst.Renaming.create () in
               let constr_l = Constraints.get_constraints renaming us in
 
-              (match Env.flex_get Superposition.k_store_unification_constraints with
-              | true -> assert (CCList.length constr_l == 1)
-              | false -> assert(CCList.is_empty constr_l));
+              on_preunif ~off:(fun () -> assert(CCList.is_empty constr_l)) ~on:(fun () -> assert (CCList.length constr_l == 1));
               
               let sub = Unif_subst.subst us in
               
@@ -739,13 +751,7 @@ module Make(E : Env.S) : S with module Env = E = struct
                 Some (res)
             )))
         in
-
-      let seq = (match Env.flex_get Superposition.k_store_unification_constraints with
-              | true ->
-                let (module UnifModule) = Superposition.get_unif_module (module Env) in
-                Env.wrap_with_preunif UnifModule.unify_scoped_l seq
-              | false -> seq) in
-
+        
       if Env.should_force_stream_eval () then (
         Env.get_finite_infs [seq]
       ) else (
@@ -888,12 +894,16 @@ module Make(E : Env.S) : S with module Env = E = struct
           get_unif_alg_l () (args, 0) (target, 0)
           |> OSeq.filter_map (
               CCOpt.map (fun us -> 
-                assert(not (Unif_subst.has_constr us));
-                let sub = Unif_subst.subst us in
+                
+                on_preunif ~off:(fun () -> assert(not (Unif_subst.has_constr us)))
+                            ~on:(fun () -> assert (Unif_subst.has_constr us));
+                            
+                let subst = Unif_subst.subst us in
                 let renaming = Subst.Renaming.create () in
+                let constraints = Constraints.update_constraints renaming (C.constraints c, 0) us in
+                let new_lits = Literals.apply_subst renaming  subst (C.lits c, 0) in
                 let res = 
-                  C.apply_subst ~penalty_inc:(Some 1) ~renaming 
-                                ~proof:(Some (p sub renaming)) (c,0) sub 
+                  C.create_a ~penalty:((C.penalty c) + 1) ~trail:(C.trail c) ~constraints new_lits (p subst renaming)
                 in
                 (* not eligible under substitution *)
                 Some (res)
@@ -942,7 +952,7 @@ module Make(E : Env.S) : S with module Env = E = struct
         let repl = T.app body [sk] in
         let new_lits = CCArray.copy (C.lits c) in
         Literals.Pos.replace ~at ~by:repl new_lits;
-        Some (C.create ~trail:(C.trail c) ~penalty:(C.penalty c) 
+        Some (C.create ~trail:(C.trail c) ~penalty:(C.penalty c) ~constraints:(C.constraints c)
           (Array.to_list new_lits) proof)
     )
     in
@@ -1000,9 +1010,14 @@ module Make(E : Env.S) : S with module Env = E = struct
         Some (
           get_unif_alg () (mk_sc a) (mk_sc b)
           |> OSeq.map (fun unif_subst_opt ->
-              CCOpt.map (fun unif_subst -> 
-                assert (not @@ US.has_constr unif_subst);
+              CCOpt.map (fun unif_subst ->
+                let renaming = Subst.Renaming.create () in
+                let constr_l = Constraints.get_constraints renaming unif_subst in
+
+                on_preunif ~off:(fun () -> assert(CCList.is_empty constr_l)) ~on:(fun () -> assert (CCList.length constr_l == 1));
+                
                 let subst = US.subst unif_subst in
+                
                 let repl = 
                   if hd = Builtin.Eq || hd = Builtin.Equiv
                   then T.true_ else T.false_ in
@@ -1013,9 +1028,12 @@ module Make(E : Env.S) : S with module Env = E = struct
                   Literals.apply_subst renaming subst (mk_sc new_lits)
                   |> CCArray.to_list 
                 in
+                
+                let new_constraints = Constraints.update_constraints renaming (mk_sc (C.constraints c)) unif_subst in
+
                 let rule = Proof.Rule.mk ((if T.equal repl T.true_ then "eq" else "neq") ^ "_rw")  in
                 let proof = Proof.Step.inference ~tags:[Proof.Tag.T_ho] ~rule (parents renaming subst) in
-                C.create ~penalty:(C.penalty c) ~trail:(C.trail c) new_lits proof
+                C.create ~penalty:(C.penalty c) ~trail:(C.trail c) ~constraints:new_constraints new_lits proof
               ) unif_subst_opt))
       | _ -> None)
     |> Iter.flat_map_l (fun clause_seq ->
@@ -1422,7 +1440,7 @@ module Make(E : Env.S) : S with module Env = E = struct
       ) else (
         let proof = Proof.Step.simp [C.proof_parent c] 
             ~rule:(Proof.Rule.mk "simplify boolean subterms") in
-        let new_ = C.create ~trail:(C.trail c) ~penalty:(C.penalty c) 
+        let new_ = C.create ~trail:(C.trail c) ~penalty:(C.penalty c) ~constraints:(C.constraints c)
             (Array.to_list new_lits) proof in
         SimplM.return_new new_
       )
@@ -1637,7 +1655,9 @@ module Make(E : Env.S) : S with module Env = E = struct
     | Some _ ->
       let f = Literals.Conv.to_tst (C.lits c) in
       let proof = Proof.Step.simp ~rule:(Proof.Rule.mk "cnf_otf") ~tags:[Proof.Tag.T_ho] [C.proof_parent c] in
-      let trail = C.trail c and penalty = C.penalty c in
+      let trail = C.trail c in
+      let constraints = C.constraints c in
+      let penalty = C.penalty c in
       let stmt = Statement.assert_ ~proof f in
       let cnf_vec = Cnf.convert @@ CCVector.to_iter @@ Cnf.cnf_of ~opts ~ctx:(Ctx.sk_ctx ()) stmt in
       CCVector.iter (fun cl -> 
@@ -1655,7 +1675,7 @@ module Make(E : Env.S) : S with module Env = E = struct
                     |> CCVector.to_list 
                     |> CCList.flatten
                     |> FList.map (fun c -> 
-                        C.create ~penalty  ~trail (CCArray.to_list (C.lits c)) proof) in
+                        C.create ~penalty ~constraints ~trail (CCArray.to_list (C.lits c)) proof) in
       Util.debugf ~section 5 "cl:@[%a@]@." (fun k-> k C.pp c);
       Util.debugf ~section 5 " @[%a@]@." (fun k-> k (CCList.pp C.pp) clauses);
       List.iteri (fun _ new_c -> 
@@ -1767,7 +1787,7 @@ module Make(E : Env.S) : S with module Env = E = struct
             CCOpt.get_or ~default:[] @@
             solve_bool_formulas ~which:`OnlyPositive c
         ));
-      if Env.flex_get k_trigger_bool_inst > 0 || Env.flex_get k_trigger_bool_ind > 0 then (
+      if Env.flex_get k_trigger_bool_inst > 0 || Env.flex_get k_trigger_bool_ind > 0 then ( (* false for preunif approach *)
         Signal.on Env.on_pred_var_elimination handle_new_pred_var_clause;
         Signal.on Env.FormRename.on_pred_skolem_introduction handle_new_skolem_sym;
       );
@@ -1794,8 +1814,9 @@ module Make(E : Env.S) : S with module Env = E = struct
 
       Env.add_unary_inf "false_elim" false_elim;
       if Env.flex_get k_bool_reasoning = BoolHoist then (
-        if Env.flex_get k_bool_hoist_simpl
-        then Env.add_multi_simpl_rule ~priority:1000 bool_hoist_simpl;
+        if Env.flex_get k_bool_hoist_simpl then
+          Env.add_multi_simpl_rule ~priority:1000 bool_hoist_simpl;
+
         Env.add_unary_inf "bool_hoist" bool_hoist;
 
         if Env.flex_get k_rename_nested_bools then (
@@ -1816,7 +1837,7 @@ module Make(E : Env.S) : S with module Env = E = struct
           );
           if Env.flex_get k_fluid_log_hoist then (
             Env.add_unary_inf "fluid_log_hoist" fluid_log_hoist;
-            Env.add_unary_inf "fluid_quant_rw" fluid_quant_rw;
+            on_preunif ~off:(fun () -> Env.add_unary_inf "fluid_quant_rw" fluid_quant_rw) ~on:Fun.id;
           );
         );
       )

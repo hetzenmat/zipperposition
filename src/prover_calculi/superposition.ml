@@ -114,6 +114,10 @@ let _NO_LAMSUP = -1
 
 let get_unif_module (module E : Env.S) : (module UnifFramework.US) = E.flex_get k_unif_module
 
+let on_preunif (module E : Env.S) ~off ~on =
+  match E.flex_get k_store_unification_constraints with
+  | true -> on ()
+  | false -> off ()
 
 
 module Make(Env : Env.S) : S with module Env = Env = struct

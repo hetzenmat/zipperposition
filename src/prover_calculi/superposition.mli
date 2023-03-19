@@ -22,6 +22,7 @@ val k_ho_basic_rules : bool Flex_state.key
 val k_rewrite_quantifiers : bool Flex_state.key
 val k_store_unification_constraints : bool Flex_state.key
 val get_unif_module : (module Env.S) -> (module UnifFramework.US)
+val on_preunif : (module Env.S) -> off:(unit -> 'a) -> on:(unit -> 'a) -> 'a
 
 val register : sup:(module S) -> unit
 (** Register the superposition module to its Environment's
