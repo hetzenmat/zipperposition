@@ -59,6 +59,13 @@ let vars (constraints : t) =
 |> T.VarSet.of_iter
 |> T.VarSet.to_list
 
+let pp_single out ((t1,t2) : elem) =
+  Lit.pp out (Lit.mk_eq t1 t2)
+
+let pp out constraints =
+  if not (CCList.is_empty constraints) then
+    Format.fprintf out "⟦%a⟧" (Util.pp_list ~sep:", " pp_single) constraints
+
 let renamer ~counter t0s t1s = 
   let lhs,rhs, unifscope, us = U.FO.rename_to_new_scope ~counter t0s t1s in
   lhs,rhs,unifscope,U.subst us

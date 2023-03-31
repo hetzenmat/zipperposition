@@ -86,7 +86,7 @@ let pp_trail out trail =
   if not (Trail.is_empty trail)
   then
     Format.fprintf out "@ @<2>← @[<hv>%a@]"
-      (Util.pp_iter ~sep:" ⊓ " BBox.pp) (Trail.to_iter trail)
+      (Util.pp_iter ~sep:" ⊓ "  BBox.pp) (Trail.to_iter trail)
 
 let pp_vars out c =
   let pp_vars out = function

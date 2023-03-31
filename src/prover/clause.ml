@@ -584,9 +584,11 @@ module Make(Ctx : Ctx.S) : S with module Ctx = Ctx = struct
           (Iter.of_array_i lits)
       )
     in
-    Format.fprintf out "@[%a@[<2>%a%a@]@]/id:%d/depth:%d/penalty:%d/red:%b"
+    Format.fprintf out "@[%a@[<2>%a%a%a@]@]/id:%d/depth:%d/penalty:%d/red:%b"
       SClause.pp_vars c.sclause pp_lits c.sclause.lits
-      SClause.pp_trail c.sclause.trail c.sclause.id
+      SClause.pp_trail c.sclause.trail
+      Constraints.pp c.sclause.constraints
+      c.sclause.id
       (proof_depth c) (penalty c) (is_redundant c);
     ()
 

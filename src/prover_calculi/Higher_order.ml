@@ -1055,13 +1055,14 @@ module Make(E : Env.S) : S with module Env = E = struct
         (fun (subst,penalty) ->
           let renaming = Subst.Renaming.create() in
           let lits = Literals.apply_subst renaming subst (C.lits c,sc_c) in
+          let constraints = Constraints.apply_subst ~renaming ~subst (C.constraints c, sc_c) in
           let proof =
             Proof.Step.inference ~rule:(Proof.Rule.mk "ho.refine") ~tags:[Proof.Tag.T_ho]
               [C.proof_parent_subst renaming (c,sc_c) subst]
           in
           let new_c =
             C.create_a lits proof
-              ~penalty:(C.penalty c + penalty) ~trail:(C.trail c)
+              ~penalty:(C.penalty c + penalty) ~trail:(C.trail c) ~constraints
           in
           Util.debugf ~section 1
             "(@[<hv2>ho.refine@ :from %a@ :subst %a@ :yields %a@])"
@@ -2008,13 +2009,13 @@ module Make(E : Env.S) : S with module Env = E = struct
     else (
       let renaming = Subst.Renaming.none in
       let new_lits = Lits.apply_subst renaming subst (C.lits c, 0) in
-      (* TODO [MH] apply subst to constraints *)
+      let new_constraints = Constraints.apply_subst ~renaming ~subst (C.constraints c, 0) in
       let proof =
         Proof.Step.simp
           ~rule:(Proof.Rule.mk "prune_arg_fun")
           ~tags:[Proof.Tag.T_ho]
           [C.proof_parent_subst renaming (c,0) subst] in
-      let c' = C.create_a ~trail:(C.trail c) ~penalty:(C.penalty c) new_lits proof in
+      let c' = C.create_a ~trail:(C.trail c) ~penalty:(C.penalty c) ~constraints:new_constraints new_lits proof in
 
       Util.debugf ~section 3
         "@[<>@[%a@]@ @[<2>prune_arg_fun into@ @[%a@]@]@ with @[%a@]@]"
