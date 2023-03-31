@@ -297,7 +297,7 @@ module Make(E : Env.S) : S with module Env = E = struct
                       ~tags:[Proof.Tag.T_ho; Proof.Tag.T_ext]
                   in
                   let new_c =
-                    C.create new_lits proof ~penalty:(C.penalty c) ~trail:(C.trail c)
+                    C.create new_lits proof ~penalty:(C.penalty c) ~trail:(C.trail c) ~constraints:(C.constraints c)
                   in
                   [new_c])
              |> Iter.to_list
@@ -359,7 +359,7 @@ module Make(E : Env.S) : S with module Env = E = struct
           ~tags:[Proof.Tag.T_ho; Proof.Tag.T_ext; Proof.Tag.T_dont_increase_depth]
       in
       let new_c =
-        C.create ~penalty:(C.penalty c + penalty) ~trail:(C.trail c)
+        C.create ~penalty:(C.penalty c + penalty) ~trail:(C.trail c) ~constraints:(C.constraints c)
         (CCArray.to_list lits) proof in
       Util.debugf 1 ~section "NegExt: @[%a@] => @[%a@].\n" 
         (fun k -> k C.pp c C.pp new_c);
@@ -1696,7 +1696,7 @@ module Make(E : Env.S) : S with module Env = E = struct
           in
           let penalty = C.penalty c + (if poly then 1 else 0) in
           let new_c =
-            C.create new_lits proof ~penalty ~trail:(C.trail c) in
+            C.create new_lits proof ~penalty ~trail:(C.trail c) ~constraints:(C.constraints c) in
 
           if poly then (
             C.set_flag SClause.flag_poly_arg_cong_res new_c true;
@@ -1934,8 +1934,13 @@ module Make(E : Env.S) : S with module Env = E = struct
     in
 
     let status = VTbl.create 8 in
-    let free_vars = Literals.vars (C.lits c) |> T.VarSet.of_list in
-    C.lits c
+    let constr_as_lits = C.constraints c |> FList.map (fun (t1,t2) -> Lit.mk_eq t1 t2) in
+    let all_lits =  Iter.append (CCArray.to_iter (C.lits c)) (CCList.to_iter constr_as_lits) |> Iter.to_array in
+
+    let free_vars = Literals.vars all_lits |> T.VarSet.of_list in
+    let free_vars = T.VarSet.add_list free_vars (Constraints.vars (C.constraints c)) in
+
+    all_lits
     |> Literals.map (fun t -> Combs.expand t) (* to make sure that DB indices are everywhere the same *)
     |> Literals.fold_terms ~vars:true ~ty_args:false ~which:`All ~ord:Ordering.none 
                            ~subterms:true  ~eligible:(fun _ _ -> true)
@@ -2003,6 +2008,7 @@ module Make(E : Env.S) : S with module Env = E = struct
     else (
       let renaming = Subst.Renaming.none in
       let new_lits = Lits.apply_subst renaming subst (C.lits c, 0) in
+      (* TODO [MH] apply subst to constraints *)
       let proof =
         Proof.Step.simp
           ~rule:(Proof.Rule.mk "prune_arg_fun")

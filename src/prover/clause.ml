@@ -84,9 +84,13 @@ module Make(Ctx : Ctx.S) : S with module Ctx = Ctx = struct
   let trail c = c.sclause.trail
   let has_trail c = not (Trail.is_empty c.sclause.trail)
   let trail_subsumes c1 c2 = Trail.subsumes c1.sclause.trail c2.sclause.trail
+
   let is_active c ~v = Trail.is_active c.sclause.trail ~v
 
   let constraints c = c.sclause.constraints
+
+  let is_unconstrained c = CCList.is_empty c.sclause.constraints 
+  
   let penalty c = c.penalty
   let inc_penalty c inc = c.penalty <- c.penalty + inc
 
@@ -389,9 +393,9 @@ module Make(Ctx : Ctx.S) : S with module Ctx = Ctx = struct
   let bool_selected c  = Lazy.force c.bool_selected
 
   (** is the clause a unit clause? *)
-  let is_unit_clause c = match c.sclause.lits with
+  let is_unit_clause c = is_unconstrained c && (match c.sclause.lits with
     | [|_|] -> true
-    | _ -> false
+    | _ -> false)
 
   let is_oriented_rule c =
     let ord = Ctx.ord () in

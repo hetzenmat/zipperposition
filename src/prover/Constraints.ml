@@ -5,6 +5,7 @@ module T = Term
 module US = Unif_subst
 module H = HVar
 module U = Unif_subst
+module Lit = Literal
 
 type subst = US.t
 
@@ -51,6 +52,12 @@ let update_constraints renaming constraints us =
     That is: iterate all pairs and if the heads are variables and not referenced in 
   *)
 let solvable (constraints: t): bool = constraints |> Fun.const (); assert false (** TODO [MH] *)
+
+let vars (constraints : t) =
+  Iter.of_list constraints
+|> Iter.flat_map (fun (t1,t2) -> Iter.append (T.Seq.vars t1) (T.Seq.vars t2))
+|> T.VarSet.of_iter
+|> T.VarSet.to_list
 
 let renamer ~counter t0s t1s = 
   let lhs,rhs, unifscope, us = U.FO.rename_to_new_scope ~counter t0s t1s in

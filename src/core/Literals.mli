@@ -45,6 +45,7 @@ val matches : t -> t -> bool
 val weight : t -> int
 val ho_weight : t -> int
 val depth : t -> int
+val vars_iter : Literal.t Iter.t -> Type.t HVar.t list
 val vars : t -> Type.t HVar.t list
 val is_ground : t -> bool       (** all the literals are ground? *)
 

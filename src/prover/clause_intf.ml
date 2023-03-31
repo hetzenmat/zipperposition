@@ -78,6 +78,8 @@ module type S = sig
 
   val constraints : t -> Constraints.t
 
+  val is_unconstrained : t -> bool
+
   val is_inj_axiom : t -> (ID.t * int) option
   (** Returns Some (sym,i) if clause is injectivity axiom for ith argument
       of symbol sym. *)

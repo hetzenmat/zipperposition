@@ -92,6 +92,7 @@ let k_ho_basic_rules = Flex_state.create_key ()
 let k_max_infs = Flex_state.create_key ()
 let k_switch_stream_extraction = Flex_state.create_key ()
 let k_dont_simplify = Flex_state.create_key ()
+let k_contextual_literal_cutting = Flex_state.create_key ()
 let k_use_semantic_tauto = Flex_state.create_key ()
 let k_restrict_fluidsup = Flex_state.create_key ()
 let k_check_sup_at_var_cond = Flex_state.create_key ()
@@ -418,9 +419,9 @@ module Make(Env : Env.S) : S with module Env = Env = struct
          _idx_fv := SubsumIdx.remove !_idx_fv c;
          _update_active TermIndex.remove c);
     Signal.on PS.SimplSet.on_add_clause
-      (_update_simpl UnitIdx.add);
+      (fun c -> if C.is_unconstrained c then (_update_simpl UnitIdx.add c) else Signal.ContinueListening);
     Signal.on PS.SimplSet.on_remove_clause
-      (_update_simpl UnitIdx.remove);
+      (fun c -> if C.is_unconstrained c then (_update_simpl UnitIdx.remove c) else Signal.ContinueListening);
     ()
 
   (** {5 Inference Rules} *)
@@ -2218,7 +2219,7 @@ module Make(Env : Env.S) : S with module Env = Env = struct
     set'
 
   let is_tautology c =
-    let is_tauto = Lits.is_trivial (C.lits c) || Trail.is_trivial (C.trail c) in
+    let is_tauto = (Lits.is_trivial (C.lits c) || Trail.is_trivial (C.trail c)) && C.only_flex_flex c in
     if is_tauto then Util.debugf ~section 3 "@[@[%a@]@ is a tautology@]" (fun k->k C.pp c);
     is_tauto
 
@@ -2266,6 +2267,7 @@ module Make(Env : Env.S) : S with module Env = Env = struct
   let var_in_subst_ us v sc =
     S.mem (US.subst us) ((v:T.var:>InnerTerm.t HVar.t),sc)
 
+  (** Works with constraints *)
   let basic_simplify c =
     if C.get_flag flag_simplified c
     then SimplM.return_same c
@@ -2347,7 +2349,7 @@ module Make(Env : Env.S) : S with module Env = Env = struct
             ~tags:!tags ~rule:(Proof.Rule.mk "simplify") in
         let new_lits = if List.exists Lit.is_trivial new_lits then [Lit.mk_tauto] else new_lits in
         let new_clause =
-          C.create ~trail:(C.trail c) ~penalty:(C.penalty c) new_lits proof
+          C.create ~trail:(C.trail c) ~penalty:(C.penalty c) ~constraints:(C.constraints c) new_lits proof
         in
         Util.debugf ~section 3
           "@[<>@[%a@]@ @[<2>basic_simplifies into@ @[%a@]@]@ with @[%a@]@]"
@@ -2448,8 +2450,7 @@ module Make(Env : Env.S) : S with module Env = Env = struct
         let proof =
           Proof.Step.simp ~rule:(Proof.Rule.mk "inner_simplify_reflect")
             ((C.proof_parent c)::parents) in
-        let trail = C.trail c and penalty = C.penalty c in
-        let new_c = C.create ~trail ~penalty lits proof in
+        let new_c = C.create ~trail:(C.trail c) ~penalty:(C.penalty c) ~constraints:(C.constraints c) lits proof in
         SimplM.return_new new_c
       ) else (SimplM.return_same c)
     ) else (SimplM.return_same c)
@@ -2547,8 +2548,7 @@ module Make(Env : Env.S) : S with module Env = Env = struct
       let proof =
         Proof.Step.simp ~rule:(Proof.Rule.mk "simplify_reflect+")
           (FList.map C.proof_parent (c::(C.ClauseSet.to_list premises))) in
-      let trail = C.trail c and penalty = C.penalty c in
-      let new_c = C.create ~trail ~penalty new_lits proof in
+      let new_c = C.create ~trail:(C.trail c) ~penalty:(C.penalty c) ~constraints:(C.constraints c) new_lits proof in
       Util.debugf ~section 3 "@[@[%a@]@ pos_simplify_reflect into @[%a@]@]"
         (fun k->k C.pp c C.pp new_c);
       ZProf.exit_prof _span;
@@ -2585,7 +2585,7 @@ module Make(Env : Env.S) : S with module Env = Env = struct
         Proof.Step.simp
           ~rule:(Proof.Rule.mk "simplify_reflect-")
           (C.proof_parent c :: premises) in
-      let new_c = C.create ~trail:(C.trail c) ~penalty:(C.penalty c) lits proof in
+      let new_c = C.create ~trail:(C.trail c) ~penalty:(C.penalty c) ~constraints:(C.constraints c) lits proof in
       Util.debugf ~section 3 "@[@[%a@]@ neg_simplify_reflect into @[%a@]@]"
         (fun k->k C.pp c C.pp new_c);
       ZProf.exit_prof _span;
@@ -2824,58 +2824,69 @@ module Make(Env : Env.S) : S with module Env = Env = struct
   let subsumed_by_active_set c =
     let _span = ZProf.enter_prof prof_subsumption_set in
     Util.incr_stat stat_subsumed_by_active_set_call;
-    (* if there is an equation in c, try equality subsumption *)
-    let try_eq_subsumption = CCArray.exists Lit.is_eqn (C.lits c) in
-    (* use feature vector indexing *)
-    let c = if Env.flex_get k_ground_subs_check > 0 then  C.ground_clause c else c in
-    let res =
-      SubsumIdx.retrieve_subsuming_c !_idx_fv c
-      |> Iter.exists
-        (fun c' ->
-           let res = 
-             C.trail_subsumes c' c
-             &&
-             ( (try_eq_subsumption && eq_subsumes (C.lits c') (C.lits c))
-               ||
-               subsumes (C.lits c') (C.lits c)
-             ) in
-           if res  then (
-            Util.debugf ~section 2 "@[<2>@[%a@]@ subsumed by @[%a@]@]" (fun k->k C.pp c C.pp c');
-            Util.incr_stat stat_clauses_subsumed;
-           );
-           res)
-    in
-    ZProf.exit_prof _span;
-    res
+    if C.is_unconstrained c then begin
+      (* if there is an equation in c, try equality subsumption *)
+      let try_eq_subsumption = CCArray.exists Lit.is_eqn (C.lits c) in
+      (* use feature vector indexing *)
+      let c = if Env.flex_get k_ground_subs_check > 0 then  C.ground_clause c else c in
+      let res =
+        SubsumIdx.retrieve_subsuming_c !_idx_fv c
+        |> Iter.exists
+          (fun c' ->
+            let res = 
+              C.trail_subsumes c' c
+              &&
+              ( (try_eq_subsumption && eq_subsumes (C.lits c') (C.lits c))
+                ||
+                subsumes (C.lits c') (C.lits c)
+              ) in
+            if res  then (
+              Util.debugf ~section 2 "@[<2>@[%a@]@ subsumed by @[%a@]@]" (fun k->k C.pp c C.pp c');
+              Util.incr_stat stat_clauses_subsumed;
+            );
+            res)
+      in
+      ZProf.exit_prof _span;
+      res
+    end else (
+      ZProf.exit_prof _span;
+      false
+    )
+    
 
   let subsumed_in_active_set acc c =
     let _span = ZProf.enter_prof prof_subsumption_in_set in
     Util.incr_stat stat_subsumed_in_active_set_call;
-    (* if c is a single unit clause *)
-    let try_eq_subsumption =
-      C.is_unit_clause c && Lit.is_positivoid (C.lits c).(0)
-    in
-    (* use feature vector indexing *)
-    let res =
-      SubsumIdx.retrieve_subsumed_c !_idx_fv c
-      |> Iter.fold
-        (fun res c' ->
-           if C.trail_subsumes c c'
-           then
-             let c' = if Env.flex_get k_ground_subs_check > 1 then C.ground_clause c' else c' in
-             let redundant =
-               (try_eq_subsumption && eq_subsumes (C.lits c) (C.lits c'))
-               || subsumes (C.lits c) (C.lits c')
-             in
-             if redundant then (
-               Util.incr_stat stat_clauses_subsumed;
-               C.ClauseSet.add c' res
-             ) else res
-           else res)
-        acc
-    in
-    ZProf.exit_prof _span;
-    res
+    if C.is_unconstrained c then begin
+      (* if c is a single unit clause *)
+      let try_eq_subsumption =
+        C.is_unit_clause c && Lit.is_positivoid (C.lits c).(0)
+      in
+      (* use feature vector indexing *)
+      let res =
+        SubsumIdx.retrieve_subsumed_c !_idx_fv c
+        |> Iter.fold
+          (fun res c' ->
+            if (C.trail_subsumes c c' && C.is_unconstrained c')
+            then
+              let c' = if Env.flex_get k_ground_subs_check > 1 then C.ground_clause c' else c' in
+              let redundant =
+                (try_eq_subsumption && eq_subsumes (C.lits c) (C.lits c'))
+                || subsumes (C.lits c) (C.lits c')
+              in
+              if redundant then (
+                Util.incr_stat stat_clauses_subsumed;
+                C.ClauseSet.add c' res
+              ) else res
+            else res)
+          acc
+      in
+      ZProf.exit_prof _span;
+      res
+    end else (
+      ZProf.exit_prof _span;
+      acc
+    )
 
   (* Number of equational lits. Used as an estimation for the difficulty of the subsumption
      check for this clause. *)
@@ -3016,7 +3027,7 @@ module Make(Env : Env.S) : S with module Env = Env = struct
           Proof.Step.simp
             ~rule:(Proof.Rule.mk "condensation") ~tags
             [C.proof_parent_subst renaming (c,0) subst] in
-        let c' = C.create_a ~trail:(C.trail c) ~penalty:(C.penalty c) new_lits proof in
+        let c' = C.create_a ~trail:(C.trail c) ~penalty:(C.penalty c) ~constraints:(C.constraints c) new_lits proof in
         Util.debugf ~section 3
           "@[<2>condensation@ of @[%a@] (with @[%a@])@ gives @[%a@]@]"
           (fun k->k C.pp c S.pp subst C.pp c');
@@ -3035,6 +3046,8 @@ module Make(Env : Env.S) : S with module Env = Env = struct
     let subsumes subsumer subsumee =
       (subsumption_weight subsumer <= subsumption_weight subsumee) &&
       C.trail_subsumes subsumer subsumee &&
+      C.is_unconstrained subsumer &&
+      C.is_unconstrained subsumee &&
       ((Array.exists Lit.is_eqn (C.lits subsumee) && 
           eq_subsumes (C.lits subsumer) (C.lits subsumee)) ||
         subsumes (C.lits subsumer) (C.lits subsumee)) in
@@ -3208,9 +3221,9 @@ module Make(Env : Env.S) : S with module Env = Env = struct
       >>= negative_simplify_reflect
       >>= formula_simplify_reflect
     in
-    let active_simplify c =
-      condensation c
-      >>= contextual_literal_cutting
+    let active_simplify =
+      if Env.flex_get k_contextual_literal_cutting then (fun c -> condensation c >>= contextual_literal_cutting)
+      else condensation
     in
     let backward_simplify c =
       let set = C.ClauseSet.empty in
@@ -3294,6 +3307,7 @@ let _dot_sup_into = ref None
 let _dot_sup_from = ref None
 let _dot_simpl = ref None
 let _dont_simplify = ref false
+let _contextual_literal_cutting = ref true
 let _sup_at_vars = ref false
 let _sup_at_var_headed = ref true
 let _sup_from_var_headed = ref true
@@ -3409,6 +3423,7 @@ let register ~sup =
   E.flex_add k_max_infs !_max_infs;
   E.flex_add k_switch_stream_extraction !_switch_stream_extraction;
   E.flex_add k_dont_simplify !_dont_simplify;
+  E.flex_add k_contextual_literal_cutting !_contextual_literal_cutting;
   E.flex_add k_use_semantic_tauto !_use_semantic_tauto;
   E.flex_add k_bool_demod !_bool_demod;
   E.flex_add k_immediate_simplification !_immediate_simplification;
@@ -3704,4 +3719,5 @@ let () =
     _store_unification_constraints := true;
     _rewrite_quantifiers := true;
     _unif_alg := `Preunification;
+    _contextual_literal_cutting := false;
   );

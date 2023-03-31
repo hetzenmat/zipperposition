@@ -70,11 +70,12 @@ let ho_weight lits =
 let depth lits =
   Array.fold_left (fun d lit -> max d (Lit.depth lit)) 0 lits
 
-let vars lits =
-  Iter.of_array lits
+let vars_iter it = it
   |> Iter.flat_map Lit.Seq.vars
   |> T.VarSet.of_iter
   |> T.VarSet.to_list
+
+let vars lits = lits |> Iter.of_array |> vars_iter
 
 let is_ground lits =
   CCArray.for_all Lit.is_ground lits
