@@ -15,8 +15,6 @@ module US = Unif_subst
 module P = Position
 module HO = Higher_order
 
-let _NOT_IMPLEMENTED = assert false
-
 let section = Util.Section.make ~parent:Const.section "sup"
 
 (* flag meaning the clause has been simplified already *)
