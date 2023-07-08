@@ -77,6 +77,7 @@ let k_quant_demod = Flex_state.create_key ()
 let k_use_simultaneous_sup = Flex_state.create_key ()
 let k_unif_alg = Flex_state.create_key ()
 let k_unif_module : (module UnifFramework.US) Flex_state.key = Flex_state.create_key ()
+let k_preunif_module : (module UnifFramework.US) Flex_state.key = Flex_state.create_key ()
 let k_fluidsup_penalty = Flex_state.create_key ()
 let k_dupsup_penalty = Flex_state.create_key ()
 let k_ground_subs_check = Flex_state.create_key ()
@@ -90,6 +91,7 @@ let k_ho_basic_rules = Flex_state.create_key ()
 let k_max_infs = Flex_state.create_key ()
 let k_switch_stream_extraction = Flex_state.create_key ()
 let k_dont_simplify = Flex_state.create_key ()
+let k_dont_demodulate = Flex_state.create_key ()
 let k_contextual_literal_cutting = Flex_state.create_key ()
 let k_use_semantic_tauto = Flex_state.create_key ()
 let k_restrict_fluidsup = Flex_state.create_key ()
@@ -1230,8 +1232,8 @@ module Make(Env : Env.S) : S with module Env = Env = struct
       let streams = begin match Env.flex_get k_store_unification_constraints with
         | false -> streams
         | true ->
-          let (module UnifModule) = Env.flex_get k_unif_module in
-          streams |> FList.map ( fun (penalty, parents, seq) -> (penalty, parents, Env.wrap_with_preunif UnifModule.unify_scoped_l seq))
+          let (module Preunif) = Env.flex_get k_preunif_module in
+          streams |> FList.map ( fun (penalty, parents, seq) -> (penalty, parents, Env.wrap_with_preunif Preunif.unify_scoped_l seq))
 
       end in
 
@@ -2175,8 +2177,9 @@ module Make(Env : Env.S) : S with module Env = Env = struct
     else (
       let new_lits = Literals.apply_subst Subst.Renaming.none neg_vars_renaming (C.lits c, 0)
                      |> CCArray.to_list in
+      let new_constraints = Constraints.apply_subst ~renaming:Subst.Renaming.none ~subst:neg_vars_renaming (C.constraints c, 0) in
       let proof = Proof.Step.inference [C.proof_parent c] ~rule:(Proof.Rule.mk "cannonize vars") in
-      let new_c = C.create ~trail:(C.trail c) ~penalty:(C.penalty c) new_lits proof in
+      let new_c = C.create ~trail:(C.trail c) ~penalty:(C.penalty c) ~constraints:new_constraints new_lits proof in
       SimplM.return_new new_c)
 
   (** Find clauses that [given] may demodulate, add them to set *)
@@ -2255,7 +2258,8 @@ module Make(Env : Env.S) : S with module Env = Env = struct
   let is_semantic_tautology_ c =
     if Array.length (C.lits c) >= 2 &&
        CCArray.exists Lit.is_negativoid (C.lits c) &&
-       CCArray.exists Lit.is_positivoid (C.lits c)
+       CCArray.exists Lit.is_positivoid (C.lits c) &&
+       C.is_unconstrained c
     then is_semantic_tautology_real c
     else false
 
@@ -3213,7 +3217,9 @@ module Make(Env : Env.S) : S with module Env = Env = struct
     let open SimplM.Infix in
     let rw_simplify c =
       canonize_variables c
-      >>= demodulate
+      >>= (match Env.flex_get k_dont_demodulate with
+           | true -> SimplM.return_same
+           | false -> demodulate)
       >>= basic_simplify
       >>= positive_simplify_reflect
       >>= negative_simplify_reflect
@@ -3305,6 +3311,7 @@ let _dot_sup_into = ref None
 let _dot_sup_from = ref None
 let _dot_simpl = ref None
 let _dont_simplify = ref false
+let _dont_demodulate = ref false
 let _contextual_literal_cutting = ref true
 let _sup_at_vars = ref false
 let _sup_at_var_headed = ref true
@@ -3421,6 +3428,7 @@ let register ~sup =
   E.flex_add k_max_infs !_max_infs;
   E.flex_add k_switch_stream_extraction !_switch_stream_extraction;
   E.flex_add k_dont_simplify !_dont_simplify;
+  E.flex_add k_dont_demodulate !_dont_demodulate;
   E.flex_add k_contextual_literal_cutting !_contextual_literal_cutting;
   E.flex_add k_use_semantic_tauto !_use_semantic_tauto;
   E.flex_add k_bool_demod !_bool_demod;
@@ -3465,20 +3473,21 @@ let register ~sup =
   let module JPF = JPFull.Make(struct let st = E.flex_state () end) in
   let module JPP = PUnif.Make(struct let st = E.flex_state () end) in
   let module Preunif = Constraints.Make(struct let st = E.flex_state () end) in
-  E.flex_add k_unif_module (module JPF : UnifFramework.US);
+  E.flex_add k_preunif_module (module Preunif : UnifFramework.US);
   begin match !_unif_alg with 
     | `OldJP -> 
       E.flex_add k_unif_alg JP_unif.unify_scoped;
+      E.flex_add k_unif_module (module JPF : UnifFramework.US);
       E.flex_add PragUnifParams.k_unif_alg_is_terminating false;
     | `NewJPFull -> 
       E.flex_add k_unif_alg JPF.unify_scoped;
+      E.flex_add k_unif_module (module JPF : UnifFramework.US);
       E.flex_add PragUnifParams.k_unif_alg_is_terminating false;
     | `NewJPPragmatic -> 
       E.flex_add k_unif_alg JPP.unify_scoped;
       E.flex_add k_unif_module (module JPP : UnifFramework.US);
-    | `Preunification ->
-      E.flex_add k_unif_alg Preunif.unify_scoped;
-      E.flex_add k_unif_module (module Preunif : UnifFramework.US);
+    | `Constraint ->
+      E.flex_add k_unif_alg Constraints.only_constraints;
       E.flex_add PragUnifParams.k_unif_alg_is_terminating false;
   end
 
@@ -3507,6 +3516,7 @@ let () =
       "--dot-demod-into", Arg.String (fun s -> _dot_demod_into := Some s), " print backward rewriting index into file"; 
       "--simultaneous-sup", Arg.Bool (fun b -> _use_simultaneous_sup := b), " enable/disable simultaneous superposition";
       "--dont-simplify", Arg.Set _dont_simplify, " disable simplification rules";
+      "--dont-demodulate", Arg.Set _dont_demodulate, " disable demodulation";
       "--sup-at-vars", Arg.Bool (fun v -> _sup_at_vars := v), " enable/disable superposition at variables under certain ordering conditions";
       "--sup-at-var-headed", Arg.Bool (fun b -> _sup_at_var_headed := b), " enable/disable superposition at variable headed terms";
       "--sup-from-var-headed", Arg.Bool (fun b -> _sup_from_var_headed := b), " enable/disable superposition from variable headed terms";
@@ -3540,7 +3550,7 @@ let () =
                   (function | "full"                -> _unif_alg := `OldJP
                             | "full-framework"      -> _unif_alg := `NewJPFull
                             | "pragmatic-framework" -> unif_params_to_def (); _unif_alg := `NewJPPragmatic
-                            | "preunification"      -> _unif_alg := `Preunification
+                            | "constraint"          -> _unif_alg := `Constraint
                             | _                     -> invalid_arg "unknown argument")), "set the level of HO unification";
       "--ho-imitation-first",Arg.Bool (fun v -> _imit_first:=v), " Use imitation rule before projection rule";
       "--ho-unif-logop-mode",Arg.Symbol (["conservative"; "pragmatic"; "off"], 
@@ -3716,6 +3726,7 @@ let () =
   Params.add_to_mode "ho-optimistic" (fun () ->
     _store_unification_constraints := true;
     _rewrite_quantifiers := true;
-    _unif_alg := `Preunification;
+    _unif_alg := `Constraint;
     _contextual_literal_cutting := false;
+    _dont_demodulate := true;
   );

@@ -148,6 +148,9 @@ module Make(E : Env.S) = struct
       ZProf.message (fun () -> Format.asprintf "given: %a" Env.C.pp_tstp c);
 
       check_clause_ c;
+
+      (* TODO [MH] only use clause with flex-flex constraints for inferences. Otherwise wrap with preunification*)
+
       Util.incr_stat stat_steps;
       let cl_ref = ref (fun () -> assert false) in
       begin match Env.all_simplify c with
