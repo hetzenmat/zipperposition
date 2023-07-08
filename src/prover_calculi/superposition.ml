@@ -133,6 +133,8 @@ module Make(Env : Env.S) : S with module Env = Env = struct
   module Stm = Env.Stm
   module StmQ = Env.StmQ
 
+  let on_preunif ~off ~on = on_preunif (module Env) ~off ~on
+
   (** {6 Stream queue} *)
   let _cc_simpl = ref (Congruence.FO.create ~size:256 ())
 
@@ -1229,13 +1231,11 @@ module Make(Env : Env.S) : S with module Env = Env = struct
     ) else (
       let streams = FList.map g inf_res in
 
-      let streams = begin match Env.flex_get k_store_unification_constraints with
-        | false -> streams
-        | true ->
-          let (module Preunif) = Env.flex_get k_preunif_module in
-          streams |> FList.map ( fun (penalty, parents, seq) -> (penalty, parents, Env.wrap_with_preunif Preunif.unify_scoped_l seq))
-
-      end in
+      let streams = on_preunif
+        ~off:(fun () -> streams)
+        ~on:(fun () -> let (module Preunif) = Env.flex_get k_preunif_module in
+                       streams |> FList.map (fun (penalty, parents, seq) -> (penalty, parents, Env.wrap_with_preunif Preunif.unify_scoped_l seq)))
+      in
 
       let clauses, streams = force_getting_cl streams in
       StmQ.add_lst (Env.get_stm_queue ()) streams;
