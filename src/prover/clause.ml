@@ -209,7 +209,7 @@ module Make(Ctx : Ctx.S) : S with module Ctx = Ctx = struct
   let is_empty c =
     Lits.is_absurd c.sclause.lits
     && Trail.is_empty c.sclause.trail
-    && Constraints.solvable c.sclause.constraints
+    && Lazy.force c.only_flex_flex   
 
   let length c = SClause.length c.sclause
 

@@ -44,15 +44,6 @@ let update_constraints renaming constraints us =
   let subst_constraints = apply_subst ~renaming ~subst constraints in
   merge subst_constraints constr_l
 
-(** Are the constraints solvable?
-      
-    This should be a sound approximation (not complete).
-    So we only check if only flex-flex pairs are present.
-
-    That is: iterate all pairs and if the heads are variables and not referenced in 
-  *)
-let solvable (constraints: t): bool = constraints |> Fun.const (); assert false (** TODO [MH] *)
-
 let vars (constraints : t) =
   Iter.of_list constraints
 |> Iter.flat_map (fun (t1,t2) -> Iter.append (T.Seq.vars t1) (T.Seq.vars t2))
@@ -64,7 +55,7 @@ let pp_single out ((t1,t2) : elem) =
 
 let pp out constraints =
   if not (CCList.is_empty constraints) then
-    Format.fprintf out "⟦%a⟧" (Util.pp_list ~sep:", " pp_single) constraints
+    Format.fprintf out "{{%a}}" (Util.pp_list ~sep:", " pp_single) constraints
 
 let renamer ~counter t0s t1s = 
   let lhs,rhs, unifscope, us = U.FO.rename_to_new_scope ~counter t0s t1s in
