@@ -57,6 +57,8 @@ let pp out constraints =
   if not (CCList.is_empty constraints) then
     Format.fprintf out "{{%a}}" (Util.pp_list ~sep:", " pp_single) constraints
 
+let to_string = CCFormat.to_string pp
+
 let renamer ~counter t0s t1s = 
   let lhs,rhs, unifscope, us = U.FO.rename_to_new_scope ~counter t0s t1s in
   lhs,rhs,unifscope,U.subst us
@@ -132,5 +134,15 @@ let unify_scoped_l =
   PreUnif.unify_scoped_l
 end
 
+let unif_simple t s = 
+  OSeq.return (try
+    let type_unifier = Unif.FO.unify_syn ~subst:Subst.empty t s in
+    Some type_unifier
+  with Unif.Fail -> None)
+
 let only_constraints ((t1,sc1) : T.t Scoped.t) ((t2,sc2) : T.t Scoped.t) : subst option OSeq.t =
-  OSeq.return @@ Some (US.make Subst.empty [Unif_constr.make ~tags:[] ((t1 : T.t :> InnerTerm.t),sc1) ((t2 : T.t :> InnerTerm.t),sc2)])
+  OSeq.map (function | None -> None
+                     | Some s -> Some (US.make s [Unif_constr.make ~tags:[] ((t1 : T.t :> InnerTerm.t),sc1) ((t2 : T.t :> InnerTerm.t),sc2)]))
+   (unif_simple ((Term.of_ty (T.ty t1)), sc1) ((Term.of_ty (T.ty t2)), sc2)) 
+
+  

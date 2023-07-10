@@ -354,6 +354,11 @@ module Make (P : PARAMETERS) = struct
         let norm t = T.normalize_bools @@ Lambda.eta_expand @@ Lambda.snf t in
         let l = norm @@ S.FO.apply Subst.Renaming.none subst' t0s in 
         let r = norm @@ S.FO.apply Subst.Renaming.none subst' t1s in
+
+        (* Check types for terms *)
+        if not (Type.equal (Term.ty l) (Term.ty r)) then (
+          assert false
+        );
         if not ((T.equal l r) && (Type.equal (Term.ty l) (Term.ty r))) then (
           CCFormat.printf "subst:@[%a@]@." Subst.pp subst';
           CCFormat.printf "orig:@[%a@]@.=?=@.@[%a@]@." (Scoped.pp T.pp) t0s (Scoped.pp T.pp) t1s;

@@ -603,14 +603,12 @@ module Make(Env : Env.S) : S with module Env = Env = struct
 
   let compute_constraints renaming subst constr_l parent_clauses =
     if Env.flex_get k_store_unification_constraints then begin
-      assert (Subst.is_empty subst);
-      assert (List.length constr_l = 1);
-      let constr = Constraints.get_constraint renaming subst (List.hd constr_l) in
+      let constr = Constraints.get_constraints renaming (Unif_subst.make subst constr_l) in
       let parent_constraints = FList.concat_map (fun (clause,scope) ->
         let constraints = C.constraints clause in
         Constraints.apply_subst ~renaming ~subst (constraints, scope)
         ) parent_clauses in
-      Constraints.add constr parent_constraints 
+      Constraints.merge constr parent_constraints 
     end else
       Constraints.mk_empty
 
@@ -3237,10 +3235,12 @@ module Make(Env : Env.S) : S with module Env = Env = struct
     let backward_redundant = subsumed_in_active_set in
     let is_trivial = is_tautology in
 
-    Env.add_basic_simplify normalize_equalities;
-    Env.add_basic_simplify flex_resolve;
-    if Env.flex_get k_local_rw != `Off then (
-      Env.add_basic_simplify local_rewrite
+    if not (Env.flex_get k_dont_simplify) then (
+      Env.add_basic_simplify normalize_equalities;
+      Env.add_basic_simplify flex_resolve;
+      if Env.flex_get k_local_rw != `Off then (
+        Env.add_basic_simplify local_rewrite
+      );
     );
 
     if Env.flex_get Combinators.k_enable_combinators
@@ -3372,6 +3372,7 @@ let _lambdasup = ref (-1)
 let _max_infs = ref (-1)
 
 let _unif_alg = ref `NewJPFull
+let _secondary_unif_alg = ref `NewJPFull
 let _unif_level = ref `Full
 let _ground_subs_check = ref 0
 let _solid_subsumption = ref false
@@ -3581,8 +3582,13 @@ let () =
                   (function | "full"                -> _unif_alg := `OldJP
                             | "full-framework"      -> _unif_alg := `NewJPFull
                             | "pragmatic-framework" -> unif_params_to_def (); _unif_alg := `NewJPPragmatic
-                            | "constraint"          -> _unif_alg := `Constraint
+                            | "preunification"      -> _unif_alg := `Constraint
                             | _                     -> invalid_arg "unknown argument")), "set the level of HO unification";
+      "--secondary-unif", Arg.Symbol (["full-framework"; "full"],
+      (function | "full"                -> _secondary_unif_alg := `OldJP
+                | "full-framework"      -> _secondary_unif_alg := `NewJPFull
+                (* Not supported for now since params get set globally| "pragmatic-framework" -> unif_params_to_def (); _unif_alg := `NewJPPragmatic *)
+                | _                     -> invalid_arg "unknown argument")), "set secondary HO unification algorithm for constraint solving";
       "--ho-imitation-first",Arg.Bool (fun v -> _imit_first:=v), " Use imitation rule before projection rule";
       "--ho-unif-logop-mode",Arg.Symbol (["conservative"; "pragmatic"; "off"], 
         (function | "conservative" -> _unif_logop_mode := `Conservative
@@ -3755,9 +3761,11 @@ let () =
       _check_sup_at_var_cond := false;
   );
   Params.add_to_mode "ho-optimistic" (fun () ->
+    _ho_basic_rules := true;
     _store_unification_constraints := true;
     _rewrite_quantifiers := true;
     _unif_alg := `Constraint;
     _contextual_literal_cutting := false;
     _dont_demodulate := true;
+    _sup_at_vars := true;
   );

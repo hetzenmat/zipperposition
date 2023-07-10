@@ -148,6 +148,9 @@ module Make(E : Env.S) = struct
 
       assert (not (CCList.is_empty @@ Env.C.constraints c));
 
+      Printf.printf "here!\n";
+      Printf.printf "cl %s\n" (Env.C.to_string c);
+
       Signal.send Env.on_given_clause_with_non_flex_flex_constraints c;
       Unknown
 

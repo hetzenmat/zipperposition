@@ -725,6 +725,7 @@ let () =
     ; "ho-complete-basic"
     ; "ho-pragmatic"
     ; "ho-competitive"
+    ; "ho-optimistic"
     ; "fo-complete-basic"
     ; "lambda-free-intensional"
     ; "lambda-free-extensional"

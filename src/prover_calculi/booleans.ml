@@ -1291,6 +1291,7 @@ module Make(E : Env.S) : S with module Env = E = struct
   res
 
   let rewrite_all_quantifiers t =
+    Printf.printf "term %s\n" (Term.to_string t);
     let rec aux t =
       match T.view t with 
       | Fun(ty,body) ->
@@ -1304,6 +1305,7 @@ module Make(E : Env.S) : S with module Env = E = struct
         if T.equal hd hd' && T.same_l args args' then t
         else T.app hd' args'
       | AppBuiltin((ExistsConst|ForallConst) as quant, args) ->
+        
         (match args with
           | [] -> invalid_arg "type argument must be present"
           | [alpha] ->
@@ -1766,10 +1768,13 @@ module Make(E : Env.S) : S with module Env = E = struct
 
   let setup () =
     (* Env.add_basic_simplify normalize_equalities; put into superposition right now *)
+    Printf.printf "rq %b\n" (Env.flex_get Superposition.k_rewrite_quantifiers);
     if (Env.flex_get k_replace_unsupported_quants || Env.flex_get Superposition.k_rewrite_quantifiers) then (
       Signal.once Env.on_start (fun () -> 
         Env.ProofState.PassiveSet.clauses ()
-          |> C.ClauseSet.iter (fun cl -> 
+          |> C.ClauseSet.iter (fun cl ->
+            Printf.printf "cl %s\n" (C.to_string cl); 
+            Printf.printf "br %b\n" (Env.flex_get Superposition.k_ho_basic_rules);
           match replace_unsupported_quants cl with
           | None -> ()
           | Some new_ -> 
