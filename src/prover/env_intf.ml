@@ -220,6 +220,8 @@ module type S = sig
   val on_empty_clause : C.t Signal.t
   (** Signal triggered when an empty clause is found *)
 
+  val on_given_clause_with_non_flex_flex_constraints : C.t Signal.t
+
   val ord : unit -> Ordering.t
   val precedence : unit -> Precedence.t
   val signature : unit -> Signature.t

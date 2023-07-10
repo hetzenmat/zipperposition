@@ -91,7 +91,7 @@ module Make(E : Env.S) = struct
     assert (Env.C.Seq.terms c |> Iter.for_all Term.DB.is_closed);
     assert (Env.C.Seq.terms c |> Iter.for_all Term.is_properly_encoded);
     if not (Env.C.lits c |> Literals.vars_distinct) then (
-      CCFormat.printf "Vars not distinct: @[%a@].@." Env.C.pp_tstp c;
+      CCFormat.printf "Vars not distinct: @[%a@].Superposition@." Env.C.pp_tstp c;
       CCFormat.printf "proof:@[%a@].@." Proof.S.pp_normal (Env.C.proof c);
       assert false;
     );
@@ -140,6 +140,17 @@ module Make(E : Env.S) = struct
         ZProf.exit_prof _span;
         Unknown
       )
+    | Some c when not (Env.C.only_flex_flex c) ->
+      (*
+      Clause has non flex-flex constraints
+      Send corresponding signal and do nothing else; this case should be handled in the Superposition module
+      *)
+
+      assert (not (CCList.is_empty @@ Env.C.constraints c));
+
+      Signal.send Env.on_given_clause_with_non_flex_flex_constraints c;
+      Unknown
+
     | Some c ->
       let picked_clause = c in
       Util.debugf ~section 3 "@[<2>@{<green>given@} (before simplification):@ `@[%a@]`@]"
@@ -148,8 +159,6 @@ module Make(E : Env.S) = struct
       ZProf.message (fun () -> Format.asprintf "given: %a" Env.C.pp_tstp c);
 
       check_clause_ c;
-
-      (* TODO [MH] only use clause with flex-flex constraints for inferences. Otherwise wrap with preunification*)
 
       Util.incr_stat stat_steps;
       let cl_ref = ref (fun () -> assert false) in

@@ -1316,7 +1316,7 @@ module Make(Env : Env.S) : S with module Env = Env = struct
     if Env.should_force_stream_eval () then (
       Env.get_finite_infs (FList.map (fun (_,x,_) -> x) new_clauses) 
     ) else (
-      let stm_res = FList.map (fun (p,s,parents) -> Stm.make ~penalty:p ~parents (s)) new_clauses in
+      let stm_res = FList.map (fun (p,s,parents) -> Stm.make ~penalty:p ~parents s) new_clauses in
       StmQ.add_lst (Env.get_stm_queue ()) stm_res;
       ZProf.exit_prof _span;
       [])
@@ -3302,7 +3302,39 @@ module Make(Env : Env.S) : S with module Env = Env = struct
       Env.add_immediate_simpl_rule immediate_subsume
     );
     setup_dot_printers ();
+
+    if Env.flex_get k_store_unification_constraints then (
+      Signal.on_every Env.on_given_clause_with_non_flex_flex_constraints
+        (fun c -> 
+          let l1,l2 = CCList.split (C.constraints c) in
+        
+          let (module Preunif) = Env.flex_get k_preunif_module in
+
+          let substs = Preunif.unify_scoped_l (l1,0) (l2,0) in
+          let clause_stream = OSeq.map (CCOpt.flat_map (fun us -> begin
+            let renaming = Subst.Renaming.create() in
+            let subst = Unif_subst.subst us in
+            let constraints = Unif_subst.constr_l us in
+            let sub_constraints = FList.map (Unif_constr.FO.apply_subst renaming subst) constraints in
+            let lits = C.lits c in
+            let sub_lits = Literals.apply_subst renaming subst (lits, 0) in
+            let proof =
+              Proof.Step.inference [C.proof_parent c]
+                ~rule:(Proof.Rule.mk "ho_preunif")
+                ~tags:[Proof.Tag.T_ho]
+            in
+            let new_clause = C.create_a sub_lits ~constraints:sub_constraints proof ~penalty:(C.penalty c) ~trail:(C.trail c) in
+            Some new_clause
+          end)) substs in
+          
+          let stm = Stm.make ~penalty:(C.penalty c) ~parents:[c] clause_stream in
+          Env.StmQ.add (Env.get_stm_queue ()) stm;
+
+          ())
+    );
+
     ()
+
 end
 
 let _use_semantic_tauto = ref true
@@ -3381,7 +3413,6 @@ let _ratio = ref 100
 let _clause_num = ref (-1)
 
 let key = Flex_state.create_key ()
-
 
 let unif_params_to_def () =
   _max_depth := 2;

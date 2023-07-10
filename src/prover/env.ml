@@ -156,6 +156,7 @@ module Make(X : sig
   let on_input_statement = Signal.create()
   let on_empty_clause = Signal.create ()
   let on_forward_simplified = Signal.create()
+  let on_given_clause_with_non_flex_flex_constraints = Signal.create ()
 
   (** {2 Basic operations} *)
 
