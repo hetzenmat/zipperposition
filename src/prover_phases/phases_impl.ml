@@ -30,6 +30,9 @@ let _sine_d_min = ref 1
 let _sine_d_max = ref 5
 let _sine_tolerance = ref 1.5
 let _sine_threshold = ref (-1)
+let _avatar_banish = ref false
+
+
 
 (** setup an alarm for abrupt stop *)
 let setup_alarm timeout =
@@ -65,7 +68,11 @@ let load_extensions =
   Extensions.register Hlb_elim.extension;
   Extensions.register AC.extension;
   Extensions.register Heuristics.extension;
-  Extensions.register Libzipperposition_avatar.extension;
+  
+  if not !_avatar_banish then (
+    Extensions.register Libzipperposition_avatar.extension
+  );
+
   Extensions.register EnumTypes.extension;
   Extensions.register Libzipperposition_induction.extension;
   Extensions.register Rewriting.extension;
@@ -690,7 +697,8 @@ let () =
     " force taking definitions of symbols ocurring in conjecture";
     "--sine", Arg.Set_int _sine_threshold,
     " Set SinE axiom number threshold (negative number turns it off)" ^
-    " with default settings: depth in range 1-5 and tolerance 1.5"
+    " with default settings: depth in range 1-5 and tolerance 1.5";
+    "--avatar-banish", Arg.Set _avatar_banish, "disable whole avatar extension"
   ];
 
   Params.add_to_mode "best" (fun () ->
@@ -712,3 +720,6 @@ let () =
       _lmb_w := 20;
       _db_w  := 10;
     );
+
+  Params.add_to_mode "ho-optimistic" (fun () -> _lmb_w := 20;
+  _db_w  := 10; _avatar_banish := true);

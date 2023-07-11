@@ -168,10 +168,13 @@ module Make(Env : Env.S) : S with module Env = Env = struct
       | [] -> acc
       | (penalty, parents, stm) :: xs ->
           let rec drip_stream i stm =
+            Printf.printf "drip %d\n" i; flush stdout;
             let mk_stm stm = Stm.make ~penalty ~parents stm in
             if i = 0 then aux (clauses, (mk_stm stm) :: streams) xs
             else (
-              match stm() with
+              let r = stm() in
+              Printf.printf "rr\n"; flush stdout;
+              match r with
               | OSeq.Nil -> aux acc xs
               | OSeq.Cons((Some cl), stm') ->
                 aux ((cl,penalty,parents)::clauses, (mk_stm stm') :: streams) xs
@@ -184,7 +187,10 @@ module Make(Env : Env.S) : S with module Env = Env = struct
           let limit = Env.flex_get k_force_limit in
           drip_stream limit stm
     in
-    aux ([], []) streams
+    Printf.printf "force\n"; flush stdout;
+    let r = aux ([], []) streams in
+    Printf.printf "force\n"; flush stdout;
+    r 
   
   let has_bad_occurrence_elsewhere c var pos =
     assert(T.is_var var);
@@ -1015,6 +1021,7 @@ module Make(Env : Env.S) : S with module Env = Env = struct
       assert(C.lits new_clause |> Literals.vars_distinct);
       Some new_clause
     with ExitSuperposition reason ->
+      
       Util.debugf ~section 2 "@[... cancel, %s@]" (fun k->k reason);
       None
 
@@ -1049,6 +1056,7 @@ module Make(Env : Env.S) : S with module Env = Env = struct
     else do_classic_superposition info
 
   let infer_active_aux ~retrieve_from_index ~process_retrieved clause =
+    Printf.printf "infer_active\n"; flush stdout;
     let _span = ZProf.enter_prof prof_infer_active in
     (* no literal can be eligible for paramodulation if some are selected.
        This checks if inferences with i-th literal are needed? *)
@@ -1224,27 +1232,34 @@ module Make(Env : Env.S) : S with module Env = Env = struct
     (*let infer_complete_ho_generic (inf_res: 'a list) (f: ('a -> C.t option OSeq.t)) (g: ('a -> int * C.t list * C.t option OSeq.t)) =*)
   let infer_complete_ho_generic inf_res f g =
     if Env.should_force_stream_eval () then (
+      
       Env.get_finite_infs (FList.map f inf_res)
     (* TODO [MH] is this needed for preunification approach? *)
     ) else (
       let streams = FList.map g inf_res in
 
-      let streams = on_preunif
+      (*let streams = on_preunif
         ~off:(fun () -> streams)
         ~on:(fun () -> let (module Preunif) = Env.flex_get k_preunif_module in
                        streams |> FList.map (fun (penalty, parents, seq) -> (penalty, parents, Env.wrap_with_preunif Preunif.unify_scoped_l seq)))
-      in
+      in*)
 
+      Printf.printf "Here %d\n" (List.length streams); flush stdout;
       let clauses, streams = force_getting_cl streams in
+      Printf.printf "Here3\n"; flush stdout;
       StmQ.add_lst (Env.get_stm_queue ()) streams;
       
-      FList.map (fun (cl,_,_) -> cl) clauses
+      let a = FList.map (fun (cl,_,_) -> cl) clauses in
+      Printf.printf "Here2\n"; flush stdout;
+      a
     )
 
   let infer_complete_ho aux clause =
+    
     let inf_res = aux
-        ~retrieve_from_index:(I.retrieve_unifiables_complete ~unif_alg:(Env.flex_get k_unif_alg))
+        ~retrieve_from_index:(fun t -> Printf.printf "retr\n"; flush stdout; I.retrieve_unifiables_complete ~unif_alg:(Env.flex_get k_unif_alg) t)
         ~process_retrieved:(fun do_sup (u_p, (with_pos:TermIndex.elt), substs) ->
+          Printf.printf "dosup\n"; flush stdout;
             (* let penalty = max (C.penalty clause) (C.penalty with_pos.C.WithPos.clause) in *)
             (* /!\ may differ from the actual penalty (by -2) *)
             let parents = [clause; with_pos.clause] in
@@ -1252,6 +1267,7 @@ module Make(Env : Env.S) : S with module Env = Env = struct
             Some (p, parents, OSeq.map (CCOpt.flat_map (do_sup u_p with_pos)) substs))
         clause
     in
+    Printf.printf "Here\n"; flush stdout;
     infer_complete_ho_generic inf_res (fun (_,_,x) -> x) Fun.id
 
   let infer_active_complete_ho = infer_complete_ho infer_active_aux

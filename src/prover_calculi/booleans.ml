@@ -1773,8 +1773,6 @@ module Make(E : Env.S) : S with module Env = E = struct
       Signal.once Env.on_start (fun () -> 
         Env.ProofState.PassiveSet.clauses ()
           |> C.ClauseSet.iter (fun cl ->
-            Printf.printf "cl %s\n" (C.to_string cl); 
-            Printf.printf "br %b\n" (Env.flex_get Superposition.k_ho_basic_rules);
           match replace_unsupported_quants cl with
           | None -> ()
           | Some new_ -> 

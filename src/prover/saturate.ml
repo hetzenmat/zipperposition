@@ -109,6 +109,7 @@ module Make(E : Env.S) = struct
 
   (** One iteration of the main loop ("given clause loop") *)
   let given_clause_step ?(generating=true) num =
+    Printf.printf "Step %d\n" num;
     let _span = ZProf.enter_prof prof_step in
     E.step_init();
     (* select next given clause *)
@@ -148,8 +149,8 @@ module Make(E : Env.S) = struct
 
       assert (not (CCList.is_empty @@ Env.C.constraints c));
 
-      Printf.printf "here!\n";
-      Printf.printf "cl %s\n" (Env.C.to_string c);
+      Printf.printf "has not flex!\n"; 
+      Printf.printf "cl %s\n" (Env.C.to_string c); flush stdout;
 
       Signal.send Env.on_given_clause_with_non_flex_flex_constraints c;
       Unknown

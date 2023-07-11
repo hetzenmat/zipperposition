@@ -385,6 +385,9 @@ module Make(X : sig
         [] !_binary_rules
     in
     ZProf.exit_prof _span;
+    
+    Printf.printf "end bin\n"; flush stdout;
+    
     Iter.of_list clauses
 
   (** do unary inferences for the given clause *)

@@ -725,7 +725,6 @@ let () =
     ; "ho-complete-basic"
     ; "ho-pragmatic"
     ; "ho-competitive"
-    ; "ho-optimistic"
     ; "fo-complete-basic"
     ; "lambda-free-intensional"
     ; "lambda-free-extensional"
@@ -735,3 +734,4 @@ let () =
     (fun () ->
        avatar_kind := `Off
     );
+
