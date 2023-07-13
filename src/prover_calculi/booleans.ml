@@ -1291,7 +1291,6 @@ module Make(E : Env.S) : S with module Env = E = struct
   res
 
   let rewrite_all_quantifiers t =
-    Printf.printf "term %s\n" (Term.to_string t);
     let rec aux t =
       match T.view t with 
       | Fun(ty,body) ->
@@ -1768,7 +1767,6 @@ module Make(E : Env.S) : S with module Env = E = struct
 
   let setup () =
     (* Env.add_basic_simplify normalize_equalities; put into superposition right now *)
-    Printf.printf "rq %b\n" (Env.flex_get Superposition.k_rewrite_quantifiers);
     if (Env.flex_get k_replace_unsupported_quants || Env.flex_get Superposition.k_rewrite_quantifiers) then (
       Signal.once Env.on_start (fun () -> 
         Env.ProofState.PassiveSet.clauses ()

@@ -4,5 +4,6 @@
   (package zipperposition)
   (public_name zipperposition)
   (promote (until-clean) (into ../..))
-  (modes byte exe)
+  (modes exe)
+  (flags (:standard -cclib -static))
   (libraries logtk libzipperposition.phases))

@@ -120,7 +120,6 @@ module Make (St : sig val st : Flex_state.t end) = struct
         end)
 
 let unify_scoped =  
-  Printf.printf "unif_scoped\n"; flush stdout;
   let counter = ref 0 in
   let module PreUnifParams = (val mkPreunifParams ~counter) in
 
@@ -128,7 +127,6 @@ let unify_scoped =
   PreUnif.unify_scoped
 
 let unify_scoped_l =  
-  Printf.printf "unif_scoped_l\n"; flush stdout;
   let counter = ref 0 in
 
   let module PreUnifParams = (val mkPreunifParams ~counter) in
@@ -144,7 +142,6 @@ let unif_simple t s =
   with Unif.Fail -> None)
 
 let only_constraints ((t1,sc1) : T.t Scoped.t) ((t2,sc2) : T.t Scoped.t) : subst option OSeq.t =
-  Printf.printf "only_cons\n"; flush stdout;
   OSeq.map (function | None -> None
                      | Some s -> Some (US.make s [Unif_constr.make ~tags:[] ((t1 : T.t :> InnerTerm.t),sc1) ((t2 : T.t :> InnerTerm.t),sc2)]))
    (unif_simple ((Term.of_ty (T.ty t1)), sc1) ((Term.of_ty (T.ty t2)), sc2)) 
