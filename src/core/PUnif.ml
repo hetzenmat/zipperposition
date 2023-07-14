@@ -283,19 +283,24 @@ module Make (St : sig val st : Flex_state.t end) = struct
     lhs,rhs,unifscope,U.subst us
 
   let deciders ~counter () =
-    let pattern = 
-      if get_option PUP.k_pattern_decider then 
-        [(fun s t sub -> [(U.subst @@ PatternUnif.unify_scoped ~subst:(U.of_subst sub) ~counter s t)])] 
-      else [] in
-    let solid = 
-      if get_option PUP.k_solid_decider then 
-        [(fun s t sub -> (FList.map U.subst @@ SU.unify_scoped ~subst:(U.of_subst sub) ~counter s t))] 
-      else [] in
-    let fixpoint = 
-      if get_option PUP.k_fixpoint_decider then 
-        [(fun s t sub -> [(U.subst @@ FixpointUnif.unify_scoped ~subst:(U.of_subst sub) ~counter s t)])] 
-      else [] in
-    fixpoint @ pattern @ solid
+    let result = ref [] in
+      
+    if get_option PUP.k_solid_decider then (
+      let solid_f s t sub = FList.map U.subst @@ SU.unify_scoped ~subst:(U.of_subst sub) ~counter s t in
+      result := ("solid", solid_f) :: !result
+    );
+
+    if get_option PUP.k_pattern_decider then (
+      let pattern_f s t sub = [U.subst @@ PatternUnif.unify_scoped ~subst:(U.of_subst sub) ~counter s t] in
+      result := ("pattern", pattern_f) :: !result
+    );
+    
+    if get_option PUP.k_fixpoint_decider then  (
+      let fixpoint_f s t sub = [U.subst @@ FixpointUnif.unify_scoped ~subst:(U.of_subst sub) ~counter s t] in
+      result := ("fixpoint", fixpoint_f) :: !result
+    );
+      
+    !result
 
   let oracle ~counter ~scope ~subst (s,_) (t,_) (flag:I.t) =
     let depth = get_depth flag in

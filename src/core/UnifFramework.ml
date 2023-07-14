@@ -10,6 +10,8 @@ module PUP = PragUnifParams
 
 let section = Util.Section.make "unif.framework"
 
+type frag_alg_t = T.t Scoped.t -> T.t Scoped.t -> S.t -> S.t list
+
 module type PARAMETERS = sig
   exception NotInFragment
   exception NotUnifiable
@@ -19,7 +21,7 @@ module type PARAMETERS = sig
   val preunification : bool
   val identify_scope : T.t Scoped.t -> T.t Scoped.t -> T.t * T.t * Scoped.scope * S.t
   val identify_scope_l : T.t list Scoped.t -> T.t list Scoped.t -> T.t list * T.t list * Scoped.scope * S.t
-  val frag_algs : unit -> (T.t Scoped.t -> T.t Scoped.t -> S.t -> S.t list) list
+  val frag_algs : unit -> (string * frag_alg_t) list
   val pb_oracle : (T.t Scoped.t -> T.t Scoped.t -> flag_type -> S.t -> Scoped.scope -> (S.t * flag_type) option LL.t)
 end
 
@@ -177,7 +179,7 @@ module Make (P : PARAMETERS) = struct
         let new_prob = decompose args_l args_r rest flag in
         (fun () -> aux subst new_prob ()) in
 
-      let all_flex_flex = fun () ->
+      let all_flex_flex prob =
         let is_flex_flex = fun (lhs, rhs, _) ->
           match classify_one lhs subst with
           | `Var -> (match classify_one rhs subst with
@@ -185,34 +187,62 @@ module Make (P : PARAMETERS) = struct
                      | _ -> false)
           | _ -> false
         in
-        List.for_all is_flex_flex problem
+        List.for_all is_flex_flex prob
       in
 
       match problem with
       | _ when !hits_cnt > max_infs -> OSeq.empty
-      | _ when P.preunification && all_flex_flex () ->
-        let cstrs = FList.map (fun (lhs, rhs, _) -> Unif_constr.make ~tags:[] ((lhs : T.t :> InnerTerm.t), unifscope) ((rhs : T.t :> InnerTerm.t), unifscope)) problem in
-        OSeq.return @@ Some (Unif_subst.make subst cstrs)
       | [] -> 
         incr hits_cnt;
         OSeq.return @@ Some (Unif_subst.of_subst subst)
+      | _ when P.preunification && all_flex_flex problem ->
+
+        let p = ref problem in
+        let acc = ref [] in
+        let sub = ref subst in
+
+        while !p != [] do
+          let (lhs, rhs, _) = Future.head !p in
+          p := Future.tail !p;
+
+          match PatternUnif.unif_simple ~subst:(!sub) ~scope:unifscope (T.of_ty (T.ty lhs)) (T.of_ty (T.ty rhs)) with 
+          | None -> raise Unif.Fail
+          | Some subst ->
+            assert (not @@ Unif_subst.has_constr subst);
+
+            let subst = Unif_subst.subst subst in
+            acc := (normalize subst (lhs, unifscope), normalize subst (rhs, unifscope)) :: !acc;
+            sub := subst;
+        done;
+
+          assert (List.for_all (fun (l,r) -> Type.equal (Term.ty l) (Term.ty r)) !acc);
+
+          let cstrs = FList.map (fun (lhs, rhs) -> Unif_constr.make ~tags:[] ((lhs : T.t :> InnerTerm.t), unifscope) ((rhs : T.t :> InnerTerm.t), unifscope)) !acc in
+          OSeq.return @@ Some (Unif_subst.make !sub cstrs)
       | (lhs, rhs, flag) as current_constraint :: rest ->
         match PatternUnif.unif_simple ~subst ~scope:unifscope 
                 (T.of_ty (T.ty lhs)) (T.of_ty (T.ty rhs)) with 
         | None -> OSeq.empty
         | Some subst ->
-          if (Unif_subst.has_constr subst) then assert false else (); (* TODO [MH] Debug *)
+          assert (not @@ Unif_subst.has_constr subst);
+          
           let subst = Unif_subst.subst subst in
           let lhs = normalize subst (lhs, unifscope) 
           and rhs = normalize subst (rhs, unifscope) in
+
+          assert (Type.equal (Term.ty lhs) (Term.ty rhs));
+
           let (pref_lhs, body_lhs) = T.open_fun lhs
           and (pref_rhs, body_rhs) = T.open_fun rhs in 
           let body_lhs, body_rhs, _ = 
             eta_expand_otf ~subst ~scope:unifscope pref_lhs pref_rhs body_lhs body_rhs in
           let (hd_lhs, args_lhs), (hd_rhs, args_rhs) = T.as_app body_lhs, T.as_app body_rhs in
 
-          if T.is_var hd_lhs && not (Term.equal (fst @@ S.FO.deref subst (hd_lhs,unifscope)) hd_lhs) then (Printf.printf "not in dereffed form"; exit 13) else (); (* TODO [MH] *)
-          if T.is_var hd_rhs && not (Term.equal (fst @@ S.FO.deref subst (hd_rhs,unifscope)) hd_rhs) then (Printf.printf "not in dereffed form"; exit 13) else (); (* TODO [MH] *)
+          (* assert that heads are in dereffed form wrt. subst *)
+          let (==>) a b = not a || b in
+
+          assert (T.is_var hd_lhs ==> Term.equal (fst @@ S.FO.deref subst (hd_lhs,unifscope)) hd_lhs);
+          assert (T.is_var hd_rhs ==> Term.equal (fst @@ S.FO.deref subst (hd_rhs,unifscope)) hd_rhs);
 
           if Term.is_type lhs then (
             assert(Term.is_type rhs);
@@ -245,33 +275,35 @@ module Make (P : PARAMETERS) = struct
               ) else OSeq.empty
             | _ when different_rigid_heads hd_lhs hd_rhs -> OSeq.empty
             | T.Var _, T.Var _ ->
+              assert (Type.equal (T.ty hd_lhs) (T.ty hd_rhs));
               aux subst (rest @ [current_constraint])
             | _ -> 
               try
                 let mgu =
-                  CCList.find_map (fun alg ->  
+                  CCList.find_map (fun (name, alg) ->  
                       try
-                        Some (alg (lhs, unifscope) (rhs, unifscope) subst)
+                        let res = alg (lhs, unifscope) (rhs, unifscope) subst in
+                        Some (name, res)
                       with 
                       | P.NotInFragment -> 
                         Util.debugf ~section 1 
-                          "@[%a@] =?= @[%a@] (subst @[%a@]) is not in fragment" 
-                            (fun k -> k T.pp lhs T.pp rhs Subst.pp subst);
+                          "@[%a@] =?= @[%a@] (subst @[%a@]) is not in fragment of %s" 
+                            (fun k -> k T.pp lhs T.pp rhs Subst.pp subst name);
                         None
                       | P.NotUnifiable ->
                         Util.debugf ~section 1 
-                          "@[%a@] =?= @[%a@] (subst @[%a@]) is not unif" 
-                            (fun k -> k T.pp lhs T.pp rhs Subst.pp subst);
+                          "@[%a@] =?= @[%a@] (subst @[%a@]) is not unif by %s" 
+                            (fun k -> k T.pp lhs T.pp rhs Subst.pp subst name);
                         raise Unif.Fail
                     ) (P.frag_algs ()) in 
                 match mgu with 
-                | Some substs ->
+                | Some (name, substs) ->
                   (* We assume that the substitution was augmented so that it is mgu for
                       lhs and rhs *)
                   FList.map (fun sub () -> 
                     Util.debugf ~section 1 
-                      "@[%a@] =?= @[%a@] (subst @[%a@]) has unif @[%a@]" 
-                        (fun k -> k T.pp lhs T.pp rhs Subst.pp subst Subst.pp sub);
+                      "@[%a@] =?= @[%a@] (subst @[%a@]) has unif @[%a@] by %s" 
+                        (fun k -> k T.pp lhs T.pp rhs Subst.pp subst Subst.pp sub name);
                     aux sub rest ()) substs
                   |> OSeq.of_list
                   |> OSeq.merge
@@ -354,16 +386,12 @@ module Make (P : PARAMETERS) = struct
         let norm t = T.normalize_bools @@ Lambda.eta_expand @@ Lambda.snf t in
         let l = norm @@ S.FO.apply Subst.Renaming.none subst' t0s in 
         let r = norm @@ S.FO.apply Subst.Renaming.none subst' t1s in
-
-        (* Check types for terms *)
-        if not (Type.equal (Term.ty l) (Term.ty r)) then (
-          assert false
-        );
-        if not ((T.equal l r) && (Type.equal (Term.ty l) (Term.ty r))) then (
+          
+        if not P.preunification && not ((T.equal l r) && (Type.equal (Term.ty l) (Term.ty r))) then (
           CCFormat.printf "subst:@[%a@]@." Subst.pp subst';
           CCFormat.printf "orig:@[%a@]@.=?=@.@[%a@]@." (Scoped.pp T.pp) t0s (Scoped.pp T.pp) t1s;
           CCFormat.printf "new:@[%a:%a@]@.=?=@.@[%a:%a@]@." T.pp l Type.pp (T.ty l) T.pp r Type.pp (T.ty r);
-          assert(true)
+          assert(false)
         ); subst))
     with Unif.Fail -> OSeq.empty
 

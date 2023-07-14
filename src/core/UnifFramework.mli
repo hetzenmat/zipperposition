@@ -3,6 +3,8 @@ module US = Unif_subst
 module LL = OSeq
 module T = Term
 
+type frag_alg_t = T.t Scoped.t -> T.t Scoped.t -> S.t -> S.t list
+
 module type PARAMETERS = sig
   exception NotInFragment
   exception NotUnifiable
@@ -12,7 +14,7 @@ module type PARAMETERS = sig
   val preunification : bool
   val identify_scope : T.t Scoped.t -> T.t Scoped.t -> T.t * T.t * Scoped.scope * S.t
   val identify_scope_l : T.t list Scoped.t -> T.t list Scoped.t -> T.t list * T.t list * Scoped.scope * S.t
-  val frag_algs : unit -> (T.t Scoped.t -> T.t Scoped.t -> S.t -> S.t list) list
+  val frag_algs : unit -> (string * frag_alg_t) list
   val pb_oracle : (T.t Scoped.t -> T.t Scoped.t -> flag_type -> S.t -> Scoped.scope -> (S.t * flag_type) option LL.t)
 end
 

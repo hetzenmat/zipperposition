@@ -86,3 +86,25 @@ let find_set p r l =
       aux t
   in
   aux l
+
+let with_index l =
+  let rec aux i = function | [] -> []
+                           | h :: t -> (i, h) :: aux (i + 1) t
+  in
+  aux 0 l
+
+
+
+let head_tail = function | [] -> raise (Invalid_argument "got empty list")
+                         | h :: t -> (h, t)
+
+let tail l = snd (head_tail l) 
+                          
+let head l = fst (head_tail l)
+
+let remove_nth n l =
+  let rec aux h t = (function | 0 -> (List.rev h) @ (tail t)
+                              | n -> let (h1,t1) = head_tail t in
+                                     aux (h1 :: h) t1 (n-1))
+  in
+  aux [] l n

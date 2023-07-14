@@ -3168,6 +3168,23 @@ module Make(Env : Env.S) : S with module Env = Env = struct
       | _ -> assert false;
     with Fail -> []
   
+  let weaken (c : C.t) : C.t SimplM.t =
+    let ci = Future.with_index @@ C.constraints c in
+
+    let res = List.find_map (fun (i,t) -> match Constraints.try_unif t with
+                                          | None -> None
+                                          | Some u -> Some (i,u)) ci in
+
+    match res with
+    | None -> SimplM.return_same c
+    | Some (i,u) ->
+      let removed_constraints = Future.remove_nth i (C.constraints c) in
+      let proof = Proof.Step.simp [C.proof_parent c] 
+          ~rule:(Proof.Rule.mk "weaken")  in
+      let c' = C.create_a ~penalty:(C.penalty c) ~trail:(C.trail c) ~constraints:removed_constraints (C.lits c) proof in
+      let c' = C.apply_subst (c',0) u in
+      SimplM.return_new c'
+
   let normalize_equalities c =
     let lits = Array.to_list (C.lits c) in
     let normalized = FList.map Literal.normalize_eq lits in
@@ -3241,6 +3258,11 @@ module Make(Env : Env.S) : S with module Env = Env = struct
     let redundant = subsumed_by_active_set in
     let backward_redundant = subsumed_in_active_set in
     let is_trivial = is_tautology in
+
+    if Env.flex_get k_store_unification_constraints then (
+      (* Env.add_basic_simplify weaken; *)
+      (* Env.add_is_trivial (fun c -> Constraints.unsolvable (C.constraints c)); *)
+    );
 
     if not (Env.flex_get k_dont_simplify) then (
       Env.add_basic_simplify normalize_equalities;
@@ -3526,7 +3548,7 @@ let register ~sup =
       E.flex_add k_unif_alg JPP.unify_scoped;
       E.flex_add k_unif_module (module JPP : UnifFramework.US);
     | `Constraint ->
-      E.flex_add k_unif_alg Constraints.only_constraints;
+      E.flex_add k_unif_alg Preunif.unify_scoped (* Constraints.only_constraints *);
       E.flex_add PragUnifParams.k_unif_alg_is_terminating false;
   end
 
@@ -3775,4 +3797,6 @@ let () =
     _contextual_literal_cutting := false;
     _dont_demodulate := true;
     _sup_at_vars := true;
+    _use_simultaneous_sup := false;
+    _fixpoint_decider := true;
   );

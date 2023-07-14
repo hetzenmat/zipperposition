@@ -2763,4 +2763,8 @@ let () =
       _purify_applied_vars := `Ext
     );
 
+  Params.add_to_mode "ho-optimistic" (fun () ->
+    _elim_pred_var := false
+  );
+
   Extensions.register extension;
