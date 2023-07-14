@@ -3260,8 +3260,8 @@ module Make(Env : Env.S) : S with module Env = Env = struct
     let is_trivial = is_tautology in
 
     if Env.flex_get k_store_unification_constraints then (
-      (* Env.add_basic_simplify weaken; *)
-      (* Env.add_is_trivial (fun c -> Constraints.unsolvable (C.constraints c)); *)
+      Env.add_basic_simplify weaken;
+      Env.add_is_trivial (fun c -> Constraints.unsolvable (C.constraints c));
     );
 
     if not (Env.flex_get k_dont_simplify) then (
