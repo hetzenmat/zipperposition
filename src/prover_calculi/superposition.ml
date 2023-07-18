@@ -3168,7 +3168,7 @@ module Make(Env : Env.S) : S with module Env = Env = struct
       | _ -> assert false;
     with Fail -> []
   
-  let weaken (c : C.t) : C.t SimplM.t =
+  let partial_unif (c : C.t) : C.t SimplM.t =
     let ci = Future.with_index @@ C.constraints c in
 
     let res = List.find_map (fun (i,t) -> match Constraints.try_unif t with
@@ -3180,7 +3180,7 @@ module Make(Env : Env.S) : S with module Env = Env = struct
     | Some (i,u) ->
       let removed_constraints = Future.remove_nth i (C.constraints c) in
       let proof = Proof.Step.simp [C.proof_parent c] 
-          ~rule:(Proof.Rule.mk "weaken")  in
+          ~rule:(Proof.Rule.mk "partial_unif")  in
       let c' = C.create_a ~penalty:(C.penalty c) ~trail:(C.trail c) ~constraints:removed_constraints (C.lits c) proof in
       let c' = C.apply_subst (c',0) u in
       SimplM.return_new c'
@@ -3260,7 +3260,7 @@ module Make(Env : Env.S) : S with module Env = Env = struct
     let is_trivial = is_tautology in
 
     if Env.flex_get k_store_unification_constraints then (
-      Env.add_basic_simplify weaken;
+      Env.add_basic_simplify partial_unif;
       Env.add_is_trivial (fun c -> Constraints.unsolvable (C.constraints c));
     );
 
@@ -3332,6 +3332,7 @@ module Make(Env : Env.S) : S with module Env = Env = struct
     );
     setup_dot_printers ();
 
+    
     if Env.flex_get k_store_unification_constraints then (
       Signal.on_every Env.on_given_clause_with_non_flex_flex_constraints
         (fun c -> 

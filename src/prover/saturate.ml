@@ -152,6 +152,9 @@ module Make(E : Env.S) = struct
       Unknown
 
     | Some c ->
+
+      assert (Env.C.only_flex_flex c);
+
       let picked_clause = c in
       Util.debugf ~section 3 "@[<2>@{<green>given@} (before simplification):@ `@[%a@]`@]"
             (fun k->k Env.C.pp c);
@@ -277,7 +280,7 @@ module Make(E : Env.S) = struct
               let pr = Env.C.proof c in
               ZProf.exit_prof _span;
 
-              if not @@ CCList.is_empty @@ Env.C.constraints c then (
+              if (Env.C.constraints c) != [] then (
                 Printf.printf "Empty clause with constraints: %s\n" (Env.C.to_string c); flush stdout;
               );
 

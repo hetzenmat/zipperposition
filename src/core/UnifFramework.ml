@@ -230,8 +230,6 @@ module Make (P : PARAMETERS) = struct
           let lhs = normalize subst (lhs, unifscope) 
           and rhs = normalize subst (rhs, unifscope) in
 
-          assert (Type.equal (Term.ty lhs) (Term.ty rhs));
-
           let (pref_lhs, body_lhs) = T.open_fun lhs
           and (pref_rhs, body_rhs) = T.open_fun rhs in 
           let body_lhs, body_rhs, _ = 
@@ -275,7 +273,6 @@ module Make (P : PARAMETERS) = struct
               ) else OSeq.empty
             | _ when different_rigid_heads hd_lhs hd_rhs -> OSeq.empty
             | T.Var _, T.Var _ ->
-              assert (Type.equal (T.ty hd_lhs) (T.ty hd_rhs));
               aux subst (rest @ [current_constraint])
             | _ -> 
               try
