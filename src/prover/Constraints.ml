@@ -201,33 +201,23 @@ let try_pattern_unif (s: T.t) (t: T.t) : (Subst.t, bool) result =
   with | PatternUnif.NotInFragment -> Error false
        | PatternUnif.NotUnifiable -> Error true
 
-let try_unif ((l,r) : T.t * T.t) : Subst.t option =
-  [ try_lfho_unif
-  ; try_fixpoint_unif
-  ; try_pattern_unif ]
-  |> List.find_map (fun alg -> match alg l r with
-                               | Ok s -> Some s
-                               | Error _ -> None)
+let try_unif ((l,r) : T.t * T.t) : (Subst.t * string) option =
+  [ (try_lfho_unif, "lfho")
+  ; (try_fixpoint_unif, "fixpoint")
+  ; (try_pattern_unif, "pattern") ]
+  |> List.find_map (fun (alg,n) -> match alg l r with
+                                   | Ok s -> Some (s, n)
+                                   | Error _ -> None)
 
 let unsolvable (constraints : t) =
-let check (l,r) = different_rigid_rigid (l,r) ||
-      ([ try_lfho_unif
-      ; try_fixpoint_unif
-      ; try_pattern_unif ]
-      |> List.exists (fun alg -> match alg l r with
-                                  | Ok _ -> false
-                                  | Error b -> b)) in
+  let check (l,r) = different_rigid_rigid (l,r) ||
+        ([ try_lfho_unif
+        ; try_fixpoint_unif
+        ; try_pattern_unif ]
+        |> List.exists (fun alg -> match alg l r with
+                                    | Ok _ -> false
+                                    | Error b -> b))
+  in
   List.exists check constraints
-
-let unif_simple t s = 
-  OSeq.return (try
-    let type_unifier = Unif.FO.unify_syn ~subst:Subst.empty t s in
-    Some type_unifier
-  with Unif.Fail -> None)
-
-let only_constraints ((t1,sc1) : T.t Scoped.t) ((t2,sc2) : T.t Scoped.t) : subst option OSeq.t =
-  OSeq.map (function | None -> None
-                     | Some s -> Some (US.make s [Unif_constr.make ~tags:[] ((t1 : T.t :> InnerTerm.t),sc1) ((t2 : T.t :> InnerTerm.t),sc2)]))
-   (unif_simple ((Term.of_ty (T.ty t1)), sc1) ((Term.of_ty (T.ty t2)), sc2)) 
 
   

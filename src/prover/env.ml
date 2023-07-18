@@ -506,12 +506,19 @@ module Make(X : sig
 
   let ho_normalize c =
     let did_reduce = ref false in
+    let app t = match !_norm_rule t with 
+      | None -> t
+      | Some t' -> did_reduce := true; t'
+    in
     let lits' =
       Array.map
-        (fun lit -> Lit.map (fun t -> match !_norm_rule t with 
-             | None -> t
-             | Some t' -> did_reduce := true; t' ) lit)
+        (Lit.map app)
         (C.lits c)
+    in
+    let constraints' =
+      FList.map
+        (fun (l,r) -> (app l, app r))
+        (C.constraints c)
     in
     if not !did_reduce
     then SimplM.return_same c (* no simplification *)
@@ -523,7 +530,7 @@ module Make(X : sig
         Proof.Step.simp ~rule  ~tags:[Proof.Tag.T_ho_norm]
           ([C.proof_parent c])
       in
-      let c' = C.create_a ~trail:(C.trail c) ~penalty:(C.penalty c) lits' proof in
+      let c' = C.create_a ~trail:(C.trail c) ~penalty:(C.penalty c) ~constraints:constraints' lits' proof in
       assert (not (C.equal c c'));
       Util.debugf ~section 3 "@[lambda rewritten clause `@[%a@]`@ into `@[%a@]`"
         (fun k->k C.pp c C.pp c');

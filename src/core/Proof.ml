@@ -862,7 +862,7 @@ module S = struct
           let label = _to_str_escape "@[<2>%a@]@." pp_result_of p in
           let attrs = [`Label label; `Style "filled"] in
           let shape = `Shape "box" in
-          if is_proof_of_false p then [`Color "red"; `Label "[]"; `Shape "box"; `Style "filled"]
+          if is_proof_of_false p then [`Color "red"; `Label label; `Shape "box"; `Style "filled"]
           else if is_pure_bool p then `Color "cyan3" :: shape :: attrs
           else if has_absurd_lits p then `Color "orange" :: shape :: attrs
           else if is_def p then `Color "navajowhite" :: shape :: attrs

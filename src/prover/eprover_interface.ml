@@ -238,7 +238,7 @@ module Make(E : Env.S) : S with module Env = E = struct
     let convert_clauses ~converter ~encoded_symbols iter =
       let converted = 
         Iter.map (fun c -> 
-          CCOpt.get_or ~default:c (C.eta_reduce c)) iter
+          CCOpt.get_or ~default:c ( if false then  (assert false (* TODO [MH] (C.eta_reduce c) *) ) else Some c) ) iter
         |> Iter.flat_map_l converter in
 
       let encoded, encoded_symbols = 

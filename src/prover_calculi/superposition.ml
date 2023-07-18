@@ -3173,16 +3173,20 @@ module Make(Env : Env.S) : S with module Env = Env = struct
 
     let res = List.find_map (fun (i,t) -> match Constraints.try_unif t with
                                           | None -> None
-                                          | Some u -> Some (i,u)) ci in
+                                          | Some (u,n) -> Some (i,u,n)) ci in
 
     match res with
     | None -> SimplM.return_same c
-    | Some (i,u) ->
+    | Some (i,u,n) ->
       let removed_constraints = Future.remove_nth i (C.constraints c) in
-      let proof = Proof.Step.simp [C.proof_parent c] 
-          ~rule:(Proof.Rule.mk "partial_unif")  in
+      
+      let proof = Proof.Step.simp [C.proof_parent c]
+          ~rule:(Proof.Rule.mk @@ Format.sprintf "partial_unif %d by %s: %s" i n (Subst.to_string u))  in 
+          
+      
       let c' = C.create_a ~penalty:(C.penalty c) ~trail:(C.trail c) ~constraints:removed_constraints (C.lits c) proof in
       let c' = C.apply_subst (c',0) u in
+
       SimplM.return_new c'
 
   let normalize_equalities c =
@@ -3266,7 +3270,10 @@ module Make(Env : Env.S) : S with module Env = Env = struct
 
     if not (Env.flex_get k_dont_simplify) then (
       Env.add_basic_simplify normalize_equalities;
-      Env.add_basic_simplify flex_resolve;
+      if not @@ Env.flex_get k_store_unification_constraints then (
+        Env.add_basic_simplify flex_resolve;
+      );
+
       if Env.flex_get k_local_rw != `Off then (
         Env.add_basic_simplify local_rewrite
       );
@@ -3549,7 +3556,7 @@ let register ~sup =
       E.flex_add k_unif_alg JPP.unify_scoped;
       E.flex_add k_unif_module (module JPP : UnifFramework.US);
     | `Constraint ->
-      E.flex_add k_unif_alg Preunif.unify_scoped (* Constraints.only_constraints *);
+      E.flex_add k_unif_alg Preunif.unify_scoped;
       E.flex_add PragUnifParams.k_unif_alg_is_terminating false;
   end
 
@@ -3800,4 +3807,5 @@ let () =
     _sup_at_vars := true;
     _use_simultaneous_sup := false;
     _fixpoint_decider := true;
+    _local_rw := `GreenContext;
   );

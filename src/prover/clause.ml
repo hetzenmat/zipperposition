@@ -339,7 +339,7 @@ module Make(Ctx : Ctx.S) : S with module Ctx = Ctx = struct
       res
     | Some cache -> cache
 
-  let eta_reduce c =
+  (*let eta_reduce c =
     let lit_arr = lits c in
     let changed = ref false in
     let new_lits = Literals.map (fun t -> 
@@ -349,7 +349,7 @@ module Make(Ctx : Ctx.S) : S with module Ctx = Ctx = struct
     if !changed then (
       let penalty = penalty c and trail = trail c and proof = proof_step c in
       Some (create ~penalty ~trail (CCArray.to_list new_lits) proof)
-    ) else None 
+    ) else None  *)
 
   (** Bitvector that indicates which of the literals of [subst(clause)]
       are eligible for paramodulation. *)

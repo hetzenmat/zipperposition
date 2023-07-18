@@ -2764,7 +2764,8 @@ let () =
     );
 
   Params.add_to_mode "ho-optimistic" (fun () ->
-    _elim_pred_var := false
+    _elim_pred_var := false;
+    _prune_arg_fun := `NoPrune;
   );
 
   Extensions.register extension;

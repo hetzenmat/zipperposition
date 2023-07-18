@@ -38,6 +38,7 @@ let[@inline] id c = c.id
 let[@inline] hash c = Hash.int c.id
 let[@inline] lits c = c.lits
 let[@inline] trail c = c.trail
+let[@inline] constraints c = c.constraints
 let[@inline] length c = Array.length c.lits
 let is_empty c = length c = 0 && Trail.is_empty c.trail
 
@@ -177,7 +178,7 @@ let proof_tc cl  =
     ~compare:compare
     ~flavor:(fun c ->
         if Literals.is_absurd (lits c)
-        then if Trail.is_empty (trail c) then `Proof_of_false
+        then if Trail.is_empty (trail c) && List.for_all Constraints.is_flex_flex (constraints c) then `Proof_of_false
           else `Absurd_lits
         else `Vanilla)
     ~to_form:(fun ~ctx c -> to_s_form ~allow_free_db:true ~ctx c)
