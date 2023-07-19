@@ -3,7 +3,6 @@ open Future
 
 module T = Term
 module US = Unif_subst
-module H = HVar
 module U = Unif_subst
 module Lit = Literal
 
@@ -209,7 +208,7 @@ let try_unif ((l,r) : T.t * T.t) : (Subst.t * string) option =
                                    | Ok s -> Some (s, n)
                                    | Error _ -> None)
 
-let unsolvable (constraints : t) =
+let unsolvable =
   let check (l,r) = different_rigid_rigid (l,r) ||
         ([ try_lfho_unif
         ; try_fixpoint_unif
@@ -218,6 +217,6 @@ let unsolvable (constraints : t) =
                                     | Ok _ -> false
                                     | Error b -> b))
   in
-  List.exists check constraints
+  List.exists check
 
   

@@ -3207,7 +3207,7 @@ module Make(Env : Env.S) : S with module Env = Env = struct
           CCOpt.get_or ~default:(Array.get (C.lits c) i) l_opt) normalized in
       let proof = Proof.Step.simp [C.proof_parent c] 
           ~rule:(Proof.Rule.mk "simplify nested equalities")  in
-      let new_c = C.create ~trail:(C.trail c) ~penalty:(C.penalty c) new_lits proof in
+      let new_c = C.create ~trail:(C.trail c) ~penalty:(C.penalty c) ~constraints:(C.constraints c) new_lits proof in
       SimplM.return_new new_c
     ) 
     else (
@@ -3278,15 +3278,13 @@ module Make(Env : Env.S) : S with module Env = Env = struct
       Env.add_is_trivial (fun c -> Constraints.unsolvable (C.constraints c));
     );
 
-    if not (Env.flex_get k_dont_simplify) then (
-      Env.add_basic_simplify normalize_equalities;
-      if not @@ Env.flex_get k_store_unification_constraints then (
-        Env.add_basic_simplify flex_resolve;
-      );
+    Env.add_basic_simplify normalize_equalities;
+    if not @@ Env.flex_get k_store_unification_constraints then (
+      Env.add_basic_simplify flex_resolve;
+    );
 
-      if Env.flex_get k_local_rw != `Off then (
-        Env.add_basic_simplify local_rewrite
-      );
+    if Env.flex_get k_local_rw != `Off then (
+      Env.add_basic_simplify local_rewrite
     );
 
     if Env.flex_get Combinators.k_enable_combinators

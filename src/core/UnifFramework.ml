@@ -190,6 +190,18 @@ module Make (P : PARAMETERS) = struct
         List.for_all is_flex_flex prob
       in
 
+      let unif_types subst ?(scope = unifscope) t1 t2 =
+        (match PatternUnif.unif_simple ~subst ~scope (T.of_ty (T.ty t1)) (T.of_ty (T.ty t2)) with 
+          | None -> None
+          | Some subst ->
+            assert (not @@ Unif_subst.has_constr subst);
+            Some (Unif_subst.subst subst))
+      in
+
+      let normalize_term subst t = normalize subst (t, unifscope) in
+
+      let make_constraints = FList.map (fun (lhs, rhs) -> Unif_constr.make ~tags:[] ((lhs : T.t :> InnerTerm.t), unifscope) ((rhs : T.t :> InnerTerm.t), unifscope)) in
+
       match problem with
       | _ when !hits_cnt > max_infs -> OSeq.empty
       | [] -> 
@@ -202,23 +214,19 @@ module Make (P : PARAMETERS) = struct
         let sub = ref subst in
 
         while !p != [] do
-          let (lhs, rhs, _) = Future.head !p in
-          p := Future.tail !p;
+          let ((lhs, rhs, _), tail) = Future.head_tail !p in
+          p := tail;
 
-          match PatternUnif.unif_simple ~subst:(!sub) ~scope:unifscope (T.of_ty (T.ty lhs)) (T.of_ty (T.ty rhs)) with 
+          match unif_types !sub lhs rhs with 
           | None -> raise Unif.Fail
           | Some subst ->
-            assert (not @@ Unif_subst.has_constr subst);
-
-            let subst = Unif_subst.subst subst in
-            acc := (normalize subst (lhs, unifscope), normalize subst (rhs, unifscope)) :: !acc;
+            acc := (normalize_term subst lhs, normalize_term subst rhs) :: !acc;
             sub := subst;
         done;
 
-          assert (List.for_all (fun (l,r) -> Type.equal (Term.ty l) (Term.ty r)) !acc);
+        assert (List.for_all (fun (l,r) -> Type.equal (Term.ty l) (Term.ty r)) !acc);
 
-          let cstrs = FList.map (fun (lhs, rhs) -> Unif_constr.make ~tags:[] ((lhs : T.t :> InnerTerm.t), unifscope) ((rhs : T.t :> InnerTerm.t), unifscope)) !acc in
-          OSeq.return @@ Some (Unif_subst.make !sub cstrs)
+        OSeq.return @@ Some (Unif_subst.make !sub (make_constraints !acc))
       | (lhs, rhs, flag) as current_constraint :: rest ->
         match PatternUnif.unif_simple ~subst ~scope:unifscope 
                 (T.of_ty (T.ty lhs)) (T.of_ty (T.ty rhs)) with 

@@ -476,8 +476,6 @@ module Make(E : Env.S) : S with module Env = E = struct
                 let renaming = Subst.Renaming.create () in
                 let constr_l = Constraints.get_constraints renaming us in
 
-                on_preunif ~off:(fun () -> assert(CCList.is_empty constr_l)) ~on:(fun () -> assert (CCList.length constr_l == 1));
-
                 let sub = US.subst us in
                 
                 let z_false_sub = 
@@ -600,8 +598,6 @@ module Make(E : Env.S) : S with module Env = E = struct
                 CCOpt.map (fun us -> 
                   let renaming = Subst.Renaming.create () in
                   let constr_l = Constraints.get_constraints renaming us in
-  
-                  on_preunif ~off:(fun () -> assert(CCList.is_empty constr_l)) ~on:(fun () -> assert (CCList.length constr_l == 1));
 
                   let sub = Unif_subst.subst us in
                   let eligible' = C.eligible_res (c, sc_cl) sub in
@@ -732,8 +728,6 @@ module Make(E : Env.S) : S with module Env = E = struct
             CCOpt.map (fun us ->
               let renaming = Subst.Renaming.create () in
               let constr_l = Constraints.get_constraints renaming us in
-
-              on_preunif ~off:(fun () -> assert(CCList.is_empty constr_l)) ~on:(fun () -> assert (CCList.length constr_l == 1));
               
               let sub = Unif_subst.subst us in
               
@@ -894,9 +888,6 @@ module Make(E : Env.S) : S with module Env = E = struct
           get_unif_alg_l () (args, 0) (target, 0)
           |> OSeq.filter_map (
               CCOpt.map (fun us -> 
-                
-                on_preunif ~off:(fun () -> assert(not (Unif_subst.has_constr us)))
-                            ~on:(fun () -> assert (Unif_subst.has_constr us));
                             
                 let subst = Unif_subst.subst us in
                 let renaming = Subst.Renaming.create () in
@@ -1013,8 +1004,6 @@ module Make(E : Env.S) : S with module Env = E = struct
               CCOpt.map (fun unif_subst ->
                 let renaming = Subst.Renaming.create () in
                 let constr_l = Constraints.get_constraints renaming unif_subst in
-
-                on_preunif ~off:(fun () -> assert(CCList.is_empty constr_l)) ~on:(fun () -> assert (CCList.length constr_l == 1));
                 
                 let subst = US.subst unif_subst in
                 
@@ -1030,6 +1019,7 @@ module Make(E : Env.S) : S with module Env = E = struct
                 in
                 
                 let new_constraints = Constraints.update_constraints renaming (mk_sc (C.constraints c)) unif_subst in
+                let new_constraints = Constraints.merge new_constraints constr_l in
 
                 let rule = Proof.Rule.mk ((if T.equal repl T.true_ then "eq" else "neq") ^ "_rw")  in
                 let proof = Proof.Step.inference ~tags:[Proof.Tag.T_ho] ~rule (parents renaming subst) in
@@ -2323,5 +2313,11 @@ let () =
                        "ho-comb-complete";
                        "lambda-free-purify-extensional"] (fun () -> 
     _disable_ho_unif := true
+  );
+  Params.add_to_mode "ho-optimistic" (fun () ->
+    _bool_reasoning := BoolHoist;
+    _fluid_hoist := true;
+    _bool_app_var_repl := true;
+    _fluid_log_hoist := true;
   );
   Extensions.register extension
