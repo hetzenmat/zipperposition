@@ -30,6 +30,7 @@ val t2 : t -> term
 val sc2 : t -> Scoped.scope 
 val tags : t -> Proof.tag list
 
+val get_scoped : t -> (Term.t Scoped.t * Term.t Scoped.t)
 val get_scoped_t1 : t -> Term.t Scoped.t
 val get_scoped_t2 : t -> Term.t Scoped.t
 

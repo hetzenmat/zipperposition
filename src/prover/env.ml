@@ -497,7 +497,7 @@ module Make(X : sig
         Proof.Step.simp ~rule
           (C.proof_parent c :: !proofs)
       in
-      let c' = C.create_a ~trail:(C.trail c) ~penalty:(C.penalty c) lits' proof in
+      let c' = C.create_a ~trail:(C.trail c) ~penalty:(C.penalty c) ~constraints:(C.constraints c) lits' proof in
       assert (not (C.equal c c'));
       Util.debugf ~section 3 "@[term rewritten clause `@[%a@]`@ into `@[%a@]`"
         (fun k->k C.pp c C.pp c');
@@ -571,7 +571,7 @@ module Make(X : sig
         Proof.Step.simp ~rule ~tags:!tags
           (C.proof_parent c :: !proofs)
       in
-      let c' = C.create_a ~trail:(C.trail c) ~penalty:(C.penalty c) lits proof in
+      let c' = C.create_a ~trail:(C.trail c) ~penalty:(C.penalty c) ~constraints:(C.constraints c) lits proof in
       assert (not (C.equal c c'));
       Util.debugf ~section 3 "@[lit rewritten `@[%a@]`@ into `@[%a@]`@]"
         (fun k->k C.pp c C.pp c');

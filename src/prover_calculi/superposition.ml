@@ -841,7 +841,17 @@ module Make(Env : Env.S) : S with module Env = Env = struct
       let rule =
         let r = kind_to_str info.sup_kind in
         let sign = if Lit.is_positivoid passive_lit' then "+" else "-" in
-        Proof.Rule.mk (r ^ sign)
+        let rule_name = r ^ sign in
+        let rule_name = on_preunif ~off:(fun () -> rule_name)
+                                   ~on:(fun () -> 
+                                    let l = US.constr_l us in
+                                    let l = FList.map (fun p ->
+                                      let (p1,p2) = Unif_constr.get_scoped p in
+                                      (Scoped.to_string Term.pp p1) ^ " =?= " ^ (Scoped.to_string Term.pp p2)
+                                      ) l
+                                    in
+                                    rule_name ^ " {{" ^ (String.concat ", " l)) ^ "}}" in
+        Proof.Rule.mk rule_name
       in
       CCList.iter (fun (sym,ty) -> Ctx.declare sym ty) !skolem_decls;
       let tags = (if subst_is_ho || info.sup_kind != Classic 

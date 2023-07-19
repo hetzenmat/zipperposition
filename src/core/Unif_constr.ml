@@ -26,6 +26,7 @@ let[@inline] tags t = t.tags
 
 let[@inline] get_scoped_t1 t = (Term.of_term_unsafe t.t1,t.sc1) 
 let[@inline] get_scoped_t2 t = (Term.of_term_unsafe t.t2,t.sc2) 
+let[@inline] get_scoped t = get_scoped_t1 t, get_scoped_t2 t 
 
 let apply_subst renaming subst (c:t): term * term =
   Subst.apply renaming subst (c.t1, c.sc1),
