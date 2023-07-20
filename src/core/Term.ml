@@ -1368,17 +1368,19 @@ module Conv = struct
     res
 end
 
-let rebuild_rec t =
+let rebuild_rec ?(allow_loose_db = true) t =
   let rec aux env t =
     let ty = Type.rebuild_rec ~env (ty t) in
     begin match view t with
       | Var v -> var (HVar.cast ~ty v)
       | DB i ->
-        assert (if i >= 0 && i < List.length env then true
+        if not allow_loose_db then (
+        assert (if (i >= 0 && i < List.length env) then true
                 else (Format.printf "%d not in %a@." i (CCFormat.Dump.list Type.pp) env; false));
         assert (if Type.equal ty (List.nth env i) then true
                 else (Format.printf "@[%a@ has type %a@ but bound with type %a@]@."
                         pp t Type.pp ty Type.pp (List.nth env i); false));
+        );
         bvar ~ty i
       | Const id -> const ~ty id
       | App (f, l) -> app (aux env f) (FList.map (aux env) l)

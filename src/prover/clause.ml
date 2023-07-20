@@ -613,6 +613,7 @@ module Make(Ctx : Ctx.S) : S with module Ctx = Ctx = struct
     Util.debugf 5 "(@[check_types@ %a@])" (fun k->k pp c);
     lits c
     |> Literals.Seq.terms
+    |> Iter.append (Constraints.to_iter (c.sclause.constraints))
     |> Iter.iter
       (fun t -> ignore (Term.rebuild_rec t))
 end

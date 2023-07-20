@@ -515,11 +515,11 @@ module Make(X : sig
         (Lit.map app)
         (C.lits c)
     in
-    let constraints' =
+    (*let constraints' =
       FList.map
         (fun (l,r) -> (app l, app r))
         (C.constraints c)
-    in
+    in*)
     if not !did_reduce
     then SimplM.return_same c (* no simplification *)
     else (
@@ -530,7 +530,7 @@ module Make(X : sig
         Proof.Step.simp ~rule  ~tags:[Proof.Tag.T_ho_norm]
           ([C.proof_parent c])
       in
-      let c' = C.create_a ~trail:(C.trail c) ~penalty:(C.penalty c) ~constraints:constraints' lits' proof in
+      let c' = C.create_a ~trail:(C.trail c) ~penalty:(C.penalty c) ~constraints:(C.constraints c) lits' proof in
       assert (not (C.equal c c'));
       Util.debugf ~section 3 "@[lambda rewritten clause `@[%a@]`@ into `@[%a@]`"
         (fun k->k C.pp c C.pp c');

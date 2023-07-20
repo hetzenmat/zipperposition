@@ -87,6 +87,18 @@ module Make(E : Env.S) = struct
   module EInterface = EIntf.Make(E)
 
   let[@inline] check_clause_ c = 
+    
+      Constraints.to_iter (Env.C.constraints c) |> Iter.iter (fun t ->
+        try
+          ignore @@ Term.rebuild_rec ~allow_loose_db:true t
+        with Type.ApplyError msg -> (
+          Printf.printf "%s\n" msg;
+          Printf.printf "%s\n" (Term.to_string t);
+          Printf.printf "%s\n" (CCFormat.to_string Proof.Step.pp (Env.C.proof_step c));
+          exit 0;
+        );    
+    );
+    
     if !_check_types then Env.C.check_types c;
     assert (Env.C.Seq.terms c |> Iter.for_all Term.DB.is_closed);
     assert (Env.C.Seq.terms c |> Iter.for_all Term.is_properly_encoded);
@@ -247,6 +259,7 @@ module Make(E : Env.S) = struct
               Iter.filter_map
                 (fun c ->
                   Util.debugf ~section 4 "inferred: `@[%a@]`" (fun k->k Env.C.pp c);
+                  check_clause_ c; (* [MH] TODO remove afterwards *)
                   let c, _ = Env.forward_simplify c in
                   check_clause_ c;
                   (* keep clauses  that are not redundant *)

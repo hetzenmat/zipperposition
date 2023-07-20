@@ -28,6 +28,13 @@ let id_count_ = ref 0
 (** {2 Basics} *)
 
 let make ~trail ?(constraints = Constraints.mk_empty) lits =
+
+  (*(Constraints.to_iter constraints) |> Iter.iter
+  (fun t ->
+    Printf.printf "check %s\n" (Term.to_string t);
+    ignore (Term.rebuild_rec t)
+  );*)
+
   let id = !id_count_ in
   incr id_count_;
   { lits; trail; id; constraints=constraints; flags=0; }

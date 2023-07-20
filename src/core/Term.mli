@@ -483,5 +483,5 @@ module Conv : sig
 end
 
 (**/**)
-val rebuild_rec : t -> t (* rebuild term fully, checking types *)
+val rebuild_rec : ?allow_loose_db: bool -> t -> t (* rebuild term fully, checking types *)
 (**/**)

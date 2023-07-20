@@ -68,8 +68,23 @@ module Inner = struct
         (* beta-reduce *)
         Util.debugf 50 "(@[<2>beta-reduce@ @[%a@ %a@]@])"
           (fun k->k T.pp st.head T.pp a);
-        assert (not (T.is_ground ty_var) || not (T.is_ground (T.ty_exn a)) 
+          if not (not (T.is_ground ty_var) || not (T.is_ground (T.ty_exn a)) 
+            || T.equal ty_var (T.ty_exn a)) then (
+
+            Printf.printf "%s\nArgs:\n" (T.to_string @@ st.head);
+            List.iter (fun s -> Printf.printf "%s\nty: %s\n" (T.to_string s) (T.to_string (T.ty_exn s))) (st.args);
+
+
+
+
+            Printf.printf "is_ground ty_var %b\n" (T.is_ground ty_var);
+            Printf.printf "is_ground ty_exn a %b\n" (T.is_ground (T.ty_exn a));
+
+            Printf.printf "ty_var %s\n body %s\n" (T.to_string ty_var) (T.to_string body);
+
+            assert (not (T.is_ground ty_var) || not (T.is_ground (T.ty_exn a)) 
                 || T.equal ty_var (T.ty_exn a));
+            );
         let st' =
           { head=body;
             env=DBEnv.push st.env a;

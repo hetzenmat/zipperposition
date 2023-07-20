@@ -133,8 +133,8 @@ module Make (P : PARAMETERS) = struct
       ) else res ()
     in
 
-    let rec aux ?(root=false) subst problem =
-      let decompose args_l args_r rest flag =
+    let rec aux ?(root=false) subst (problem: (T.t * T.t * int * (T.t list)) list) =
+      let decompose args_l args_r rest flag = (* [MH] TODO add prefix everywhere *)
         let rec zipped_with_flag = function 
           | [], [] -> []
           | x::xs, y::ys -> (x,y,flag) :: (zipped_with_flag (xs,ys))
@@ -180,7 +180,7 @@ module Make (P : PARAMETERS) = struct
         (fun () -> aux subst new_prob ()) in
 
       let all_flex_flex prob =
-        let is_flex_flex = fun (lhs, rhs, _) ->
+        let is_flex_flex = fun (lhs, rhs, _, _) ->
           match classify_one lhs subst with
           | `Var -> (match classify_one rhs subst with
                      | `Var -> true
@@ -227,7 +227,7 @@ module Make (P : PARAMETERS) = struct
         assert (List.for_all (fun (l,r) -> Type.equal (Term.ty l) (Term.ty r)) !acc);
 
         OSeq.return @@ Some (Unif_subst.make !sub (make_constraints !acc))
-      | (lhs, rhs, flag) as current_constraint :: rest ->
+      | (lhs, rhs, flag, prefix) as current_constraint :: rest ->
         match PatternUnif.unif_simple ~subst ~scope:unifscope 
                 (T.of_ty (T.ty lhs)) (T.of_ty (T.ty rhs)) with 
         | None -> OSeq.empty
@@ -341,7 +341,7 @@ module Make (P : PARAMETERS) = struct
                   if !bind_cnt = 0 && root then (OSeq.cons None res) else res
                   
               with Unif.Fail -> OSeq.empty) in
-    aux ~root:true subst problem
+    aux ~root:true subst (FList.map (fun (a,b,c) -> (a,b,c,[])) problem)
 
   let try_lfho_unif ((s,_) as t0) ((t,_) as t1) =
     
@@ -387,7 +387,17 @@ module Make (P : PARAMETERS) = struct
         ((try_lfho_unif t0s t1s) |> OSeq.map (CCOpt.map Unif_subst.of_subst))
         (do_unif ~bind_cnt ~hits_cnt [(lhs,rhs,P.init_flag)] subst unifscope)
       |> OSeq.map (CCOpt.map (fun subst ->
+        let renaming = S.Renaming.create () in
         let subst' = Unif_subst.subst subst in
+        let cstr = Unif_subst.constr_l subst in
+        let cstr =Unif_constr.apply_subst_l renaming subst' cstr in
+        
+        List.iter (fun (l,r) ->
+          assert (InnerTerm.equal (InnerTerm.ty_exn l) (InnerTerm.ty_exn r));
+          ignore @@ Term.rebuild_rec ~allow_loose_db:false (Term.of_term_unsafe l);
+          ignore @@ Term.rebuild_rec ~allow_loose_db:false (Term.of_term_unsafe r);
+        ) cstr;
+
         let norm t = T.normalize_bools @@ Lambda.eta_expand @@ Lambda.snf t in
         let l = norm @@ S.FO.apply Subst.Renaming.none subst' t0s in 
         let r = norm @@ S.FO.apply Subst.Renaming.none subst' t1s in

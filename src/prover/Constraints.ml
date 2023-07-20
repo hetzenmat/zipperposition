@@ -220,3 +220,5 @@ let unsolvable =
   List.exists check
 
   
+let rec to_iter = function [] -> Iter.empty
+                         | (l,r) :: cs -> Iter.append (Iter.doubleton l r) (to_iter cs)
