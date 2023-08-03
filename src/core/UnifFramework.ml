@@ -133,8 +133,8 @@ module Make (P : PARAMETERS) = struct
       ) else res ()
     in
 
-    let rec aux ?(root=false) subst (problem: (T.t * T.t * int * (T.t list)) list) =
-      let decompose args_l args_r rest flag = (* [MH] TODO add prefix everywhere *)
+    let rec aux ?(root=false) subst problem =
+      let decompose args_l args_r rest flag =
         let rec zipped_with_flag = function 
           | [], [] -> []
           | x::xs, y::ys -> (x,y,flag) :: (zipped_with_flag (xs,ys))
@@ -180,7 +180,7 @@ module Make (P : PARAMETERS) = struct
         (fun () -> aux subst new_prob ()) in
 
       let all_flex_flex prob =
-        let is_flex_flex = fun (lhs, rhs, _, _) ->
+        let is_flex_flex = fun (lhs, rhs, _) ->
           match classify_one lhs subst with
           | `Var -> (match classify_one rhs subst with
                      | `Var -> true
@@ -224,10 +224,14 @@ module Make (P : PARAMETERS) = struct
             sub := subst;
         done;
 
-        assert (List.for_all (fun (l,r) -> Type.equal (Term.ty l) (Term.ty r)) !acc);
+        let problem = !acc in
 
-        OSeq.return @@ Some (Unif_subst.make !sub (make_constraints !acc))
-      | (lhs, rhs, flag, prefix) as current_constraint :: rest ->
+        assert (List.for_all (fun (l, r) -> Type.equal (Term.ty l) (Term.ty r)) problem);
+
+        (* Compute map of loose DB indices with associated types *)
+
+        OSeq.return @@ Some (Unif_subst.make !sub (make_constraints problem))
+      | (lhs, rhs, flag) as current_constraint :: rest ->
         match PatternUnif.unif_simple ~subst ~scope:unifscope 
                 (T.of_ty (T.ty lhs)) (T.of_ty (T.ty rhs)) with 
         | None -> OSeq.empty
@@ -341,7 +345,7 @@ module Make (P : PARAMETERS) = struct
                   if !bind_cnt = 0 && root then (OSeq.cons None res) else res
                   
               with Unif.Fail -> OSeq.empty) in
-    aux ~root:true subst (FList.map (fun (a,b,c) -> (a,b,c,[])) problem)
+    aux ~root:true subst problem
 
   let try_lfho_unif ((s,_) as t0) ((t,_) as t1) =
     
@@ -385,7 +389,7 @@ module Make (P : PARAMETERS) = struct
     try
       OSeq.append 
         ((try_lfho_unif t0s t1s) |> OSeq.map (CCOpt.map Unif_subst.of_subst))
-        (do_unif ~bind_cnt ~hits_cnt [(lhs,rhs,P.init_flag)] subst unifscope)
+        (do_unif ~bind_cnt ~hits_cnt [(lhs, rhs, P.init_flag)] subst unifscope)
       |> OSeq.map (CCOpt.map (fun subst ->
         let renaming = S.Renaming.create () in
         let subst' = Unif_subst.subst subst in
