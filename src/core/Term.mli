@@ -32,6 +32,7 @@ type view = private
 
 val view : t -> view
 
+exception LooseDB
 
 (** {2 Classic view}
 

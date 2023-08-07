@@ -233,7 +233,34 @@ module Make (P : PARAMETERS) = struct
 
         let problem = !acc in
 
-        assert (List.for_all (fun (l, r) -> Type.equal (Term.ty l) (Term.ty r)) problem);
+        
+        let renaming = S.Renaming.create () in
+        let problem' = FList.map (fun (l, r) -> (S.FO.apply renaming !sub (l, unifscope)), (S.FO.apply renaming !sub (r, unifscope))) problem in
+        (match List.find_opt (fun (l, r) -> not @@ Type.equal (Term.ty l) (Term.ty r)) problem' with
+        | Some (l, r) ->
+
+          Printf.printf "term %s %s\n" (T.to_string l) (T.to_string r);
+          Printf.printf "ty %s %s\n" (Type.to_string (T.ty l)) (Type.to_string (T.ty r));
+          Printf.printf "%s\n" (S.to_string !sub);
+          assert false;
+
+        | None -> (); );
+
+        assert (List.for_all (fun (l, r) ->
+          (try
+            ignore @@ Term.rebuild_rec l
+          with T.LooseDB -> (
+            Printf.printf "%s\n" (Term.to_string l);
+            assert false;
+          ));
+          (try
+            ignore @@ Term.rebuild_rec r
+          with T.LooseDB -> (
+            Printf.printf "%s\n" (Term.to_string r);
+            assert false;
+          ));
+          
+          Type.equal (Term.ty l) (Term.ty r)) problem');
 
         (* Compute map of loose DB indices with associated types *)
 
@@ -390,6 +417,11 @@ module Make (P : PARAMETERS) = struct
     ) else OSeq.empty
 
   let unify_scoped t0s t1s =
+    let (t0,_) = t0s in
+    let (t1,_) = t1s in
+    ignore @@ Term.rebuild_rec ~allow_loose_db:false t0;
+    ignore @@ Term.rebuild_rec ~allow_loose_db:false t1;
+    
     let lhs,rhs,unifscope,subst = P.identify_scope t0s t1s in
 
     let bind_cnt = ref 0 in (* number of created binders *)
@@ -399,12 +431,16 @@ module Make (P : PARAMETERS) = struct
         ((try_lfho_unif t0s t1s) |> OSeq.map (CCOpt.map Unif_subst.of_subst))
         (do_unif ~bind_cnt ~hits_cnt [(lhs, rhs, { flag = P.init_flag; prefix = [] })] subst unifscope)
       |> OSeq.map (CCOpt.map (fun subst ->
+
+        Printf.printf "problem: %s\n%s\n" (Term.to_string t0) (Term.to_string t1);
+
         let renaming = S.Renaming.create () in
         let subst' = Unif_subst.subst subst in
         let cstr = Unif_subst.constr_l subst in
         let cstr =Unif_constr.apply_subst_l renaming subst' cstr in
         
         List.iter (fun (l,r) ->
+          Printf.printf "%s\n%s\n\n" (InnerTerm.to_string l) (InnerTerm.to_string r);
           assert (InnerTerm.equal (InnerTerm.ty_exn l) (InnerTerm.ty_exn r));
           ignore @@ Term.rebuild_rec ~allow_loose_db:false (Term.of_term_unsafe l);
           ignore @@ Term.rebuild_rec ~allow_loose_db:false (Term.of_term_unsafe r);

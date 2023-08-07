@@ -13,6 +13,8 @@ let prof_ac_normal_form = ZProf.make "term.AC_normal_form"
 
 (** {2 Term} *)
 
+exception LooseDB
+
 type t = T.t
 
 type term = t
@@ -1375,6 +1377,11 @@ let rebuild_rec ?(allow_loose_db = true) t =
       | Var v -> var (HVar.cast ~ty v)
       | DB i ->
         if not allow_loose_db then (
+        if not (i >= 0 && i < List.length env) then (
+          Format.printf "%d not in %a@." i (CCFormat.Dump.list Type.pp) env;
+          raise LooseDB
+        );
+
         assert (if (i >= 0 && i < List.length env) then true
                 else (Format.printf "%d not in %a@." i (CCFormat.Dump.list Type.pp) env; false));
         assert (if Type.equal ty (List.nth env i) then true
