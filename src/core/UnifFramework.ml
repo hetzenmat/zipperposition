@@ -77,7 +77,7 @@ module Make (P : PARAMETERS) = struct
     with PolymorphismDetected -> 
       nfapply s u 
 
-  let eta_expand_otf ~subst:_ ~scope:_ pref1 pref2 t1 t2 =
+  let eta_expand_otf pref1 pref2 t1 t2 =
     let do_exp_otf n types t = 
       let remaining = CCList.drop n types in
       assert(List.length remaining != 0);
@@ -102,7 +102,12 @@ module Make (P : PARAMETERS) = struct
     | T.AppBuiltin _ ->  not @@ T.is_appbuiltin t
     | _ -> false
 
-  let do_unif ~bind_cnt ~hits_cnt problem subst unifscope =
+  type payload = {
+    flag: P.flag_type;
+    prefix: Type.t list
+  }
+
+  let do_unif ~bind_cnt ~hits_cnt (problem : (T.t * T.t * payload) list) subst unifscope =
 
     let classify_one s subst =
       let rec follow_bindings t =
@@ -133,7 +138,7 @@ module Make (P : PARAMETERS) = struct
       ) else res ()
     in
 
-    let rec aux ?(root=false) subst problem =
+    let rec aux ?(root=false) subst (problem : (T.t * T.t * payload) list) =
       let decompose args_l args_r rest flag =
         let rec zipped_with_flag = function 
           | [], [] -> []
@@ -209,18 +214,20 @@ module Make (P : PARAMETERS) = struct
         OSeq.return @@ Some (Unif_subst.of_subst subst)
       | _ when P.preunification && all_flex_flex problem ->
 
+        let problem = FList.map (fun (l, r, { flag = _; prefix }) -> (normalize_term subst @@ T.fun_l prefix l), (normalize_term subst @@ T.fun_l prefix r)) problem in
+
         let p = ref problem in
         let acc = ref [] in
         let sub = ref subst in
 
         while !p != [] do
-          let ((lhs, rhs, _), tail) = Future.head_tail !p in
+          let ((lhs, rhs), tail) = Future.head_tail !p in
           p := tail;
 
           match unif_types !sub lhs rhs with 
           | None -> raise Unif.Fail
           | Some subst ->
-            acc := (normalize_term subst lhs, normalize_term subst rhs) :: !acc;
+            acc := (normalize_term !sub lhs, normalize_term !sub rhs) :: !acc;
             sub := subst;
         done;
 
@@ -231,7 +238,7 @@ module Make (P : PARAMETERS) = struct
         (* Compute map of loose DB indices with associated types *)
 
         OSeq.return @@ Some (Unif_subst.make !sub (make_constraints problem))
-      | (lhs, rhs, flag) as current_constraint :: rest ->
+      | (lhs, rhs, ({ flag; prefix } as payload)) as current_constraint :: rest ->
         match PatternUnif.unif_simple ~subst ~scope:unifscope 
                 (T.of_ty (T.ty lhs)) (T.of_ty (T.ty rhs)) with 
         | None -> OSeq.empty
@@ -244,9 +251,10 @@ module Make (P : PARAMETERS) = struct
 
           let (pref_lhs, body_lhs) = T.open_fun lhs
           and (pref_rhs, body_rhs) = T.open_fun rhs in 
-          let body_lhs, body_rhs, _ = 
-            eta_expand_otf ~subst ~scope:unifscope pref_lhs pref_rhs body_lhs body_rhs in
+          let body_lhs, body_rhs, prefix_types = eta_expand_otf pref_lhs pref_rhs body_lhs body_rhs in
           let (hd_lhs, args_lhs), (hd_rhs, args_rhs) = T.as_app body_lhs, T.as_app body_rhs in
+
+          let prefix = prefix @ prefix_types in
 
           (* assert that heads are in dereffed form wrt. subst *)
           let (==>) a b = not a || b in
@@ -265,11 +273,11 @@ module Make (P : PARAMETERS) = struct
           ) else (
             match T.view hd_lhs, T.view hd_rhs with
             | T.DB i, T.DB j ->
-              if i = j then decompose_and_cont args_lhs args_rhs rest flag subst
+              if i = j then decompose_and_cont args_lhs args_rhs rest payload subst
               else OSeq.empty
             | T.Const f, T.Const g ->
               if ID.equal f g && List.length args_lhs = List.length args_rhs 
-              then decompose_and_cont args_lhs args_rhs rest flag subst
+              then decompose_and_cont args_lhs args_rhs rest payload subst
               else OSeq.empty
             | T.AppBuiltin(b1, args1), T.AppBuiltin(b2, args2) ->
               let args_lhs = args_lhs @ args1 and args_rhs = args_rhs @ args2 in
@@ -279,7 +287,7 @@ module Make (P : PARAMETERS) = struct
                   let args_lhs, args_rhs = 
                     Unif.norm_logical_disagreements ~mode b1 args_lhs args_rhs in
                   if List.length args_lhs = List.length args_rhs then 
-                    decompose_and_cont (args_lhs) (args_rhs) rest flag subst
+                    decompose_and_cont (args_lhs) (args_rhs) rest payload subst
                   else OSeq.empty
                 with Unif.Fail -> OSeq.empty
               ) else OSeq.empty
@@ -330,7 +338,7 @@ module Make (P : PARAMETERS) = struct
                           try
                             let subst' = Subst.merge subst sub' in
                             incr bind_cnt;
-                            delay !bind_cnt (fun () -> aux subst' ((lhs,rhs,flag') :: rest) ())
+                            delay !bind_cnt (fun () -> aux subst' ((lhs, rhs, { flag = flag'; prefix }) :: rest) ())
                           with Subst.InconsistentBinding _ ->
                             OSeq.return None) 
                     |> OSeq.merge
@@ -339,7 +347,7 @@ module Make (P : PARAMETERS) = struct
                     res else begin
                       if T.is_var hd_lhs && T.is_var hd_rhs && T.equal hd_lhs hd_rhs then begin
                         incr bind_cnt;
-                        OSeq.interleave (delay !bind_cnt (fun () -> decompose_and_cont args_lhs args_rhs rest flag subst ())) res 
+                        OSeq.interleave (delay !bind_cnt (fun () -> decompose_and_cont args_lhs args_rhs rest payload subst ())) res 
                       end else res
                     end in
                   if !bind_cnt = 0 && root then (OSeq.cons None res) else res
@@ -389,7 +397,7 @@ module Make (P : PARAMETERS) = struct
     try
       OSeq.append 
         ((try_lfho_unif t0s t1s) |> OSeq.map (CCOpt.map Unif_subst.of_subst))
-        (do_unif ~bind_cnt ~hits_cnt [(lhs, rhs, P.init_flag)] subst unifscope)
+        (do_unif ~bind_cnt ~hits_cnt [(lhs, rhs, { flag = P.init_flag; prefix = [] })] subst unifscope)
       |> OSeq.map (CCOpt.map (fun subst ->
         let renaming = S.Renaming.create () in
         let subst' = Unif_subst.subst subst in
@@ -416,7 +424,7 @@ module Make (P : PARAMETERS) = struct
 
   let unify_scoped_l t0s t1s =
     let lhs,rhs,unifscope,subst = P.identify_scope_l t0s t1s in
-    let problem = FList.map (fun (a,b) -> (a,b,P.init_flag)) (CCList.combine lhs rhs) in 
+    let problem = FList.map (fun (a,b) -> (a, b, { flag = P.init_flag; prefix = [] })) (CCList.combine lhs rhs) in 
 
     let bind_cnt = ref 0 in (* number of created binders *)
     let hits_cnt = ref 0 in (* number of unifiers found *)
