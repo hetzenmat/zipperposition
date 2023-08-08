@@ -484,5 +484,5 @@ module Conv : sig
 end
 
 (**/**)
-val rebuild_rec : ?allow_loose_db: bool -> t -> t (* rebuild term fully, checking types *)
+val rebuild_rec : ?allow_loose_db: bool -> ?loose_types: (int -> Type.t -> unit) -> t -> t (* rebuild term fully, checking types *)
 (**/**)

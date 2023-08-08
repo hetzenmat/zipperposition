@@ -1370,24 +1370,32 @@ module Conv = struct
     res
 end
 
-let rebuild_rec ?(allow_loose_db = true) t =
+let rebuild_rec ?(allow_loose_db = false) ?(loose_types = fun _ _ -> ()) t =
   let rec aux env t =
     let ty = Type.rebuild_rec ~env (ty t) in
     begin match view t with
       | Var v -> var (HVar.cast ~ty v)
       | DB i ->
-        if not allow_loose_db then (
-        if not (i >= 0 && i < List.length env) then (
-          Format.printf "%d not in %a@." i (CCFormat.Dump.list Type.pp) env;
-          raise LooseDB
+
+        assert(if i >= 0 then true else (Printf.printf "Negative DB index\n"; false));
+
+        if i < List.length env then (
+          assert (if Type.equal ty (List.nth env i) then true
+                  else (Format.printf "@[%a@ has type %a@ but bound with type %a@]@."
+                        pp t Type.pp ty Type.pp (List.nth env i); false));
+        )
+        else (
+          (* i >= List.length env *)
+
+          if allow_loose_db then (
+            loose_types (List.length env - i) ty
+          )
+          else (
+            Format.printf "%d not in %a@." i (CCFormat.Dump.list Type.pp) env;
+            raise LooseDB
+          )
         );
 
-        assert (if (i >= 0 && i < List.length env) then true
-                else (Format.printf "%d not in %a@." i (CCFormat.Dump.list Type.pp) env; false));
-        assert (if Type.equal ty (List.nth env i) then true
-                else (Format.printf "@[%a@ has type %a@ but bound with type %a@]@."
-                        pp t Type.pp ty Type.pp (List.nth env i); false));
-        );
         bvar ~ty i
       | Const id -> const ~ty id
       | App (f, l) -> app (aux env f) (FList.map (aux env) l)

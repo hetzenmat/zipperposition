@@ -42,6 +42,29 @@ let different_rigid_rigid (e: elem): bool =
   | _, T.AppBuiltin(_, _) -> not @@ T.is_appbuiltin hd_lhs
   | _ -> false
 
+module IntHash = Hashtbl.Make(CCInt)
+
+let close_constraint (l, r) =
+  let tbl = IntHash.create 4 in
+  let max_db = ref (-1) in
+  let loose_types db typ =
+    max_db := max !max_db db;
+    match IntHash.find_opt tbl db with
+    | None -> IntHash.add tbl db typ
+    | Some typ' ->
+      assert (Type.equal typ typ')
+  in
+  ignore @@ Term.rebuild_rec ~allow_loose_db:true ~loose_types l;
+  ignore @@ Term.rebuild_rec ~allow_loose_db:true ~loose_types r;
+  let tylist = FList.map
+    (fun idx ->
+      match IntHash.find_opt tbl idx with
+      | None -> Type.var (HVar.fresh ~ty:Type.tType ())
+      | Some typ -> typ)
+    (CCList.range !max_db 0)
+  in
+  Term.fun_l tylist l, Term.fun_l tylist r
+
 let apply_subst ~(renaming : Subst.Renaming.t) ~(subst: Subst.t) ((constraints, scope): t Scoped.t): t =
   let do_sub = Subst.FO.apply renaming subst in
   FList.map (fun (l,r) -> do_sub (l,scope), do_sub (r,scope)) constraints

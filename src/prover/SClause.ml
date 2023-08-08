@@ -27,17 +27,16 @@ let id_count_ = ref 0
 
 (** {2 Basics} *)
 
-let make ~trail ?(constraints = Constraints.mk_empty) lits =
 
-  (*(Constraints.to_iter constraints) |> Iter.iter
-  (fun t ->
-    Printf.printf "check %s\n" (Term.to_string t);
-    ignore (Term.rebuild_rec t)
-  );*)
+
+let make ~trail ?(constraints = Constraints.mk_empty) lits =
+  let constraints = FList.map Constraints.close_constraint constraints in
+  
+  (Constraints.to_iter constraints) |> Iter.iter (fun t -> ignore @@ Term.rebuild_rec ~allow_loose_db:false t);
 
   let id = !id_count_ in
   incr id_count_;
-  { lits; trail; id; constraints=constraints; flags=0; }
+  { lits; trail; id; constraints; flags=0; }
 
 let[@inline] equal c1 c2 = c1.id = c2.id
 let[@inline] compare c1 c2 = Stdlib.compare c1.id c2.id
