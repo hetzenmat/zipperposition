@@ -30,9 +30,9 @@ let id_count_ = ref 0
 
 
 let make ~trail ?(constraints = Constraints.mk_empty) lits =
-  let constraints = FList.map Constraints.close_constraint constraints in
+  (*let constraints = FList.map Constraints.close_constraint constraints in
   
-  (Constraints.to_iter constraints) |> Iter.iter (fun t -> ignore @@ Term.rebuild_rec ~allow_loose_db:false t);
+  (Constraints.to_iter constraints) |> Iter.iter (fun t -> ignore @@ Term.rebuild_rec ~allow_loose_db:false t); *)
 
   let id = !id_count_ in
   incr id_count_;

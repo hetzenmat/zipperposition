@@ -526,7 +526,8 @@ module DB = struct
     let db_calc t = 
       _to_iter ~depth:0 t
       |> Iter.map (fun (bvar,depth) -> bvar < depth)
-      |> Iter.for_all _id in
+      |> Iter.for_all _id
+    in
     if get_property t.props f_db_overflowed then (
       db_calc t 
     ) else (

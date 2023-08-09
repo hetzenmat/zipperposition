@@ -200,7 +200,10 @@ module Make (P : PARAMETERS) = struct
 
       let normalize_term subst t = normalize subst (t, unifscope) in
 
-      let make_constraints = FList.map (fun (lhs, rhs) -> Unif_constr.make ~tags:[] ((lhs : T.t :> InnerTerm.t), unifscope) ((rhs : T.t :> InnerTerm.t), unifscope)) in
+      let make_constraints =
+        FList.map @@ fun (lhs, rhs) -> Unif_constr.make ~tags:[] ((lhs : T.t :> InnerTerm.t), unifscope)
+                                                                 ((rhs : T.t :> InnerTerm.t), unifscope)
+      in
 
       match problem with
       | _ when !hits_cnt > max_infs -> OSeq.empty
@@ -226,40 +229,18 @@ module Make (P : PARAMETERS) = struct
             sub := subst;
         done;
 
-        let problem = !acc in
-
-        
         let renaming = S.Renaming.create () in
-        let problem' = FList.map (fun (l, r) -> (S.FO.apply renaming !sub (l, unifscope)), (S.FO.apply renaming !sub (r, unifscope))) problem in
-        (match List.find_opt (fun (l, r) -> not @@ Type.equal (Term.ty l) (Term.ty r)) problem' with
-        | Some (l, r) ->
+        assert (List.for_all (fun (l,r) ->
+          let l = S.FO.apply renaming !sub (l, unifscope) in
+          let r = S.FO.apply renaming !sub (r, unifscope) in
+          let re = Type.equal (Term.ty l) (Term.ty r) in
+          if not re then (
+            Printf.printf "%s %s %s\n" (Type.to_string (Term.ty l)) (Type.to_string (Term.ty r)) (S.to_string !sub);
+          );
+          re
+        ) !acc);
 
-          Printf.printf "term %s %s\n" (T.to_string l) (T.to_string r);
-          Printf.printf "ty %s %s\n" (Type.to_string (T.ty l)) (Type.to_string (T.ty r));
-          Printf.printf "%s\n" (S.to_string !sub);
-          assert false;
-
-        | None -> (); );
-
-        assert (List.for_all (fun (l, r) ->
-          (try
-            ignore @@ Term.rebuild_rec l
-          with T.LooseDB -> (
-            Printf.printf "%s\n" (Term.to_string l);
-            assert false;
-          ));
-          (try
-            ignore @@ Term.rebuild_rec r
-          with T.LooseDB -> (
-            Printf.printf "%s\n" (Term.to_string r);
-            assert false;
-          ));
-          
-          Type.equal (Term.ty l) (Term.ty r)) problem');
-
-        (* Compute map of loose DB indices with associated types *)
-
-        OSeq.return @@ Some (Unif_subst.make !sub (make_constraints problem))
+        OSeq.return @@ Some (Unif_subst.make !sub (make_constraints !acc))
       | (lhs, rhs, flag) as current_constraint :: rest ->
         match PatternUnif.unif_simple ~subst ~scope:unifscope 
                 (T.of_ty (T.ty lhs)) (T.of_ty (T.ty rhs)) with 
@@ -268,9 +249,18 @@ module Make (P : PARAMETERS) = struct
           assert (not @@ Unif_subst.has_constr subst);
           
           let subst = Unif_subst.subst subst in
-          let lhs = normalize subst (lhs, unifscope) 
-          and rhs = normalize subst (rhs, unifscope) in
 
+          let (lhs, rhs, err) = begin try
+            ( normalize subst (lhs, unifscope) 
+            , normalize subst (rhs, unifscope)
+            , true)
+          with Type.ApplyError _ ->
+            (Term.true_, Term.true_, false)
+          end in
+
+          if err then
+            OSeq.empty
+          else begin
           let (pref_lhs, body_lhs) = T.open_fun lhs
           and (pref_rhs, body_rhs) = T.open_fun rhs in 
           let body_lhs, body_rhs, _prefix_types = eta_expand_otf pref_lhs pref_rhs body_lhs body_rhs in
@@ -373,7 +363,10 @@ module Make (P : PARAMETERS) = struct
                     end in
                   if !bind_cnt = 0 && root then (OSeq.cons None res) else res
                   
-              with Unif.Fail -> OSeq.empty) in
+              with Unif.Fail -> OSeq.empty
+            )
+            
+            end in
     aux ~root:true subst problem
 
   let try_lfho_unif ((s,_) as t0) ((t,_) as t1) =
@@ -413,8 +406,6 @@ module Make (P : PARAMETERS) = struct
   let unify_scoped t0s t1s =
     let (t0,_) = t0s in
     let (t1,_) = t1s in
-    ignore @@ Term.rebuild_rec ~allow_loose_db:false t0;
-    ignore @@ Term.rebuild_rec ~allow_loose_db:false t1;
     
     let lhs,rhs,unifscope,subst = P.identify_scope t0s t1s in
 
@@ -431,18 +422,22 @@ module Make (P : PARAMETERS) = struct
         let renaming = S.Renaming.create () in
         let subst' = Unif_subst.subst subst in
         let cstr = Unif_subst.constr_l subst in
-        let cstr =Unif_constr.apply_subst_l renaming subst' cstr in
+        let cstr = Unif_constr.apply_subst_l renaming subst' cstr in
         
         List.iter (fun (l,r) ->
-          Printf.printf "%s\n%s\n\n" (InnerTerm.to_string l) (InnerTerm.to_string r);
+          (* Printf.printf "%s\n%s\n\n" (InnerTerm.to_string l) (InnerTerm.to_string r); *)
           assert (InnerTerm.equal (InnerTerm.ty_exn l) (InnerTerm.ty_exn r));
-          ignore @@ Term.rebuild_rec ~allow_loose_db:false (Term.of_term_unsafe l);
-          ignore @@ Term.rebuild_rec ~allow_loose_db:false (Term.of_term_unsafe r);
+          ignore @@ Term.rebuild_rec ~allow_loose_db:true (Term.of_term_unsafe l);
+          ignore @@ Term.rebuild_rec ~allow_loose_db:true (Term.of_term_unsafe r);
         ) cstr;
 
         let norm t = T.normalize_bools @@ Lambda.eta_expand @@ Lambda.snf t in
-        let l = norm @@ S.FO.apply Subst.Renaming.none subst' t0s in 
-        let r = norm @@ S.FO.apply Subst.Renaming.none subst' t1s in
+        let l = norm @@ S.FO.apply renaming subst' t0s in 
+        let r = norm @@ S.FO.apply renaming subst' t1s in
+
+        if not (Type.equal (Term.ty l) (Term.ty r)) then (
+          assert (false);
+        );
           
         if not P.preunification && not ((T.equal l r) && (Type.equal (Term.ty l) (Term.ty r))) then (
           CCFormat.printf "subst:@[%a@]@." Subst.pp subst';

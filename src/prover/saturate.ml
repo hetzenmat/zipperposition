@@ -90,7 +90,7 @@ module Make(E : Env.S) = struct
     
       Constraints.to_iter (Env.C.constraints c) |> Iter.iter (fun t ->
         try
-          ignore @@ Term.rebuild_rec ~allow_loose_db:true t
+          ignore @@ Term.rebuild_rec t
         with Type.ApplyError msg -> (
           Printf.printf "%s\n" msg;
           Printf.printf "%s\n" (Term.to_string t);
@@ -100,7 +100,7 @@ module Make(E : Env.S) = struct
     );
     
     if !_check_types then Env.C.check_types c;
-    assert (Env.C.Seq.terms c |> Iter.for_all Term.DB.is_closed);
+    assert (Env.C.Seq.terms c |> Iter.append (Constraints.to_iter (Env.C.constraints c)) |> Iter.for_all Term.DB.is_closed);
     assert (Env.C.Seq.terms c |> Iter.for_all Term.is_properly_encoded);
     if not (Env.C.lits c |> Literals.vars_distinct) then (
       CCFormat.printf "Vars not distinct: @[%a@].Superposition@." Env.C.pp_tstp c;
@@ -116,8 +116,7 @@ module Make(E : Env.S) = struct
       assert(false));
     CCArray.iter (fun t -> assert(Literal.no_prop_invariant t)) (Env.C.lits c)
 
-  let[@inline] check_clauses_ seq =
-    Iter.iter check_clause_ seq
+  let[@inline] check_clauses_ seq = Iter.iter check_clause_ seq
 
   (** One iteration of the main loop ("given clause loop") *)
   let given_clause_step ?(generating=true) num =

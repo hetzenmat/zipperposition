@@ -605,10 +605,25 @@ module Make(Env : Env.S) : S with module Env = Env = struct
   let compute_constraints renaming subst constr_l parent_clauses =
     if Env.flex_get k_store_unification_constraints then begin
       let constr = Constraints.get_constraints renaming (Unif_subst.make subst constr_l) in
+
       let parent_constraints = FList.concat_map (fun (clause,scope) ->
         let constraints = C.constraints clause in
+
+        if false then begin (* [MH] Type error would be catchable here *)
+          (Constraints.to_iter constraints) |> Iter.iter (fun t ->
+            let t' = Subst.FO.apply renaming subst (t,scope) in
+            try
+              ignore @@ Term.rebuild_rec t';
+            with Logtk.Type.ApplyError _ -> (
+              Printf.printf "%s\n%s\n" (Term.to_string t) (Term.to_string t');
+              Printf.printf "%s\n" (Subst.to_string subst);
+            ) 
+          );
+        end;
+
         Constraints.apply_subst ~renaming ~subst (constraints, scope)
         ) parent_clauses in
+      
       Constraints.merge constr parent_constraints 
     end else
       Constraints.mk_empty
