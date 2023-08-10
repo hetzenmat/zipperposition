@@ -128,7 +128,7 @@ module Make (P : PARAMETERS) = struct
     let delay steps res () =
       let skipper = 
         int_of_float (Flex_state.get_exn PUP.k_skip_multiplier P.flex_state) in
-      if steps !=0 && steps mod skipper == 0 then (
+      if steps != 0 && steps mod skipper == 0 then (
         OSeq.append (OSeq.of_list (CCList.replicate (steps / skipper) None)) res ()
       ) else res ()
     in
@@ -191,11 +191,7 @@ module Make (P : PARAMETERS) = struct
       in
 
       let unif_types subst ?(scope = unifscope) t1 t2 =
-        (match PatternUnif.unif_simple ~subst ~scope (T.of_ty (T.ty t1)) (T.of_ty (T.ty t2)) with 
-          | None -> None
-          | Some subst ->
-            assert (not @@ Unif_subst.has_constr subst);
-            Some (Unif_subst.subst subst))
+        PatternUnif.unif_simple ~subst ((T.of_ty (T.ty t1)), scope) ((T.of_ty (T.ty t2)), scope)
       in
 
       let normalize_term subst t = normalize subst (t, unifscope) in
@@ -215,7 +211,6 @@ module Make (P : PARAMETERS) = struct
         let problem = FList.map (fun (l, r, _) -> (normalize_term subst l), (normalize_term subst r)) problem in
 
         let p = ref problem in
-        let acc = ref [] in
         let sub = ref subst in
 
         while !p != [] do
@@ -225,30 +220,20 @@ module Make (P : PARAMETERS) = struct
           match unif_types !sub lhs rhs with 
           | None -> raise Unif.Fail
           | Some subst ->
-            acc := (normalize_term !sub lhs, normalize_term !sub rhs) :: !acc;
             sub := subst;
         done;
 
-        let renaming = S.Renaming.create () in
-        assert (List.for_all (fun (l,r) ->
-          let l = S.FO.apply renaming !sub (l, unifscope) in
-          let r = S.FO.apply renaming !sub (r, unifscope) in
-          let re = Type.equal (Term.ty l) (Term.ty r) in
-          if not re then (
-            Printf.printf "%s %s %s\n" (Type.to_string (Term.ty l)) (Type.to_string (Term.ty r)) (S.to_string !sub);
-          );
-          re
-        ) !acc);
+        let problem = FList.map (fun (l,r) -> normalize_term !sub l, normalize_term !sub r) problem in
 
-        OSeq.return @@ Some (Unif_subst.make !sub (make_constraints !acc))
+        OSeq.return @@ Some (Unif_subst.make !sub (make_constraints problem))
       | (lhs, rhs, flag) as current_constraint :: rest ->
-        match PatternUnif.unif_simple ~subst ~scope:unifscope 
-                (T.of_ty (T.ty lhs)) (T.of_ty (T.ty rhs)) with 
+        match PatternUnif.unif_simple ~subst
+                ((T.of_ty (T.ty lhs)), unifscope) ((T.of_ty (T.ty rhs)), unifscope) with 
         | None -> OSeq.empty
         | Some subst ->
-          assert (not @@ Unif_subst.has_constr subst);
           
-          let subst = Unif_subst.subst subst in
+          
+          
 
           let (lhs, rhs, err) = begin try
             ( normalize subst (lhs, unifscope) 
@@ -258,9 +243,9 @@ module Make (P : PARAMETERS) = struct
             (Term.true_, Term.true_, false)
           end in
 
-          if err then
-            OSeq.empty
+          if err then OSeq.empty
           else begin
+
           let (pref_lhs, body_lhs) = T.open_fun lhs
           and (pref_rhs, body_rhs) = T.open_fun rhs in 
           let body_lhs, body_rhs, _prefix_types = eta_expand_otf pref_lhs pref_rhs body_lhs body_rhs in
@@ -364,8 +349,7 @@ module Make (P : PARAMETERS) = struct
                   if !bind_cnt = 0 && root then (OSeq.cons None res) else res
                   
               with Unif.Fail -> OSeq.empty
-            )
-            
+            )        
             end in
     aux ~root:true subst problem
 
@@ -404,8 +388,6 @@ module Make (P : PARAMETERS) = struct
     ) else OSeq.empty
 
   let unify_scoped t0s t1s =
-    let (t0,_) = t0s in
-    let (t1,_) = t1s in
     
     let lhs,rhs,unifscope,subst = P.identify_scope t0s t1s in
 
@@ -417,19 +399,14 @@ module Make (P : PARAMETERS) = struct
         (do_unif ~bind_cnt ~hits_cnt [(lhs, rhs, P.init_flag)] subst unifscope)
       |> OSeq.map (CCOpt.map (fun subst ->
 
-        Printf.printf "problem: %s\n%s\n" (Term.to_string t0) (Term.to_string t1);
+        
 
         let renaming = S.Renaming.create () in
         let subst' = Unif_subst.subst subst in
         let cstr = Unif_subst.constr_l subst in
-        let cstr = Unif_constr.apply_subst_l renaming subst' cstr in
+        let _cstr = Unif_constr.apply_subst_l renaming subst' cstr in
         
-        List.iter (fun (l,r) ->
-          (* Printf.printf "%s\n%s\n\n" (InnerTerm.to_string l) (InnerTerm.to_string r); *)
-          assert (InnerTerm.equal (InnerTerm.ty_exn l) (InnerTerm.ty_exn r));
-          ignore @@ Term.rebuild_rec ~allow_loose_db:true (Term.of_term_unsafe l);
-          ignore @@ Term.rebuild_rec ~allow_loose_db:true (Term.of_term_unsafe r);
-        ) cstr;
+        
 
         let norm t = T.normalize_bools @@ Lambda.eta_expand @@ Lambda.snf t in
         let l = norm @@ S.FO.apply renaming subst' t0s in 

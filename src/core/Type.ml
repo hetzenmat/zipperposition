@@ -51,7 +51,7 @@ let view t = match T.view t with
   | T.AppBuiltin (Builtin.TyInt, []) -> Builtin Int
   | T.AppBuiltin (Builtin.TyRat, []) -> Builtin Rat
   | T.AppBuiltin (Builtin.TyReal, []) -> Builtin Real
-  | _ -> assert false
+  | _ -> raise (T.IllFormedTerm "")
 
 let hash = T.hash
 let equal = T.equal

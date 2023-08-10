@@ -604,29 +604,32 @@ module Make(Env : Env.S) : S with module Env = Env = struct
 
   let compute_constraints renaming subst constr_l parent_clauses =
     if Env.flex_get k_store_unification_constraints then begin
-      let constr = Constraints.get_constraints renaming (Unif_subst.make subst constr_l) in
-
-      let parent_constraints = FList.concat_map (fun (clause,scope) ->
-        let constraints = C.constraints clause in
-
-        if false then begin (* [MH] Type error would be catchable here *)
-          (Constraints.to_iter constraints) |> Iter.iter (fun t ->
-            let t' = Subst.FO.apply renaming subst (t,scope) in
-            try
-              ignore @@ Term.rebuild_rec t';
-            with Logtk.Type.ApplyError _ -> (
-              Printf.printf "%s\n%s\n" (Term.to_string t) (Term.to_string t');
-              Printf.printf "%s\n" (Subst.to_string subst);
-            ) 
-          );
-        end;
-
-        Constraints.apply_subst ~renaming ~subst (constraints, scope)
-        ) parent_clauses in
       
-      Constraints.merge constr parent_constraints 
+      let subst = ref subst in
+
+      try (
+        (* Try to extend subst to a substition that unifies the types of parent_constraints *)
+
+        let parent_constraints = FList.concat_map (fun (clause,scope) ->
+          let constraints = FList.map (fun (l,r) ->
+            
+            subst := Unif.FO.unify_syn ~subst:!subst ((Term.of_ty (Term.ty l)), scope) ((Term.of_ty (Term.ty r)), scope);
+            
+            (Subst.FO.apply renaming !subst (l,scope), Subst.FO.apply renaming !subst (r,scope))
+          ) (C.constraints clause)
+          in
+          constraints
+        ) parent_clauses in
+
+        let constr = Constraints.get_constraints renaming (Unif_subst.make !subst constr_l) in
+
+        Some (constr @ parent_constraints)
+      )
+      with Unif.Fail ->
+        None
+
     end else
-      Constraints.mk_empty
+      Some (Constraints.mk_empty)
 
   let c_guard renaming us =
     match Env.flex_get k_store_unification_constraints with
@@ -891,7 +894,11 @@ module Make(Env : Env.S) : S with module Env = Env = struct
         + (if info.sup_kind == LambdaSup then 1 else 0)
 
       in
-      let constraints = compute_constraints renaming subst (Unif_subst.constr_l us) [(info.active, info.scope_active); (info.passive, info.scope_passive)] in
+      let constraints =
+        match compute_constraints renaming subst (Unif_subst.constr_l us) [(info.active, info.scope_active); (info.passive, info.scope_passive)] with
+        | Some l -> l
+        | None -> raise (ExitSuperposition "constraints not type-unifiable")
+      in
       let new_clause = C.create ~trail:new_trail ~penalty ~constraints new_lits proof
       in
       (* Format.printf "LS: %a\n" C.pp new_clause;  *)
@@ -1681,12 +1688,15 @@ module Make(Env : Env.S) : S with module Env = Env = struct
               let penalty = if C.penalty clause = 1 then 1 else C.penalty clause + 1 in
               let proof = Proof.Step.inference ~rule ~tags
                   [C.proof_parent_subst renaming (clause,0) subst] in
-              let constraints = compute_constraints renaming subst (Unif_subst.constr_l us) [(clause, 0)] in      
-              let new_clause = C.create ~trail ~constraints ~penalty (guard @ new_lits) proof in
-              (* CCFormat.printf "success: @[%a@]@." C.pp new_clause; *)
-              Util.debugf ~section 2 "@[<hv2>equality resolution on@ @[%a@]@ yields @[%a@],\n subst @[%a@]@]"
-                (fun k->k C.pp clause C.pp new_clause US.pp us);
-              Some new_clause
+              match compute_constraints renaming subst (Unif_subst.constr_l us) [(clause, 0)] with
+              | Some constraints ->
+                let new_clause = C.create ~trail ~constraints ~penalty (guard @ new_lits) proof in
+                (* CCFormat.printf "success: @[%a@]@." C.pp new_clause; *)
+                Util.debugf ~section 2 "@[<hv2>equality resolution on@ @[%a@]@ yields @[%a@],\n subst @[%a@]@]"
+                  (fun k->k C.pp clause C.pp new_clause US.pp us);
+                Some new_clause
+              | None -> None
+              
             ) else None
           in
           let substs = unify (l, 0) (r, 0) in
@@ -1776,14 +1786,16 @@ module Make(Env : Env.S) : S with module Env = Env = struct
       in
       let new_lits = lit' :: guard @ new_lits in
       let penalty = if C.penalty info.clause = 1 then 1 else C.penalty info.clause + 1 in
-      let constraints = compute_constraints renaming subst (Unif_subst.constr_l us) [(info.clause, info.scope)] in      
-      let new_clause =
-        C.create ~trail:(C.trail info.clause) ~constraints ~penalty new_lits proof
-      in
-      Util.debugf ~section 3 "@[<hv2>equality factoring on@ @[%a@]@ yields @[%a@]@]"
-        (fun k->k C.pp info.clause C.pp new_clause);
+      match compute_constraints renaming subst (Unif_subst.constr_l us) [(info.clause, info.scope)] with
+      | Some constraints ->
+        let new_clause =
+          C.create ~trail:(C.trail info.clause) ~constraints ~penalty new_lits proof
+        in
+        Util.debugf ~section 3 "@[<hv2>equality factoring on@ @[%a@]@ yields @[%a@]@]"
+          (fun k->k C.pp info.clause C.pp new_clause);
 
-      Some new_clause
+        Some new_clause 
+      | None -> None
     ) else(None)
 
   let infer_equality_factoring_aux ~unify ~iterate_substs clause =
@@ -3831,4 +3843,5 @@ let () =
     _use_simultaneous_sup := false;
     _fixpoint_decider := true;
     _local_rw := `GreenContext;
+    _dupsup := false;
   );

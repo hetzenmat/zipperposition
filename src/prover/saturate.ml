@@ -122,6 +122,7 @@ module Make(E : Env.S) = struct
   let given_clause_step ?(generating=true) num =
     let _span = ZProf.enter_prof prof_step in
     E.step_init();
+
     (* select next given clause *)
     Env.do_clause_eliminate ();
     match Env.next_passive () with
@@ -157,6 +158,7 @@ module Make(E : Env.S) = struct
       Send corresponding signal and do nothing else; this case should be handled in the Superposition module
       *)
 
+      check_clause_ c;
       assert (not (CCList.is_empty @@ Env.C.constraints c));
 
       Signal.send Env.on_given_clause_with_non_flex_flex_constraints c;

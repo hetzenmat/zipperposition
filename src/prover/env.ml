@@ -370,6 +370,30 @@ module Make(X : sig
     OSeq.concat_map f seq
     
 
+  let check c = 
+    
+    Constraints.to_iter (C.constraints c) |> Iter.iter (fun t ->
+      try
+        ignore @@ Term.rebuild_rec t
+      with Type.ApplyError msg -> (
+        Printf.printf "%s\n" msg;
+        Printf.printf "%s\n" (Term.to_string t);
+        Printf.printf "%s\n" (CCFormat.to_string Proof.Step.pp (C.proof_step c));
+        exit 0;
+      );    
+  );
+  
+  C.check_types c;
+  assert (C.Seq.terms c |> Iter.append (Constraints.to_iter (C.constraints c)) |> Iter.for_all Term.DB.is_closed);
+  assert (C.Seq.terms c |> Iter.for_all Term.is_properly_encoded);
+  if not (C.lits c |> Literals.vars_distinct) then (
+    CCFormat.printf "Vars not distinct: @[%a@].Superposition@." C.pp_tstp c;
+    CCFormat.printf "proof:@[%a@].@." Proof.S.pp_normal (C.proof c);
+    assert false;
+  );
+
+  CCArray.iter (fun t -> assert(Literal.no_prop_invariant t)) (C.lits c)
+
   (** do binary inferences that involve the given clause *)
   let do_binary_inferences c =
     let _span = ZProf.enter_prof prof_generate_binary in
@@ -381,6 +405,7 @@ module Make(X : sig
         (fun acc (name, rule) ->
            Util.debugf ~section 3 "apply binary rule %s" (fun k->k name);
            let new_clauses = rule c in
+           List.iter (fun c -> check c) new_clauses;
            List.rev_append new_clauses acc)
         [] !_binary_rules
     in

@@ -58,7 +58,15 @@ let close_constraint (l, r) =
       | Some typ' ->
         if not @@ Type.equal typ typ' then begin raise (Type.ApplyError "") end;
     in
-    ignore @@ Term.rebuild_rec ~allow_loose_db:true ~loose_types l;
+    (try
+      ignore @@ Term.rebuild_rec ~allow_loose_db:true ~loose_types l;
+    with InnerTerm.IllFormedTerm _ -> (
+      Printf.printf "\n\n%s\n" (T.to_string l);
+      Printf.printf "\n\n%s\n" (Type.to_string (Term.ty l));
+      exit 0;
+     
+    ));
+
     ignore @@ Term.rebuild_rec ~allow_loose_db:true ~loose_types r;
     let tylist = FList.map
       (fun idx ->

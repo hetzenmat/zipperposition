@@ -25,10 +25,9 @@ module S = struct
 
 end
 
-let unif_simple ?(subst=Subst.empty) ~scope t s = 
+let unif_simple ?(subst=Subst.empty) ts ss = 
   try 
-    let type_unifier = Unif.FO.unify_syn ~subst (t, scope) (s, scope) in
-    Some (US.of_subst type_unifier)
+    Some (Unif.FO.unify_syn ~subst ts ss)
   with Unif.Fail -> None
 
 (* Make new list of constraints, prefering the rigid-rigid pairs *)

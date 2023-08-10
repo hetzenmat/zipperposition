@@ -111,11 +111,11 @@ let proj_lr ~counter ~scope ~subst s t flag max_app_projs =
     )
   |> FList.filter_map(fun (i, ty) ->
       let _, arg_ret_ty = Type.open_fun ty in
-      match PatternUnif.unif_simple ~subst ~scope 
-              (T.of_ty arg_ret_ty) (T.of_ty hd_ret_ty) with
+      match PatternUnif.unif_simple ~subst
+              ((T.of_ty arg_ret_ty), scope) ((T.of_ty hd_ret_ty), scope) with
       | Some subst' ->
         (* we project only to arguments of appropriate type *)
-        let subst' = Unif_subst.subst subst' in
+        
         let pr_bind = project_hs_one ~counter pref_tys i ty in
         let max_num_of_apps = 
           List.length @@ Type.expected_args ty in
