@@ -232,10 +232,13 @@ module Make (P : PARAMETERS) = struct
         | None -> OSeq.empty
         | Some subst ->
           
-          
+          let (lhs, rhs) = 
+            ( normalize subst (lhs, unifscope) 
+            , normalize subst (rhs, unifscope) )
+          in
           
 
-          let (lhs, rhs, err) = begin try
+          (*let (lhs, rhs, err) = begin try
             ( normalize subst (lhs, unifscope) 
             , normalize subst (rhs, unifscope)
             , true)
@@ -244,7 +247,7 @@ module Make (P : PARAMETERS) = struct
           end in
 
           if err then OSeq.empty
-          else begin
+          else begin *)
 
           let (pref_lhs, body_lhs) = T.open_fun lhs
           and (pref_rhs, body_rhs) = T.open_fun rhs in 
@@ -350,7 +353,7 @@ module Make (P : PARAMETERS) = struct
                   
               with Unif.Fail -> OSeq.empty
             )        
-            end in
+            (* end *) in
     aux ~root:true subst problem
 
   let try_lfho_unif ((s,_) as t0) ((t,_) as t1) =

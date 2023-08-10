@@ -68,19 +68,26 @@ let close_constraint (l, r) =
     ));
 
     ignore @@ Term.rebuild_rec ~allow_loose_db:true ~loose_types r;
-    let tylist = FList.map
-      (fun idx ->
-        match IntHash.find_opt tbl idx with
-        | None -> Type.var (HVar.fresh ~ty:Type.tType ())
-        | Some typ -> typ)
-      (CCList.range !max_db 0)
-    in
-    let (l, r) = (Term.fun_l tylist l, Term.fun_l tylist r) in
-    ignore @@ Term.rebuild_rec l;  
-    ignore @@ Term.rebuild_rec r;
-    (l, r)
-  with Type.ApplyError _ ->
-    Term.true_, Term.false_
+
+    if !max_db = -1 then
+      (l,r)
+    else begin
+
+      let tylist = FList.map
+        (fun idx ->
+          match IntHash.find_opt tbl idx with
+          | None -> Type.var (HVar.fresh ~ty:Type.tType ())
+          | Some typ -> typ)
+        (CCList.range !max_db 0)
+      in
+      let (l, r) = (Term.fun_l tylist l, Term.fun_l tylist r) in
+      ignore @@ Term.rebuild_rec l;  
+      ignore @@ Term.rebuild_rec r;
+      (l, r)
+    end
+    with Type.ApplyError _ ->
+      Term.true_, Term.false_
+  
 
 let apply_subst ~(renaming : Subst.Renaming.t) ~(subst: Subst.t) ((constraints, scope): t Scoped.t): t =
   let do_sub = Subst.FO.apply renaming subst in

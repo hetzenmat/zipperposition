@@ -30,35 +30,7 @@ let id_count_ = ref 0
 
 
 let make ~trail ?(constraints = Constraints.mk_empty) lits =
-  let subst = ref (Subst.empty) in
-
-  List.iter (fun (l,r) ->
-    
-    try
-      subst := Unif.FO.unify_syn ~subst:!subst((Term.of_ty (Term.ty l)), 0) ((Term.of_ty (Term.ty r)), 0);
-    with Unif.Fail -> (
-      Printf.printf "\n%s\n%s\n" (Type.to_string (Term.ty l)) (Type.to_string (Term.ty r));
-      exit 0;
-    )
-  ) constraints;
-
-  let constraints = FList.map (fun (l,r) -> (Subst.FO.apply Subst.Renaming.none !subst (l,0), Subst.FO.apply Subst.Renaming.none !subst (r,0))) constraints in
-
-  (*let constraints = FList.map Constraints.close_constraint constraints in*)
   
-  
-    (Constraints.to_iter constraints) |> Iter.iter (fun t ->
-      try
-      ignore @@ Term.rebuild_rec ~allow_loose_db:true t
-      with
-      Type.ApplyError _ -> 
-        Printf.printf "\n%s\n" (Term.to_string t);
-        let h,_tl = Term.as_app t in 
-        Printf.printf "%s\n" (Type.to_string (Term.ty h));
-        exit 0;
-    );
-  
-
   let id = !id_count_ in
   incr id_count_;
   { lits; trail; id; constraints; flags=0; }

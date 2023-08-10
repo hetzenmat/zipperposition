@@ -154,6 +154,38 @@ module Make(Ctx : Ctx.S) : S with module Ctx = Ctx = struct
     in
     let selected = lazy (Ctx.select lits) in
     let bool_selected = lazy (Ctx.bool_select lits) in
+
+    let subst = ref (Subst.empty) in
+ 
+    List.iter (fun (l,r) ->
+      
+      try
+        subst := Unif.FO.unify_syn ~subst:!subst((Term.of_ty (Term.ty l)), 0) ((Term.of_ty (Term.ty r)), 0);
+      with Unif.Fail -> (
+        Printf.printf "\n%s\n%s\n" (Type.to_string (Term.ty l)) (Type.to_string (Term.ty r));
+        exit 0;
+      )
+    ) constraints;
+
+    let constraints = FList.map (fun (l,r) -> (Subst.FO.apply Subst.Renaming.none !subst (l,0), Subst.FO.apply Subst.Renaming.none !subst (r,0))) constraints in
+
+    let constraints = FList.map Constraints.close_constraint constraints in
+    
+    
+      (Constraints.to_iter constraints) |> Iter.iter (fun t ->
+        try
+        ignore @@ Term.rebuild_rec ~allow_loose_db:false t
+        with
+        Type.ApplyError _ -> 
+          Printf.printf "\n%s\n" (Term.to_string t);
+          let h,_tl = Term.as_app t in 
+          Printf.printf "%s\n" (Type.to_string (Term.ty h));
+          Format.printf "%a" Proof.Step.pp proof;
+          exit 0;
+      );
+
+    let constraints = FList.filter (fun (l,r) -> not @@ Term.equal l r) constraints in
+
     create_inner ~penalty ~selected ~bool_selected (SClause.make ~trail ~constraints lits) proof
 
   let create ~penalty ~trail ?(constraints = Constraints.mk_empty) lits proof =
