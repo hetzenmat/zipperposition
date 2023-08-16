@@ -165,6 +165,7 @@ let () =
   add_to_modes 
       [ "best"
       ; "ho-competitive"
-      ; "ho-pragmatic"] (fun () ->
+      ; "ho-pragmatic"
+      ; "ho-optimistic" ] (fun () ->
       default.ord := "derived_ho_kbo"
     );

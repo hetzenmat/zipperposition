@@ -40,6 +40,7 @@ let should_try_e = function
 
 let _progress = ref false (* progress bar? *)
 let _check_types = ref false
+let _disable_checks = ref false
 let _max_multi_simpl = ref (-1)
 
 (* print progress (i out of steps) *)
@@ -86,23 +87,13 @@ module Make(E : Env.S) = struct
   module Env = E
   module EInterface = EIntf.Make(E)
 
-  let[@inline] check_clause_ c = 
-    
-      Constraints.to_iter (Env.C.constraints c) |> Iter.iter (fun t ->
-        try
-          ignore @@ Term.rebuild_rec t
-        with Type.ApplyError msg -> (
-          Printf.printf "%s\n" msg;
-          Printf.printf "%s\n" (Term.to_string t);
-          Printf.printf "%s\n" (CCFormat.to_string Proof.Step.pp (Env.C.proof_step c));
-          exit 0;
-        );    
-    );
+  let check_clause_ = 
+    if !_disable_checks then ignore else (fun c ->
     
     if !_check_types then Env.C.check_types c;
-    assert (Env.C.Seq.terms c |> Iter.append (Constraints.to_iter (Env.C.constraints c)) |> Iter.for_all Term.DB.is_closed);
+    assert (Env.C.Seq.terms c |> Iter.for_all Term.DB.is_closed);
     assert (Env.C.Seq.terms c |> Iter.for_all Term.is_properly_encoded);
-    if not (Env.C.lits c |> Literals.vars_distinct) then (
+    if not (Env.C.vars_distinct c) then (
       CCFormat.printf "Vars not distinct: @[%a@].Superposition@." Env.C.pp_tstp c;
       CCFormat.printf "proof:@[%a@].@." Proof.S.pp_normal (Env.C.proof c);
       assert false;
@@ -115,8 +106,9 @@ module Make(E : Env.S) = struct
       CCFormat.printf "proof : %a.\n" Proof.S.pp_normal (Env.C.proof c);
       assert(false));
     CCArray.iter (fun t -> assert(Literal.no_prop_invariant t)) (Env.C.lits c)
+    )
 
-  let[@inline] check_clauses_ seq = Iter.iter check_clause_ seq
+  let check_clauses_ = if !_disable_checks then ignore else Iter.iter check_clause_
 
   (** One iteration of the main loop ("given clause loop") *)
   let given_clause_step ?(generating=true) num =
@@ -354,6 +346,7 @@ let () =
   Params.add_opts
     [ "--progress", Arg.Set _progress, " progress bar";
       "-p", Arg.Set _progress, " alias for --progress";
+      "--disable-checks", Arg.Set _disable_checks, "disable all checks of clauses";
       "--check-types", Arg.Set _check_types, " check types in new clauses";
       "--max-multi-simpl-depth", Arg.Int ((:=) _max_multi_simpl), " maixmum depth of multi step simplification. -1 disables maximum depth.";
       "--try-e", Arg.String (fun path -> e_path := Some path), " try the given eprover binary on the problem";

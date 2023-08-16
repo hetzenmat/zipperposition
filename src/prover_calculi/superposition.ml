@@ -912,7 +912,7 @@ module Make(Env : Env.S) : S with module Env = Env = struct
         assert false;
       );
       assert(Array.for_all Literal.no_prop_invariant (C.lits new_clause));
-      if not (C.lits new_clause |> Literals.vars_distinct) then (
+      if not (C.vars_distinct new_clause) then (
         CCFormat.printf "a:@[%a@]@." C.pp info.active;
         CCFormat.printf "p:@[%a@]@." C.pp info.passive;
         CCFormat.printf "r:@[%a@]@." C.pp new_clause;
@@ -1045,7 +1045,7 @@ module Make(Env : Env.S) : S with module Env = Env = struct
       in
       let new_clause = C.create ~trail:new_trail ~penalty new_lits proof in
       Util.debugf ~section 2 "@[... ok, conclusion@ @[%a@]@]" (fun k->k C.pp new_clause);
-      assert(C.lits new_clause |> Literals.vars_distinct);
+      assert(C.vars_distinct new_clause);
       Some new_clause
     with ExitSuperposition reason ->
       
@@ -1772,8 +1772,21 @@ module Make(Env : Env.S) : S with module Env = Env = struct
       let tags = (if subst_is_ho then [Proof.Tag.T_ho] else []) @ Unif_subst.tags us in
       Util.incr_stat stat_equality_factoring_call;
       let proof =
+
+        let rule_name = "eq_fact" in
+        let rule_name = on_preunif ~off:(fun () -> rule_name)
+                                   ~on:(fun () -> 
+                                    let l = US.constr_l us in
+                                    let l = FList.map (fun p ->
+                                      let (p1,p2) = Unif_constr.get_scoped p in
+                                      (Scoped.to_string Term.pp p1) ^ " =?= " ^ (Scoped.to_string Term.pp p2)
+                                      ) l
+                                    in
+                                    rule_name ^ " {{" ^ (String.concat ", " l) ^ "}}"
+                                    )  in
+
         Proof.Step.inference
-          ~rule:(Proof.Rule.mk"eq_fact") ~tags
+          ~rule:(Proof.Rule.mk rule_name) ~tags
           [C.proof_parent_subst renaming (info.clause,0) subst]
       (* new_lits: literals of the new clause. remove active literal
          and replace it by a t!=v one, and apply subst *)
@@ -2103,7 +2116,7 @@ module Make(Env : Env.S) : S with module Env = Env = struct
            let pp_c_s out (c,s,sc) =
              Format.fprintf out "(@[%a@ :subst %a[%d]@])" C.pp c Subst.pp s sc in
            k C.pp c C.pp new_c (Util.pp_list pp_c_s) st.demod_clauses);
-      assert(C.lits new_c |> Literals.vars_distinct);
+      assert(C.vars_distinct new_c);
       SimplM.return_new new_c
     )
 
@@ -3390,9 +3403,18 @@ module Make(Env : Env.S) : S with module Env = Env = struct
             let sub_constraints = FList.map (Unif_constr.FO.apply_subst renaming subst) constraints in
             let lits = C.lits c in
             let sub_lits = Literals.apply_subst renaming subst (lits, 0) in
+
+
             let proof =
-              Proof.Step.inference [C.proof_parent c]
-                ~rule:(Proof.Rule.mk "ho_preunif")
+              let l = FList.map (fun p ->
+                                      let (p1,p2) = Unif_constr.get_scoped p in
+                                      (Scoped.to_string Term.pp p1) ^ " =?= " ^ (Scoped.to_string Term.pp p2)
+                                      ) constraints
+                                    in
+                let rule_name = "ho_preunif" ^ " {{" ^ (String.concat ", " l) ^ "}}" in
+
+              Proof.Step.inference [C.proof_parent_subst renaming (c, 0) subst]
+                ~rule:(Proof.Rule.mk rule_name)
                 ~tags:[Proof.Tag.T_ho]
             in
             let new_clause = C.create_a sub_lits ~constraints:sub_constraints proof ~penalty:(C.penalty c) ~trail:(C.trail c) in
@@ -3593,6 +3615,7 @@ let register ~sup =
     | `Constraint ->
       E.flex_add k_unif_alg Preunif.unify_scoped;
       E.flex_add PragUnifParams.k_unif_alg_is_terminating false;
+      E.flex_add k_unif_module (module Preunif : UnifFramework.US);
   end
 
 (* TODO: move DOT index printing into the extension *)  

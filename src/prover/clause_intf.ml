@@ -224,6 +224,8 @@ module type S = sig
 
   val ground_clause : t -> t
 
+  val vars_distinct : t -> bool
+
   (*val eta_reduce : t -> t option*)
 
   (** {2 Iterators} *)

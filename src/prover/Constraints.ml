@@ -47,7 +47,6 @@ module IntHash = Hashtbl.Make(CCInt)
 let close_constraint (l, r) =
   
   try
-    if not @@ Type.equal (Term.ty l) (Term.ty r) then begin raise (Type.ApplyError "") end;
 
     let tbl = IntHash.create 4 in
     let max_db = ref (-1) in
@@ -58,33 +57,22 @@ let close_constraint (l, r) =
       | Some typ' ->
         if not @@ Type.equal typ typ' then begin raise (Type.ApplyError "") end;
     in
-    (try
+
       ignore @@ Term.rebuild_rec ~allow_loose_db:true ~loose_types l;
-    with InnerTerm.IllFormedTerm _ -> (
-      Printf.printf "\n\n%s\n" (T.to_string l);
-      Printf.printf "\n\n%s\n" (Type.to_string (Term.ty l));
-      exit 0;
-     
-    ));
+      ignore @@ Term.rebuild_rec ~allow_loose_db:true ~loose_types r;
 
-    ignore @@ Term.rebuild_rec ~allow_loose_db:true ~loose_types r;
-
-    if !max_db = -1 then
-      (l,r)
-    else begin
-
-      let tylist = FList.map
-        (fun idx ->
-          match IntHash.find_opt tbl idx with
-          | None -> Type.var (HVar.fresh ~ty:Type.tType ())
-          | Some typ -> typ)
-        (CCList.range !max_db 0)
-      in
-      let (l, r) = (Term.fun_l tylist l, Term.fun_l tylist r) in
-      ignore @@ Term.rebuild_rec l;  
-      ignore @@ Term.rebuild_rec r;
-      (l, r)
-    end
+      if !max_db = -1 then
+        (l,r)
+      else begin
+        let tylist = FList.map
+          (fun idx ->
+            match IntHash.find_opt tbl idx with
+            | None -> Type.var (HVar.fresh ~ty:Type.tType ())
+            | Some typ -> typ)
+          (CCList.range !max_db 0)
+        in
+        (Term.fun_l tylist l, Term.fun_l tylist r)
+      end
     with Type.ApplyError _ ->
       Term.true_, Term.false_
   

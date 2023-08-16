@@ -359,8 +359,15 @@ module Make(X : sig
           let lits = C.lits clause in
           let sub_lits = Literals.apply_subst renaming subst (lits, 0) in
           let proof =
-            Proof.Step.inference [C.proof_parent clause]
-              ~rule:(Proof.Rule.mk "ho_preunif")
+            let l = FList.map (fun p ->
+                                    let (p1,p2) = Unif_constr.get_scoped p in
+                                    (Scoped.to_string Term.pp p1) ^ " =?= " ^ (Scoped.to_string Term.pp p2)
+                                    ) constraints
+                                  in
+              let rule_name = "ho_preunif" ^ " {{" ^ (String.concat ", " l) ^ "}}" in
+
+            Proof.Step.inference [C.proof_parent_subst renaming (clause, 0) subst]
+              ~rule:(Proof.Rule.mk rule_name)
               ~tags:[Proof.Tag.T_ho]
           in
           let new_clause = C.create_a sub_lits ~constraints:sub_constraints proof ~penalty:(C.penalty clause) ~trail:(C.trail clause) in
@@ -386,7 +393,7 @@ module Make(X : sig
   C.check_types c;
   assert (C.Seq.terms c |> Iter.append (Constraints.to_iter (C.constraints c)) |> Iter.for_all Term.DB.is_closed);
   assert (C.Seq.terms c |> Iter.for_all Term.is_properly_encoded);
-  if not (C.lits c |> Literals.vars_distinct) then (
+  if not (C.vars_distinct c) then (
     CCFormat.printf "Vars not distinct: @[%a@].Superposition@." C.pp_tstp c;
     CCFormat.printf "proof:@[%a@].@." Proof.S.pp_normal (C.proof c);
     assert false;
@@ -405,7 +412,6 @@ module Make(X : sig
         (fun acc (name, rule) ->
            Util.debugf ~section 3 "apply binary rule %s" (fun k->k name);
            let new_clauses = rule c in
-           List.iter (fun c -> check c) new_clauses;
            List.rev_append new_clauses acc)
         [] !_binary_rules
     in

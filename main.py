@@ -7,10 +7,12 @@ from typing import List
 
 
 # --mode ho-optimistic --timeout 30 -i tptp -o tptp --tptp-def-as-rewrite --rewrite-before-cnf=true --boolean-reasoning=bool-hoist --bool-select=LI
-# --dont-simplify
+# --dont-simplify --disable-checks
 
 def is_theorem(output: List[str]) -> bool:
-    return any(map(lambda s: s.startswith('% SZS status Theorem'), output))
+    return any(map(lambda s: s.startswith('% SZS status Theorem') \
+                            or s.startswith('% SZS status Unsatisfiable') \
+                            or s.startswith('% SZS status ContradictoryAxioms'), output))
 
 
 def is_timeout(output: List[str]) -> bool:

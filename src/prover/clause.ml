@@ -145,6 +145,18 @@ module Make(Ctx : Ctx.S) : S with module Ctx = Ctx = struct
     | Literal.False -> true
     | _ -> false
 
+  module Seq = struct
+    let lits c = Iter.of_array c.sclause.lits
+    let terms c = Iter.append (lits c |> Iter.flat_map Lit.Seq.terms) (Constraints.to_iter c.sclause.constraints)
+    let vars c = terms c |> Iter.flat_map T.Seq.vars
+  end
+
+  let vars_distinct clause = 
+    let dif_vars = Seq.vars clause |> T.VarSet.of_iter |> T.VarSet.to_list in
+    let dif_ids  = 
+      List.sort_uniq CCOrd.int @@ FList.map HVar.id dif_vars in
+    List.length dif_ids = List.length dif_vars
+
   let create_a ~penalty ~trail ?(constraints = Constraints.mk_empty) lits proof =
     (* remove spurious "false" literals automatically *)
     let lits =
@@ -155,36 +167,12 @@ module Make(Ctx : Ctx.S) : S with module Ctx = Ctx = struct
     let selected = lazy (Ctx.select lits) in
     let bool_selected = lazy (Ctx.bool_select lits) in
 
-    let subst = ref (Subst.empty) in
- 
-    List.iter (fun (l,r) ->
-      
-      try
-        subst := Unif.FO.unify_syn ~subst:!subst((Term.of_ty (Term.ty l)), 0) ((Term.of_ty (Term.ty r)), 0);
-      with Unif.Fail -> (
-        Printf.printf "\n%s\n%s\n" (Type.to_string (Term.ty l)) (Type.to_string (Term.ty r));
-        exit 0;
-      )
-    ) constraints;
-
-    let constraints = FList.map (fun (l,r) -> (Subst.FO.apply Subst.Renaming.none !subst (l,0), Subst.FO.apply Subst.Renaming.none !subst (r,0))) constraints in
-
-    let constraints = FList.map Constraints.close_constraint constraints in
+  
+    assert(List.for_all (fun (l,r) -> Type.equal (T.ty l) (T.ty r)) constraints);
     
-    
-      (Constraints.to_iter constraints) |> Iter.iter (fun t ->
-        try
-        ignore @@ Term.rebuild_rec ~allow_loose_db:false t
-        with
-        Type.ApplyError _ -> 
-          Printf.printf "\n%s\n" (Term.to_string t);
-          let h,_tl = Term.as_app t in 
-          Printf.printf "%s\n" (Type.to_string (Term.ty h));
-          Format.printf "%a" Proof.Step.pp proof;
-          exit 0;
-      );
 
     let constraints = FList.filter (fun (l,r) -> not @@ Term.equal l r) constraints in
+    let constraints = FList.map Constraints.close_constraint constraints in
 
     create_inner ~penalty ~selected ~bool_selected (SClause.make ~trail ~constraints lits) proof
 
@@ -477,11 +465,7 @@ module Make(Ctx : Ctx.S) : S with module Ctx = Ctx = struct
   let proof_depth c =
     Proof.Step.inferences_performed (proof_step c)
 
-  module Seq = struct
-    let lits c = Iter.of_array c.sclause.lits
-    let terms c = lits c |> Iter.flat_map Lit.Seq.terms
-    let vars c = terms c |> Iter.flat_map T.Seq.vars
-  end
+  
 
   let apply_subst ?(renaming) ?(proof=None) ?(penalty_inc=None) (c,sc) subst =
     let lits = lits c in

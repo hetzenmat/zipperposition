@@ -844,7 +844,8 @@ let () =
                        "lambda-free-extensional";
                        "ho-comb-complete";
                        "lambda-free-purify-extensional";
-                       "fo-complete-basic"] (fun () ->
+                       "fo-complete-basic";
+                       "ho-optimistic"] (fun () ->
       enabled := false;
   );
   Params.add_to_mode "best" (fun () ->

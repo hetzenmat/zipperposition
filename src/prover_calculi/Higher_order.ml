@@ -1674,7 +1674,7 @@ module Make(E : Env.S) : S with module Env = E = struct
   let complete_eq_args (c:C.t) : C.t list =
     let var_offset = C.Seq.vars c |> Type.Seq.max_var |> succ in
     let eligible = C.Eligible.param c in
-    let aux ?(start=1) ~poly lits lit_idx t u =
+    let aux ?(start=1) ~poly lits lit_idx t u cstr =
       let n_ty_args, ty_args, _ = Type.open_poly_fun (T.ty t) in
       assert (n_ty_args = 0);
       assert (ty_args <> []);
@@ -1697,7 +1697,7 @@ module Make(E : Env.S) : S with module Env = E = struct
           in
           let penalty = C.penalty c + (if poly then 1 else 0) in
           let new_c =
-            C.create new_lits proof ~penalty ~trail:(C.trail c) ~constraints:(C.constraints c) in
+            C.create new_lits proof ~penalty ~trail:(C.trail c) ~constraints:cstr in
 
           if poly then (
             C.set_flag SClause.flag_poly_arg_cong_res new_c true;
@@ -1715,7 +1715,7 @@ module Make(E : Env.S) : S with module Env = E = struct
         |> Iter.flat_map_l
           (fun (lit_idx,lit) -> match lit with
             | Literal.Equation (t, u, true) when Type.is_fun (T.ty t) ->
-              aux ~poly:false (C.lits c) lit_idx t u
+              aux ~poly:false (C.lits c) lit_idx t u (C.constraints c)
             | Literal.Equation (t, u, true) 
               when Type.is_var (T.ty t) && not is_poly_arg_cong_res ->
               (* A polymorphic variable might be functional on the ground level *)
@@ -1733,7 +1733,8 @@ module Make(E : Env.S) : S with module Env = E = struct
                     let lits' = Lits.apply_subst renaming subst (C.lits c, 0) in
                     let t' = Subst.FO.apply renaming subst (t, 0) in
                     let u' = Subst.FO.apply renaming subst (u, 0) in
-                    let new_cl = aux ~poly:true ~start:(arrarg_idx+1) lits' lit_idx t' u' in
+                    let cstr = Constraints.apply_subst ~renaming ~subst (C.constraints c, 0) in
+                    let new_cl = aux ~poly:true ~start:(arrarg_idx+1) lits' lit_idx t' u' cstr in
                     assert(List.length new_cl == 1);
                     List.hd new_cl
                 ) in

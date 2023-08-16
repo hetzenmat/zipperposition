@@ -1388,7 +1388,7 @@ let rebuild_rec ?(allow_loose_db = false) ?(loose_types = fun _ _ -> ()) t =
           (* i >= List.length env *)
 
           if allow_loose_db then (
-            loose_types (List.length env - i) ty
+            loose_types (i - List.length env) ty
           )
           else (
             Format.printf "%d not in %a@." i (CCFormat.Dump.list Type.pp) env;

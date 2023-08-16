@@ -44,6 +44,7 @@ let k_replace_unsupported_quants = Flex_state.create_key ()
 let k_disable_ho_bool_unif = Flex_state.create_key ()
 let k_generalize_trigger = Flex_state.create_key ()
 let k_bool_triggers_only = Flex_state.create_key ()
+let k_cnf_otf = Flex_state.create_key ()
 
 
 module type S = sig
@@ -1012,14 +1013,13 @@ module Make(E : Env.S) : S with module Env = E = struct
                   then T.true_ else T.false_ in
                 let new_lits = Array.copy (C.lits c) in
                 Literals.Pos.replace ~at:p ~by:repl new_lits;
-                let renaming = Subst.Renaming.create () in
+                
                 let new_lits = 
                   Literals.apply_subst renaming subst (mk_sc new_lits)
                   |> CCArray.to_list 
                 in
                 
-                let new_constraints = Constraints.update_constraints renaming (mk_sc (C.constraints c)) unif_subst in
-                let new_constraints = Constraints.merge new_constraints constr_l in
+                let new_constraints = Constraints.merge (Constraints.apply_subst ~renaming ~subst (mk_sc (C.constraints c))) constr_l in
 
                 let rule = Proof.Rule.mk ((if T.equal repl T.true_ then "eq" else "neq") ^ "_rw")  in
                 let proof = Proof.Step.inference ~tags:[Proof.Tag.T_ho] ~rule (parents renaming subst) in
@@ -1796,9 +1796,14 @@ module Make(E : Env.S) : S with module Env = E = struct
       );
       if not !Lazy_cnf.enabled then (
         Env.add_multi_simpl_rule ~priority:2 Fool.rw_bool_lits;
-        if Env.flex_get k_cnf_non_simpl then (
-          Env.add_unary_inf "cnf otf inf" cnf_infer;
-        ) else  Env.add_multi_simpl_rule ~priority:2 cnf_otf);
+
+        if Env.flex_get k_cnf_otf then (
+          if Env.flex_get k_cnf_non_simpl then Env.add_unary_inf "cnf otf inf" cnf_infer
+          else                                 Env.add_multi_simpl_rule ~priority:2 cnf_otf
+        );
+          
+      );
+
       if (Env.flex_get k_interpret_bool_funs) then (
         Env.add_unary_inf "interpret boolean functions" interpret_boolean_functions;
       );
@@ -2159,7 +2164,7 @@ let _solve_formulas = ref false
 let _replace_quants = ref false
 let _disable_ho_unif = ref false
 let _bool_triggers_only = ref (false)
-
+let _cnf_otf = ref true
 
 
 let extension =
@@ -2187,6 +2192,7 @@ let extension =
     E.flex_add k_disable_ho_bool_unif !_disable_ho_unif;
     E.flex_add k_generalize_trigger !_generalize_trigger;
     E.flex_add k_bool_triggers_only !_bool_triggers_only;
+    E.flex_add k_cnf_otf !_cnf_otf;
 
     ET.setup ()
   in
@@ -2319,5 +2325,6 @@ let () =
     _fluid_hoist := true;
     _bool_app_var_repl := true;
     _fluid_log_hoist := true;
+    _cnf_otf := false;
   );
   Extensions.register extension

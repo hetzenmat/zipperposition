@@ -229,7 +229,9 @@ let () =
     ; "lambda-free-extensional"
     ; "ho-comb-complete"
     ; "lambda-free-purify-intensional"
-    ; "lambda-free-purify-extensional"] 
+    ; "lambda-free-purify-extensional"
+    ; "ho-optimistic"
+    ] 
     (fun () ->
        enabled_ := false
     );
