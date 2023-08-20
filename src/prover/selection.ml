@@ -882,6 +882,9 @@ let () =
   Params.add_to_mode "ho-complete-basic" (fun () ->
       _ho_restriction := `NoMaxVarInFoContext
     );
+  Params.add_to_mode "ho-optimistic" (fun () ->
+    _ho_restriction := `NoMaxVarInFoContext
+  );
   Params.add_to_mode "ho-competitive" (fun () ->
       _ho_restriction := `NoMaxVarInFoContext
     );

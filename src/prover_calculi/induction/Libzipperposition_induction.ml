@@ -1389,6 +1389,7 @@ let () =
   Params.add_to_modes 
     [ "best"
     ; "ho-complete-basic"
+    ; "ho-optimistic"
     ; "ho-pragmatic"
     ; "ho-competitive"
     ; "fo-complete-basic"

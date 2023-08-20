@@ -369,6 +369,9 @@ let () =
   Params.add_to_mode "ho-complete-basic" (fun () ->
       enabled_ := false
     );
+  Params.add_to_mode "ho-optimistic" (fun () ->
+    enabled_ := false
+  );
   Params.add_to_mode "best" (fun () ->
       enabled_ := false
     );
