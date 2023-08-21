@@ -868,7 +868,7 @@ module Make(Env : Env.S) : S with module Env = Env = struct
                                       (Scoped.to_string Term.pp p1) ^ " =?= " ^ (Scoped.to_string Term.pp p2)
                                       ) l
                                     in
-                                    rule_name ^ " {{" ^ (String.concat ", " l)) ^ "}}" in
+                                    rule_name ^ " {{" ^ (String.concat ", " l) ^ "}}") in
         Proof.Rule.mk rule_name
       in
       CCList.iter (fun (sym,ty) -> Ctx.declare sym ty) !skolem_decls;
