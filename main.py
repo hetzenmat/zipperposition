@@ -7,6 +7,7 @@ import subprocess as sp
 import logging
 from typing import List
 import re
+import json
 
 # --mode ho-optimistic --timeout 30 -i tptp -o tptp --tptp-def-as-rewrite --rewrite-before-cnf=true --boolean-reasoning=bool-hoist --bool-select=LI
 # --dont-simplify --disable-checks
@@ -35,7 +36,7 @@ def run_single(logger: logging.Logger, idx: int, zip_path: Path, problem_path: P
 
     result_path.mkdir(parents=True, exist_ok=True)
     args = args.strip("'")
-    completed = sp.run(f"timeout {TIMEOUT + 5}s {zip_path} {problem_path} {args}", capture_output=True, shell=True)
+    completed = sp.run(f"timeout {TIMEOUT + 30}s {zip_path} {problem_path} {args}", capture_output=True, shell=True)
 
     result = completed.stdout.decode(encoding='ascii', errors='ignore')
 
@@ -50,8 +51,8 @@ def run_single(logger: logging.Logger, idx: int, zip_path: Path, problem_path: P
         r = "TO"
     elif is_theorem(lines):
         r = "THM"
-        if has_constraints(lines):
-            r += " C"
+        #if has_constraints(lines):
+        #    r += " C"
     else:
         r = "??"
 
@@ -91,8 +92,12 @@ def main():
         tasks = [executor.submit(run_single, logger, idx, zip_path, path, out_dir, args) for idx, path in
                  enumerate(problem_paths)]
 
-    (out_dir / 'overall.txt').write_text('\n'.join(sorted([str(task.result()) for task in tasks])))
+    stats = dict()
+    for task in tasks:
+        path, result = task.result()
+        stats[path] = result
 
+    (out_dir / 'overall.txt').write_text(json.dumps(stats, sort_keys=True, indent=4))
 
 if __name__ == "__main__":
     main()
