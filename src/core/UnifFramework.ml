@@ -236,18 +236,6 @@ module Make (P : PARAMETERS) = struct
             ( normalize subst (lhs, unifscope) 
             , normalize subst (rhs, unifscope) )
           in
-          
-
-          (*let (lhs, rhs, err) = begin try
-            ( normalize subst (lhs, unifscope) 
-            , normalize subst (rhs, unifscope)
-            , true)
-          with Type.ApplyError _ ->
-            (Term.true_, Term.true_, false)
-          end in
-
-          if err then OSeq.empty
-          else begin *)
 
           let (pref_lhs, body_lhs) = T.open_fun lhs
           and (pref_rhs, body_rhs) = T.open_fun rhs in 
@@ -291,7 +279,7 @@ module Make (P : PARAMETERS) = struct
                 with Unif.Fail -> OSeq.empty
               ) else OSeq.empty
             | _ when different_rigid_heads hd_lhs hd_rhs -> OSeq.empty
-            | T.Var _, T.Var _ ->
+            | T.Var _, T.Var _ when P.preunification ->
               aux subst (rest @ [current_constraint])
             | _ -> 
               try
