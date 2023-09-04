@@ -2771,5 +2771,12 @@ let () =
     _ext_axiom := true;
     force_enabled_ := true;
   );
+  Params.add_to_mode "ho-optimistic-best" (fun () ->
+    _elim_pred_var := false;
+    _prune_arg_fun := `NoPrune;
+    prim_mode_ := `None;
+    _ext_axiom := false;
+    force_enabled_ := true;
+  );
 
   Extensions.register extension;

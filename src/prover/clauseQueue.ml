@@ -1753,7 +1753,8 @@ let () =
     ; "lambda-free-extensional"
     ; "lambda-free-purify-intensional"
     ; "lambda-free-purify-extensional"
-    ; "ho-optimistic" ]
+    ; "ho-optimistic"
+    ; "ho-optimistic-best" ]
     (fun () ->
       if CCList.is_empty !funs_to_parse then (
         _profile := P_conj_rel_var;

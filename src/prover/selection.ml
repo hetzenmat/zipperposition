@@ -887,14 +887,18 @@ let () =
   );
   Params.add_to_mode "ho-competitive" (fun () ->
       _ho_restriction := `NoMaxVarInFoContext
-    );
+  );
   Params.add_to_mode "ho-pragmatic" (fun () ->
       _ho_restriction := `NoMaxVarInFoContext
-    );
+  );
   Params.add_to_mode "best" (fun () ->
-      _ho_restriction := `None;
-      Params.select := "bb+ho-selection5"
-    );
+    _ho_restriction := `None;
+    Params.select := "bb+ho-selection5"
+  );
+  Params.add_to_mode "ho-optimistic-bst" (fun () ->
+    _ho_restriction := `None;
+    Params.select := "bb+ho-selection5"
+  );
   Params.add_to_modes 
     [ "lambda-free-intensional"
     ; "lambda-free-extensional"

@@ -366,21 +366,15 @@ let extension =
   }
 
 let () =
-  Params.add_to_mode "ho-complete-basic" (fun () ->
+  Params.add_to_modes
+    [ "ho-complete-basic"
+    ; "ho-optimistic"
+    ; "ho-optimistic-best"
+    ; "best"
+    ; "ho-pragmatic"
+    ; "ho-competitive"
+    ; "fo-complete-basic"
+    ]
+    (fun () ->
       enabled_ := false
-    );
-  Params.add_to_mode "ho-optimistic" (fun () ->
-    enabled_ := false
-  );
-  Params.add_to_mode "best" (fun () ->
-      enabled_ := false
-    );
-  Params.add_to_mode "ho-pragmatic" (fun () ->
-      enabled_ := false
-    );
-  Params.add_to_mode "ho-competitive" (fun () ->
-      enabled_ := false
-    );
-  Params.add_to_mode "fo-complete-basic" (fun () ->
-      enabled_ := false
-    );
+    )

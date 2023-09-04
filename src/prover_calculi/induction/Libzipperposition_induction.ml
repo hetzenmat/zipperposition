@@ -1390,6 +1390,7 @@ let () =
     [ "best"
     ; "ho-complete-basic"
     ; "ho-optimistic"
+    ; "ho-optimistic-best"
     ; "ho-pragmatic"
     ; "ho-competitive"
     ; "fo-complete-basic"

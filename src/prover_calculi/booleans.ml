@@ -2327,4 +2327,8 @@ let () =
     _fluid_log_hoist := true;
     _cnf_otf := false;
   );
+  Params.add_to_mode "ho-optimistic-best" (fun () ->
+    _replace_quants := false;
+    _cnf_otf := false;
+  );
   Extensions.register extension

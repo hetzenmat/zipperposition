@@ -3865,6 +3865,26 @@ let () =
     _sup_at_vars := true;
     _use_simultaneous_sup := false;
     _fixpoint_decider := true;
+    _pattern_decider := true;
     _local_rw := `GreenContext;
     _dupsup := false;
+  );
+  Params.add_to_mode "ho-optimistic-best" (fun () ->
+    _ho_basic_rules := true;
+    _store_unification_constraints := true;
+    _unif_alg := `Constraint;
+    _contextual_literal_cutting := false;
+    _dont_demodulate := true;
+    _sup_at_vars := true;
+    _use_simultaneous_sup := false;
+    _fixpoint_decider := true;
+    _pattern_decider := true;
+    _local_rw := `GreenContext;
+    _dupsup := false;
+    _sup_in_var_args := false;
+    _sup_under_lambdas := false;
+    _fluidsup := false;
+    _ratio := 50;
+    _guard := 10;
+    _clause_num := 30;
   );

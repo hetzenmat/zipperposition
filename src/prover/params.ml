@@ -168,6 +168,7 @@ let () =
       [ "best"
       ; "ho-competitive"
       ; "ho-pragmatic"
+      ; "ho-optimistic-best"
       ] (fun () ->
       default.ord := "derived_ho_kbo"
     );

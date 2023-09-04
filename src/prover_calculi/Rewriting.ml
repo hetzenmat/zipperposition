@@ -438,12 +438,14 @@ let () = Options.add_opts
     ; "ho-pragmatic"
     ; "ho-competitive"
     ; "ho-optimistic"
+    ; "ho-optimistic-best"
     ; "fo-complete-basic"
     ; "lambda-free-intensional"
     ; "lambda-free-extensional"
     ; "ho-comb-complete"
     ; "lambda-free-purify-intensional"
-    ; "lambda-free-purify-extensional"] 
+    ; "lambda-free-purify-extensional"
+    ] 
     (fun () ->
       narrowing := false;
       ctx_narrow_ := false;

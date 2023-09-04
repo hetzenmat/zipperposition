@@ -122,7 +122,9 @@ let () =
     ; "ho-comb-complete"
     ; "lambda-free-purify-intensional"
     ; "lambda-free-purify-extensional"
-    ; "ho-optimistic"] 
+    ; "ho-optimistic"
+    ; "ho-optimistic-best"
+    ] 
     (fun () ->
        no_max_vars := true;
     );

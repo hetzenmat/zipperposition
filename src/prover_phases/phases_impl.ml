@@ -721,5 +721,12 @@ let () =
       _db_w  := 10;
     );
 
-  Params.add_to_mode "ho-optimistic" (fun () -> _lmb_w := 20;
-  _db_w  := 10; _avatar_banish := true);
+  Params.add_to_modes
+    [ "ho-optimistic"
+    ; "ho-optimistic-best"
+    ]
+    (fun () ->
+      _lmb_w := 20;
+      _db_w  := 10;
+      _avatar_banish := true
+    );

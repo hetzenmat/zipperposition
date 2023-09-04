@@ -24,6 +24,9 @@ def is_theorem(output: List[str]) -> bool:
 def is_timeout(output: List[str]) -> bool:
     return any(map(lambda s: s.startswith('% SZS status ResourceOut'), output))
 
+def gave_up(output: List[str]) -> bool:
+    return any(map(lambda s: s.startswith('% SZS status GaveUp'), output))
+
 
 def has_constraints(output: List[str]) -> bool:
     return any(map(lambda s: s.startswith('Empty clause with constraints'), output))
@@ -53,6 +56,8 @@ def run_single(logger: logging.Logger, idx: int, zip_path: Path, problem_path: P
         r = "THM"
         #if has_constraints(lines):
         #    r += " C"
+    elif gave_up(lines):
+        r = "GAVE UP"
     else:
         r = "??"
 

@@ -231,6 +231,7 @@ let () =
     ; "lambda-free-purify-intensional"
     ; "lambda-free-purify-extensional"
     ; "ho-optimistic"
+    ; "ho-optimistic-best"
     ] 
     (fun () ->
        enabled_ := false
